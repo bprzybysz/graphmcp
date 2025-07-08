@@ -71,6 +71,15 @@ from .composite import (
     MultiServerMCPClient,
 )
 
+# Workflow builders
+from .workflows import (
+    WorkflowBuilder,
+    WorkflowStep,
+    WorkflowResult,
+    WorkflowConfig,
+    WorkflowExecutionContext,
+)
+
 __all__ = [
     # Main composite client (DirectMCPClient replacement)
     "MultiServerMCPClient",
@@ -81,6 +90,13 @@ __all__ = [
     "Context7MCPClient", 
     "FilesystemMCPClient",
     "BrowserMCPClient",
+    
+    # Workflow builders
+    "WorkflowBuilder",
+    "WorkflowStep",
+    "WorkflowResult",
+    "WorkflowConfig",
+    "WorkflowExecutionContext",
     
     # Core utilities
     "MCPConfigManager",
