@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+build/
+dist/
+
+# macOS
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Local configuration
+ovora_mcp_config.json 
