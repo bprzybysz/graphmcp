@@ -21,7 +21,7 @@ class RepomixMCPClient(BaseMCPClient):
     Repomix packages repositories into optimized single files
     for efficient AI analysis and processing.
     """
-    SERVER_NAME = "repomix"
+    SERVER_NAME = "ovr_repomix"
     
     def __init__(self, config_path: str | Path):
         """

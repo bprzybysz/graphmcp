@@ -20,6 +20,10 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v -s"
 markers = [
     "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
 ]

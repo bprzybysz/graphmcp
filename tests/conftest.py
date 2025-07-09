@@ -14,6 +14,54 @@ import time
 logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="session")
+def mock_config_path(tmp_path_factory):
+    """
+    Creates a mock MCP server configuration for unit testing.
+    This uses fake/mock servers that don't require actual network connections.
+    """
+    tmp_path = tmp_path_factory.mktemp("mock_config")
+    
+    # Mock configuration with fake servers
+    config = {
+        "mcpServers": {
+            "ovr_github": {
+                "command": "echo",
+                "args": ["mock-github-server"],
+                "env": {}
+            },
+            "ovr_slack": {
+                "command": "echo", 
+                "args": ["mock-slack-server"],
+                "env": {}
+            },
+            "ovr_repomix": {
+                "command": "echo",
+                "args": ["mock-repomix-server"],
+                "env": {}
+            },
+            "ovr_context7": {
+                "command": "echo",
+                "args": ["mock-context7-server"],
+                "env": {}
+            },
+            "ovr_browser": {
+                "command": "echo",
+                "args": ["mock-browser-server"],
+                "env": {}
+            },
+            "ovr_filesystem": {
+                "command": "echo",
+                "args": ["mock-filesystem-server"],
+                "env": {}
+            }
+        }
+    }
+    
+    config_file = tmp_path / "mock_config.json"
+    config_file.write_text(json.dumps(config, indent=2))
+    return str(config_file)
+
+@pytest.fixture(scope="session")
 def real_config_path(tmp_path_factory):
     """
     Loads MCP server configurations from clients/mcp_config.json and
@@ -31,13 +79,13 @@ def real_config_path(tmp_path_factory):
     # Define common args for server-github and server-slack
     common_args_npx_y = ["-y"]
 
-    # Configure GitHub server
+    # Configure GitHub server - using the updated server names
     github_config = {
         "command": "npx",
         "args": common_args_npx_y + ["@modelcontextprotocol/server-github@2025.4.8"], # Explicit version
         "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN", "") }
     }
-    config["mcpServers"]["github"] = github_config
+    config["mcpServers"]["ovr_github"] = github_config
 
     # Configure Slack server
     slack_config = {
@@ -45,14 +93,14 @@ def real_config_path(tmp_path_factory):
         "args": common_args_npx_y + ["@modelcontextprotocol/server-slack"],
         "env": { "SLACK_BOT_TOKEN": os.getenv("SLACK_BOT_TOKEN", "") }
     }
-    config["mcpServers"]["slack"] = slack_config
+    config["mcpServers"]["ovr_slack"] = slack_config
 
     # Configure Repomix server
     repomix_config = {
         "command": "npx",
         "args": common_args_npx_y + ["repomix", "--mcp"]
     }
-    config["mcpServers"]["repomix"] = repomix_config
+    config["mcpServers"]["ovr_repomix"] = repomix_config
 
     # Configure Filesystem server
     filesystem_config = {
@@ -62,7 +110,7 @@ def real_config_path(tmp_path_factory):
             "ALLOWED_EXTENSIONS": ".py,.js,.ts,.yaml,.yml,.md,.txt,.json"
         }
     }
-    config["mcpServers"]["filesystem"] = filesystem_config
+    config["mcpServers"]["ovr_filesystem"] = filesystem_config
 
     config_file = tmp_path / "real_config.json"
     config_file.write_text(json.dumps(config, indent=2))

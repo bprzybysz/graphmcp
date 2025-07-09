@@ -20,7 +20,7 @@ class GitHubMCPClient(BaseMCPClient):
     Provides tools for repository analysis, file management,
     pull request creation, and code search.
     """
-    SERVER_NAME = "github"
+    SERVER_NAME = "ovr_github"
     
     def __init__(self, config_path: str | Path):
         """

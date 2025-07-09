@@ -1,57 +1,40 @@
 {
     "mcpServers": {
-        "github": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-github@2025.4.8"
-            ],
-            "env": {
-                "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_PERSONAL_ACCESS_TOKEN"
-            }
-        },
-        "slack": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-slack"
-            ],
-            "env": {
-                "SLACK_BOT_TOKEN": "$SLACK_BOT_TOKEN"
-            }
-        },
-        "repomix": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "repomix",
-                "--mcp"
-            ],
-            "env": {}
-        },
-        "filesystem": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-filesystem@2025.7.1"
-            ],
-            "env": {}
-        },
-        "context7": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@context7/mcp-server@1.1.0"
-            ],
-            "env": {}
-        },
-        "browser": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-playwright"
-            ],
-            "env": {}
+      "ovr_github": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github@2025.4.8"],
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_PERSONAL_ACCESS_TOKEN"
         }
+      },
+      "ovr_context7": {
+        "command": "npx",
+        "args": ["-y", "@upstash/context7-mcp@1.0.14"],
+        "env": {
+          "DEFAULT_MINIMUM_TOKENS": "10000"
+        }
+      },
+      "ovr_slack": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-slack"],
+        "env": {
+          "SLACK_BOT_TOKEN": "$SLACK_BOT_TOKEN"
+        }
+      },
+      "ovr_repomix": {
+        "command": "npx",
+        "args": ["-y", "repomix@1.1.0", "--mcp"],
+        "env": {}
+      },
+      "ovr_filesystem": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-filesystem@2025.7.1", "workbench"],
+        "env": {}
+      },
+      "ovr_browser": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+        "env": {}
+      }
     }
-}
+  } 

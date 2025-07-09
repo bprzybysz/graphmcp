@@ -21,7 +21,7 @@ class SlackMCPClient(BaseMCPClient):
     Provides tools for posting messages, managing channels,
     reactions, and other Slack workspace interactions.
     """
-    SERVER_NAME = "slack"
+    SERVER_NAME = "ovr_slack"
     
     def __init__(self, config_path: str | Path):
         """

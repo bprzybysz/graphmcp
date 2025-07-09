@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # even if they are not used in the final workflow.
 
 class Context7MCPClient(BaseMCPClient):
-    SERVER_NAME = "context7"
+    SERVER_NAME = "ovr_context7"
     def __init__(self, config_path):
         super().__init__(config_path)
 
@@ -69,7 +69,7 @@ class Context7MCPClient(BaseMCPClient):
             return {}
 
 class BrowserMCPClient(BaseMCPClient):
-    SERVER_NAME = "browser"
+    SERVER_NAME = "ovr_browser"
     def __init__(self, config_path):
         super().__init__(config_path)
 

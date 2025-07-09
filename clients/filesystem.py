@@ -32,7 +32,7 @@ class FilesystemMCPClient(BaseMCPClient):
     used in the current db_decommission_workflow. This provides structure
     for future expansion when filesystem operations are needed.
     """
-    SERVER_NAME = "filesystem"
+    SERVER_NAME = "ovr_filesystem"
 
     def __init__(self, config_path: str | Path):
         """

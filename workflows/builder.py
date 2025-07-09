@@ -87,6 +87,10 @@ class WorkflowContext:
     def get_shared_value(self, key: str, default: Any = None) -> Any:
         """Get a shared value from the workflow context."""
         return self._shared_context.get(key, default)
+    
+    def get_step_result(self, step_id: str, default: Any = None) -> Any:
+        """Get a step result from the shared context (alias for get_shared_value)."""
+        return self.get_shared_value(step_id, default)
 
 class Workflow:
     """Represents a compiled, executable workflow."""
@@ -120,11 +124,11 @@ class Workflow:
                     if step.server_name and step.tool_name:
                         try:
                             # Dynamically import the client based on server_name
-                            if step.server_name == "github":
+                            if step.server_name == "ovr_github":
                                 from clients import GitHubMCPClient as ClientClass
-                            elif step.server_name == "repomix":
+                            elif step.server_name == "ovr_repomix":
                                 from clients import RepomixMCPClient as ClientClass
-                            elif step.server_name == "slack": # Temporarily re-add Slack for completeness, will skip it in db_decommission.py
+                            elif step.server_name == "ovr_slack": # Temporarily re-add Slack for completeness, will skip it in db_decommission.py
                                 from clients import SlackMCPClient as ClientClass
                             else:
                                 raise ValueError(f"Unsupported server name: {step.server_name}")
@@ -234,7 +238,7 @@ class WorkflowBuilder:
             id=step_id,
             name=f"Pack Repo: {repo_url}",
             step_type=StepType.REPOMIX,
-            server_name="repomix", # Set server_name
+            server_name="ovr_repomix", # Set server_name
             tool_name="pack_remote_repository", # Set tool_name
             parameters=step_params,
             depends_on=kwargs.get('depends_on', []),
@@ -257,7 +261,7 @@ class WorkflowBuilder:
             id=step_id,
             name=f"Analyze Repo: {repo_url}",
             step_type=StepType.GITHUB,
-            server_name="github", # Set server_name
+            server_name="ovr_github", # Set server_name
             tool_name="analyze_repo_structure", # Set tool_name
             parameters=step_params,
             depends_on=kwargs.get('depends_on', []),
@@ -285,7 +289,7 @@ class WorkflowBuilder:
             id=step_id,
             name=f"Create PR: {title}",
             step_type=StepType.GITHUB,
-            server_name="github", # Set server_name
+            server_name="ovr_github", # Set server_name
             tool_name="create_pull_request", # Set tool_name
             parameters=step_params,
             depends_on=kwargs.get('depends_on', []),
@@ -295,11 +299,11 @@ class WorkflowBuilder:
         self._steps.append(step)
         return self
 
-    def slack_post(self, step_id: str, channel_id: str, text: str, parameters: Dict = None, **kwargs) -> WorkflowBuilder:
-        """Add a Slack message posting step."""
+    def slack_post(self, step_id: str, channel_id: str, text_or_fn: Union[str, Callable], parameters: Dict = None, **kwargs) -> WorkflowBuilder:
+        """Add a Slack message posting step. Supports both text strings and dynamic text functions."""
         step_params = {
             "channel_id": channel_id,
-            "text": text
+            "text_or_fn": text_or_fn
         }
         if parameters:
             step_params.update(parameters)
@@ -308,10 +312,12 @@ class WorkflowBuilder:
             id=step_id,
             name=f"Slack Post: {channel_id}",
             step_type=StepType.SLACK,
-            server_name="slack",
+            server_name="ovr_slack",
             tool_name="slack_post_message", # Corrected tool name
             parameters=step_params,
-            **kwargs
+            depends_on=kwargs.get('depends_on', []),
+            timeout_seconds=kwargs.get('timeout_seconds', self._config.default_timeout),
+            retry_count=kwargs.get('retry_count', self._config.default_retry_count)
         )
         self._steps.append(step)
         return self
