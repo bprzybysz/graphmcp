@@ -1,3 +1,0 @@
-[submodule "clients"]
-	path = clients
-	url = https://github.com/bprzybys-nc/graphmcp-clients.git

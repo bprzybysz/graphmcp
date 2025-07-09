@@ -16,6 +16,27 @@ dist/
 
 # Logs
 *.log
+.coverage
+htmlcov/
 
 # Local configuration
 ovora_mcp_config.json 
+.env
+
+# Test results
+test-results-*.xml
+test-results-unit.xml
+
+# Build artifacts and caches
+build/
+dist/
+__pycache__/
+*.egg-info/
+*.pyc
+*.pyd
+*.pyo
+repomix-output.xml
+
+# uv and virtual environment specific files
+.venv/
+/=

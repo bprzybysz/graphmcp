@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "your-token-here"
+      }
+    },
+    "slack": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-slack"
+      ],
+      "env": {
+        "SLACK_BOT_TOKEN": "your-token-here"
+      }
+    },
+    "repomix": {
+      "command": "npx",
+      "args": [
+        "repomix",
+        "--mcp"
+      ]
+    }
+  }
+}

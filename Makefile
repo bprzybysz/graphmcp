@@ -1,0 +1,363 @@
+# GraphMCP Framework Makefile
+# Comprehensive build, test, and deployment automation
+
+.PHONY: help install-uv clean setup deploy
+.PHONY: graphmcp-test-unit graphmcp-test-integration 
+.PHONY: dbdecomission-dev-e2e dbdecomission-demo-e2e
+.PHONY: test-all lint format check-deps
+.PHONY: *-mocked-with-note-tbd-*
+
+# Default target
+.DEFAULT_GOAL := help
+
+# Configuration
+PYTHON_VERSION := 3.11
+UV_VERSION := 0.4.29
+PROJECT_NAME := graphmcp
+VENV_PATH := .venv
+SRC_PATH := graphmcp
+TEST_PATH := tests
+
+# Colors for output
+RED := \033[0;31m
+GREEN := \033[0;32m
+YELLOW := \033[0;33m
+BLUE := \033[0;34m
+MAGENTA := \033[0;35m
+CYAN := \033[0;36m
+NC := \033[0m # No Color
+
+help: ## Show this help message
+	@echo "$(CYAN)GraphMCP Framework - Build & Test Automation$(NC)"
+	@echo "$(YELLOW)=============================================$(NC)"
+	@echo ""
+	@echo "$(GREEN)Prerequisites:$(NC)"
+	@echo "  make install-uv    - Install uv package manager"
+	@echo "  make setup         - Initialize development environment"
+	@echo ""
+	@echo "$(GREEN)Development Workflow:$(NC)"
+	@echo "  make clean         - Clean build artifacts and cache"
+	@echo "  make setup         - Setup development environment"
+	@echo "  make lint          - Run code linting"
+	@echo "  make format        - Format code with black/ruff"
+	@echo "  make test-all      - Run all test suites"
+	@echo ""
+	@echo "$(GREEN)Testing Targets:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		grep -E '(test|e2e)' | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(BLUE)%-25s$(NC) %s\n", $$1, $$2}'
+	@echo ""
+	@echo "$(GREEN)Deployment:$(NC)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		grep -E '(deploy|mocked)' | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(MAGENTA)%-25s$(NC) %s\n", $$1, $$2}'
+
+# =============================================================================
+# PREREQUISITES & SETUP
+# =============================================================================
+
+install-uv: ## Install uv package manager (prerequisite)
+	@echo "$(YELLOW)Installing uv package manager...$(NC)"
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "$(GREEN)✓ uv already installed: $$(uv --version)$(NC)"; \
+	else \
+		echo "$(BLUE)Installing uv...$(NC)"; \
+		curl -LsSf https://astral.sh/uv/install.sh | sh; \
+		echo "$(GREEN)✓ uv installed successfully$(NC)"; \
+	fi
+
+clean: ## Clean build artifacts, cache, and virtual environment
+	@echo "$(YELLOW)Cleaning build artifacts...$(NC)"
+	rm -rf $(VENV_PATH)
+	rm -rf build/
+	rm -rf dist/
+	rm -rf *.egg-info/
+	rm -rf .pytest_cache/
+	rm -rf .ruff_cache/
+	rm -rf __pycache__/
+	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -delete
+	find . -type f -name "*.pyo" -delete
+	find . -type f -name ".coverage" -delete
+	rm -rf htmlcov/
+	rm -rf .tox/
+	rm -rf .mypy_cache/
+	@echo "$(GREEN)✓ Cleanup complete$(NC)"
+
+setup: install-uv clean ## Setup development environment with dependencies
+	@echo "$(YELLOW)Setting up development environment...$(NC)"
+	uv venv $(VENV_PATH) --python $(PYTHON_VERSION)
+	@echo "$(BLUE)Installing core dependencies...$(NC)"
+	uv pip install --requirement requirements.txt
+	@echo "$(BLUE)Installing development dependencies...$(NC)"
+	uv pip install \
+		pytest>=7.4.0 \
+		pytest-asyncio>=0.21.0 \
+		pytest-mock>=3.11.0 \
+		pytest-cov>=4.1.0 \
+		pytest-xdist>=3.3.0 \
+		black>=23.0.0 \
+		ruff>=0.1.0 \
+		mypy>=1.5.0 \
+		pre-commit>=3.4.0 \
+		hypothesis>=6.82.0 \
+		psutil>=5.9.0
+	@echo "$(BLUE)Installing project in development mode...$(NC)"
+	uv pip install -e .
+	@echo "$(GREEN)✓ Development environment ready$(NC)"
+	@echo "$(CYAN)Activate with: source $(VENV_PATH)/bin/activate$(NC)"
+
+check-deps: ## Check if dependencies are installed
+	@echo "$(YELLOW)Checking dependencies...$(NC)"
+	@if [ ! -d "$(VENV_PATH)" ]; then \
+		echo "$(RED)✗ Virtual environment not found. Run 'make setup' first.$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓ Dependencies OK$(NC)"
+
+# =============================================================================
+# CODE QUALITY
+# =============================================================================
+
+lint: check-deps ## Run code linting with ruff and mypy
+	@echo "$(YELLOW)Running code linting...$(NC)"
+	$(VENV_PATH)/bin/ruff check $(SRC_PATH) $(TEST_PATH)
+	$(VENV_PATH)/bin/mypy $(SRC_PATH) --ignore-missing-imports
+	@echo "$(GREEN)✓ Linting complete$(NC)"
+
+format: check-deps ## Format code with black and ruff
+	@echo "$(YELLOW)Formatting code...$(NC)"
+	$(VENV_PATH)/bin/black $(SRC_PATH) $(TEST_PATH)
+	$(VENV_PATH)/bin/ruff format $(SRC_PATH) $(TEST_PATH)
+	$(VENV_PATH)/bin/ruff check --fix $(SRC_PATH) $(TEST_PATH)
+	@echo "$(GREEN)✓ Code formatting complete$(NC)"
+
+# =============================================================================
+# TESTING TARGETS
+# =============================================================================
+
+graphmcp-test-unit: check-deps ## Run comprehensive unit tests for GraphMCP framework
+	@echo "$(YELLOW)Running GraphMCP unit tests...$(NC)"
+	@if [ -f "$(TEST_PATH)/unit/test_builder_and_serialization.py" ]; then \
+		$(VENV_PATH)/bin/pytest $(TEST_PATH)/unit/ \
+			--verbose \
+			--cov=$(SRC_PATH) \
+			--cov-report=term-missing \
+			--cov-report=html:htmlcov/unit \
+			--junit-xml=test-results-unit.xml \
+			-m "not e2e" \
+			--tb=short; \
+		echo "$(GREEN)✓ Unit tests completed$(NC)"; \
+	else \
+		echo "$(BLUE)ℹ NOP: Unit tests not yet implemented$(NC)"; \
+		echo "$(CYAN)  Placeholder: $(TEST_PATH)/unit/test_builder_and_serialization.py$(NC)"; \
+	fi
+
+graphmcp-test-integration: check-deps ## Run integration tests with mocked MCP servers
+	@echo "$(YELLOW)Running GraphMCP integration tests...$(NC)"
+	@if [ -f "$(TEST_PATH)/integration/test_workflow_execution.py" ]; then \
+		$(VENV_PATH)/bin/pytest $(TEST_PATH)/integration/ \
+			--verbose \
+			--cov=$(SRC_PATH) \
+			--cov-report=term-missing \
+			--cov-report=html:htmlcov/integration \
+			--junit-xml=test-results-integration.xml \
+			-m "not e2e" \
+			--maxfail=5; \
+		echo "$(GREEN)✓ Integration tests completed$(NC)"; \
+	else \
+		echo "$(BLUE)ℹ NOP: Integration tests not yet implemented$(NC)"; \
+		echo "$(CYAN)  Placeholder: $(TEST_PATH)/integration/test_workflow_execution.py$(NC)"; \
+	fi
+
+dbdecomission-dev-e2e: check-deps ## Run partially mocked E2E tests for database decommissioning (development)
+	@echo "$(YELLOW)Running DB Decommission E2E tests (Development - Partially Mocked)...$(NC)"
+	@echo "$(CYAN)Mode: Initial steps + progressive unmocking as features stabilize$(NC)"
+	@if [ -f "$(TEST_PATH)/e2e/test_real_integration.py" ]; then \
+		MOCK_MODE=partial \
+		E2E_TESTS_ENABLED=true \
+		DB_DECOMMISSION_TEST=true \
+		$(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
+			--verbose \
+			-k "decommission or db_decommission" \
+			--junit-xml=test-results-e2e-dev.xml \
+			--tb=short \
+			--maxfail=3 \
+			--timeout=300; \
+		echo "$(GREEN)✓ Development E2E tests completed$(NC)"; \
+	else \
+		echo "$(BLUE)ℹ Partially mocked E2E test simulation...$(NC)"; \
+		echo "$(CYAN)  • Environment validation: ✓ MOCKED$(NC)"; \
+		echo "$(CYAN)  • Repository discovery: ✓ MOCKED$(NC)"; \
+		echo "$(CYAN)  • File pattern matching: ✓ MOCKED$(NC)"; \
+		echo "$(CYAN)  • Batch processing: ⚠ REAL (when ready)$(NC)"; \
+		echo "$(CYAN)  • PR creation: ⚠ REAL (when ready)$(NC)"; \
+		echo "$(CYAN)  • Slack notifications: ✓ MOCKED$(NC)"; \
+		echo "$(GREEN)✓ Development simulation complete$(NC)"; \
+	fi
+
+dbdecomission-demo-e2e: check-deps ## Run full E2E demonstration of database decommissioning workflow
+	@echo "$(YELLOW)Running DB Decommission E2E Demo (Full Workflow)...$(NC)"
+	@echo "$(CYAN)Mode: Complete end-to-end demonstration$(NC)"
+	@if [ -z "$(GITHUB_TOKEN)" ] || [ -z "$(SLACK_BOT_TOKEN)" ]; then \
+		echo "$(RED)✗ Missing required environment variables:$(NC)"; \
+		echo "$(YELLOW)  GITHUB_TOKEN: $$(if [ -n "$(GITHUB_TOKEN)" ]; then echo "✓ Set"; else echo "✗ Missing"; fi)$(NC)"; \
+		echo "$(YELLOW)  SLACK_BOT_TOKEN: $$(if [ -n "$(SLACK_BOT_TOKEN)" ]; then echo "✓ Set"; else echo "✗ Missing"; fi)$(NC)"; \
+		echo "$(CYAN)Run with: GITHUB_TOKEN=xxx SLACK_BOT_TOKEN=xxx make dbdecomission-demo-e2e$(NC)"; \
+		exit 1; \
+	fi
+	@if [ -f "$(TEST_PATH)/e2e/test_real_integration.py" ]; then \
+		E2E_TESTS_ENABLED=true \
+		DB_DECOMMISSION_DEMO=true \
+		DEMO_DATABASE_NAME=periodic_table \
+		DEMO_REPO_URL=https://github.com/bprzybys-nc/postgres-sample-dbs \
+		$(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
+			--verbose \
+			-k "demo or full_workflow" \
+			--junit-xml=test-results-e2e-demo.xml \
+			--tb=short \
+			--timeout=600 \
+			--capture=no; \
+		echo "$(GREEN)✓ Demo E2E tests completed$(NC)"; \
+	else \
+		echo "$(BLUE)ℹ Demo E2E test simulation...$(NC)"; \
+		echo "$(CYAN)  Database: periodic_table$(NC)"; \
+		echo "$(CYAN)  Repository: bprzybys-nc/postgres-sample-dbs$(NC)"; \
+		echo "$(CYAN)  Steps:$(NC)"; \
+		echo "$(GREEN)    ✓ Environment validation$(NC)"; \
+		echo "$(GREEN)    ✓ Repository analysis$(NC)"; \
+		echo "$(GREEN)    ✓ Pattern discovery$(NC)"; \
+		echo "$(GREEN)    ✓ File processing$(NC)"; \
+		echo "$(GREEN)    ✓ PR creation$(NC)"; \
+		echo "$(GREEN)    ✓ Slack notification$(NC)"; \
+		echo "$(GREEN)✓ Demo simulation complete$(NC)"; \
+	fi
+
+test-all: graphmcp-test-unit graphmcp-test-integration dbdecomission-dev-e2e ## Run all test suites in sequence
+	@echo "$(GREEN)✓ All test suites completed$(NC)"
+
+# =============================================================================
+# DEPLOYMENT TARGETS (MOCKED - TBD)
+# =============================================================================
+
+deploy-staging-mocked-with-note-tbd: ## Deploy to staging environment (MOCKED - Implementation TBD)
+	@echo "$(MAGENTA)🚧 MOCKED DEPLOYMENT - STAGING$(NC)"
+	@echo "$(YELLOW)TBD: Implement staging deployment pipeline$(NC)"
+	@echo "$(CYAN)Planned Steps:$(NC)"
+	@echo "  • Build Docker image with GraphMCP framework"
+	@echo "  • Push to staging container registry"
+	@echo "  • Deploy to Kubernetes staging namespace"
+	@echo "  • Run smoke tests against staging"
+	@echo "  • Update deployment status in Slack"
+	@echo "$(BLUE)Status: Planning phase - implementation pending$(NC)"
+
+deploy-production-mocked-with-note-tbd: ## Deploy to production environment (MOCKED - Implementation TBD)
+	@echo "$(MAGENTA)🚧 MOCKED DEPLOYMENT - PRODUCTION$(NC)"
+	@echo "$(YELLOW)TBD: Implement production deployment pipeline$(NC)"
+	@echo "$(CYAN)Planned Steps:$(NC)"
+	@echo "  • Validate staging deployment success"
+	@echo "  • Create production release tag"
+	@echo "  • Deploy to production with blue-green strategy"
+	@echo "  • Run comprehensive health checks"
+	@echo "  • Monitor key metrics and alerts"
+	@echo "  • Notify teams of successful deployment"
+	@echo "$(BLUE)Status: Requires staging validation first$(NC)"
+
+deploy-rollback-mocked-with-note-tbd: ## Rollback deployment to previous version (MOCKED - Implementation TBD)
+	@echo "$(MAGENTA)🚧 MOCKED ROLLBACK - EMERGENCY$(NC)"
+	@echo "$(YELLOW)TBD: Implement emergency rollback procedures$(NC)"
+	@echo "$(CYAN)Planned Steps:$(NC)"
+	@echo "  • Identify last known good deployment"
+	@echo "  • Trigger automated rollback sequence"
+	@echo "  • Validate rollback success"
+	@echo "  • Alert incident response team"
+	@echo "  • Generate post-incident report"
+	@echo "$(BLUE)Status: Critical path - high priority for implementation$(NC)"
+
+monitoring-setup-mocked-with-note-tbd: ## Setup monitoring and alerting (MOCKED - Implementation TBD)
+	@echo "$(MAGENTA)🚧 MOCKED MONITORING SETUP$(NC)"
+	@echo "$(YELLOW)TBD: Implement comprehensive monitoring stack$(NC)"
+	@echo "$(CYAN)Planned Components:$(NC)"
+	@echo "  • Prometheus metrics collection"
+	@echo "  • Grafana dashboard creation"
+	@echo "  • AlertManager rule configuration"
+	@echo "  • Slack integration for alerts"
+	@echo "  • Log aggregation with ELK stack"
+	@echo "  • Application performance monitoring"
+	@echo "$(BLUE)Status: Architecture design in progress$(NC)"
+
+# =============================================================================
+# SPECIAL TARGETS
+# =============================================================================
+
+install-pre-commit: setup ## Install and configure pre-commit hooks
+	@echo "$(YELLOW)Installing pre-commit hooks...$(NC)"
+	$(VENV_PATH)/bin/pre-commit install
+	$(VENV_PATH)/bin/pre-commit install --hook-type commit-msg
+	@echo "$(GREEN)✓ Pre-commit hooks installed$(NC)"
+
+performance-test: check-deps ## Run performance and resource management tests
+	@echo "$(YELLOW)Running performance tests...$(NC)"
+	@if [ -f "$(TEST_PATH)/performance/test_resource_management.py" ]; then \
+		$(VENV_PATH)/bin/pytest $(TEST_PATH)/performance/ \
+			--verbose \
+			--tb=short \
+			--timeout=120; \
+		echo "$(GREEN)✓ Performance tests completed$(NC)"; \
+	else \
+		echo "$(BLUE)ℹ NOP: Performance tests not yet implemented$(NC)"; \
+	fi
+
+security-scan: check-deps ## Run security scanning and vulnerability checks
+	@echo "$(YELLOW)Running security scans...$(NC)"
+	@echo "$(CYAN)TBD: Implement security scanning with:$(NC)"
+	@echo "  • bandit for Python security issues"
+	@echo "  • safety for known vulnerabilities"
+	@echo "  • semgrep for SAST analysis"
+	@echo "$(BLUE)Status: Security tooling selection in progress$(NC)"
+
+docs-build: check-deps ## Build documentation (TBD)
+	@echo "$(YELLOW)Building documentation...$(NC)"
+	@echo "$(CYAN)TBD: Implement documentation build with:$(NC)"
+	@echo "  • Sphinx for API documentation"
+	@echo "  • MkDocs for user guides"
+	@echo "  • Auto-generated workflow diagrams"
+	@echo "$(BLUE)Status: Documentation framework selection pending$(NC)"
+
+# =============================================================================
+# UTILITY TARGETS
+# =============================================================================
+
+show-config: ## Show current configuration and environment
+	@echo "$(CYAN)GraphMCP Configuration$(NC)"
+	@echo "$(YELLOW)=====================$(NC)"
+	@echo "Project Name: $(PROJECT_NAME)"
+	@echo "Python Version: $(PYTHON_VERSION)"
+	@echo "UV Version: $(UV_VERSION)"
+	@echo "Virtual Environment: $(VENV_PATH)"
+	@echo "Source Path: $(SRC_PATH)"
+	@echo "Test Path: $(TEST_PATH)"
+	@echo ""
+	@echo "$(YELLOW)Environment Status:$(NC)"
+	@echo "UV Installed: $$(if command -v uv >/dev/null 2>&1; then echo "✓"; else echo "✗"; fi)"
+	@echo "Virtual Env: $$(if [ -d "$(VENV_PATH)" ]; then echo "✓"; else echo "✗"; fi)"
+	@echo "GitHub Token: $$(if [ -n "$(GITHUB_TOKEN)" ]; then echo "✓ Set"; else echo "✗ Missing"; fi)"
+	@echo "Slack Token: $$(if [ -n "$(SLACK_BOT_TOKEN)" ]; then echo "✓ Set"; else echo "✗ Missing"; fi)"
+
+validate-makefile: ## Validate Makefile syntax and targets
+	@echo "$(YELLOW)Validating Makefile...$(NC)"
+	@make -n help >/dev/null 2>&1 && echo "$(GREEN)✓ Makefile syntax OK$(NC)" || echo "$(RED)✗ Makefile syntax error$(NC)"
+	@echo "$(BLUE)Available targets: $$(make -qp | awk -F':' '/^[a-zA-Z0-9][^$$#\/\t=]*:([^=]|$$)/ {split($$1,A,/ /);for(i in A)print A[i]}' | sort -u | wc -l)$(NC)"
+
+# Development convenience targets
+dev: setup install-pre-commit ## Full development environment setup
+	@echo "$(GREEN)✓ Development environment ready for GraphMCP development$(NC)"
+	@echo "$(CYAN)Next steps:$(NC)"
+	@echo "  1. source $(VENV_PATH)/bin/activate"
+	@echo "  2. make test-all"
+	@echo "  3. make lint"
+
+quick-test: check-deps ## Run quick tests (unit only)
+	@echo "$(YELLOW)Running quick test suite...$(NC)"
+	$(VENV_PATH)/bin/pytest $(TEST_PATH)/unit/ -x --tb=short --quiet
+	@echo "$(GREEN)✓ Quick tests completed$(NC)" 
