@@ -8,8 +8,8 @@ Provides comprehensive GitHub repository management through MCP tools.
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from graphmcp.clients.base import BaseMCPClient, MCPToolError
-from graphmcp.utils import ensure_serializable
+from .base import BaseMCPClient, MCPToolError
+from utils import ensure_serializable
 
 logger = logging.getLogger(__name__)
 

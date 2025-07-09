@@ -58,7 +58,7 @@ from .utils import (
 )
 
 # Specialized clients
-from .clients import (
+from clients import (
     BaseMCPClient,
     GitHubMCPClient,
     Context7MCPClient,
@@ -72,12 +72,11 @@ from .composite import (
 )
 
 # Workflow builders
-from .workflows import (
+from workflows import (
     WorkflowBuilder,
     WorkflowStep,
     WorkflowResult,
     WorkflowConfig,
-    WorkflowExecutionContext,
 )
 
 __all__ = [
@@ -96,7 +95,6 @@ __all__ = [
     "WorkflowStep",
     "WorkflowResult",
     "WorkflowConfig",
-    "WorkflowExecutionContext",
     
     # Core utilities
     "MCPConfigManager",

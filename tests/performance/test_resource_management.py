@@ -9,8 +9,8 @@ try:
 except ImportError:
     psutil = None
 
-from graphmcp.workflows import WorkflowBuilder
-from graphmcp.clients import GitHubMCPClient
+from workflows import WorkflowBuilder
+from clients import GitHubMCPClient
 
 
 @pytest.mark.skipif(psutil is None, reason="psutil library not found, skipping resource tests")

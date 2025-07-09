@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from dataclasses import dataclass
 
-from ..utils import ensure_serializable
+from utils import ensure_serializable
 from .base import BaseMCPClient
 
 logger = logging.getLogger(__name__)

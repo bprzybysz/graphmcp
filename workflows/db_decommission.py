@@ -8,7 +8,7 @@ using GraphMCP framework with intelligent file processing and real-time progress
 import asyncio
 import time
 from typing import Dict, Any, List
-from graphmcp.workflows.builder import WorkflowBuilder
+from workflows.builder import WorkflowBuilder
 
 # Helper functions for validation and setup
 
@@ -112,7 +112,7 @@ async def generate_workflow_summary(context, step) -> Dict[str, Any]:
 async def validate_environment_step(context, step, database_name: str) -> Dict[str, Any]:
     """Fast environment validation with parallel checks."""
     try:
-        from graphmcp.clients import FilesystemMCPClient, GitHubMCPClient, SlackMCPClient
+        from clients import FilesystemMCPClient, GitHubMCPClient, SlackMCPClient
         filesystem_client = context._clients.get('filesystem') or FilesystemMCPClient(context.config.config_path)
         context._clients['filesystem'] = filesystem_client
         
@@ -203,7 +203,7 @@ async def process_file_batches_step(context, step, database_name: str,
                                   slack_channel: str) -> Dict[str, Any]:
     """Optimized batch processing with real-time progress."""
     try:
-        from graphmcp.clients import GitHubMCPClient, SlackMCPClient
+        from clients import GitHubMCPClient, SlackMCPClient
         batch_result = context.get_shared_value("file_batches", {})
         batches = batch_result.get("batches", [])
         
@@ -251,7 +251,7 @@ async def process_repositories_step(context, step, target_repos: List[str],
                                   database_name: str, slack_channel: str) -> Dict[str, Any]:
     """Process multiple repositories in parallel for database decommissioning."""
     try:
-        from graphmcp.clients import GitHubMCPClient, SlackMCPClient, RepomixMCPClient
+        from clients import GitHubMCPClient, SlackMCPClient, RepomixMCPClient
         
         github_client = context._clients.get('github') or GitHubMCPClient(context.config.config_path)
         slack_client = context._clients.get('slack') or SlackMCPClient(context.config.config_path)

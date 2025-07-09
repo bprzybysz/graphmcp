@@ -2,7 +2,7 @@
 GraphMCP: A framework for building complex, multi-server agentic workflows.
 """
 
-from .clients import (
+from clients import (
     BaseMCPClient,
     GitHubMCPClient,
     Context7MCPClient, 
@@ -12,7 +12,7 @@ from .clients import (
     SlackMCPClient,
 )
 
-from .workflows import (
+from workflows import (
     WorkflowBuilder,
     Workflow,
     WorkflowStep,

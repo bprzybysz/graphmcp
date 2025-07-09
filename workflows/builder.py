@@ -13,7 +13,7 @@ from enum import Enum, auto
 from typing import Any, Callable, Dict, List, Optional, Union
 from dataclasses import dataclass, field
 
-from graphmcp.utils import ensure_serializable
+from utils import ensure_serializable
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +181,7 @@ class WorkflowBuilder:
                          parameters: Dict = None, **kwargs) -> WorkflowBuilder:
         """Add a Repomix repository packing step."""
         async def step_func(context, step, **params):
-            from graphmcp.clients import RepomixMCPClient
+            from clients import RepomixMCPClient
             client = context._clients.get('repomix') or RepomixMCPClient(context.config.config_path)
             context._clients['repomix'] = client
             return await client.pack_repository(
@@ -215,7 +215,7 @@ class WorkflowBuilder:
                            parameters: Dict = None, **kwargs) -> WorkflowBuilder:
         """Add a GitHub repository analysis step."""
         async def step_func(context, step, **params):
-            from graphmcp.clients import GitHubMCPClient
+            from clients import GitHubMCPClient
             client = context._clients.get('github') or GitHubMCPClient(context.config.config_path)
             context._clients['github'] = client
             return await client.analyze_repo_structure(params.get('repo_url', repo_url))
@@ -241,7 +241,7 @@ class WorkflowBuilder:
                         body_template: str, parameters: Dict = None, **kwargs) -> WorkflowBuilder:
         """Add a GitHub pull request creation step."""
         async def step_func(context, step, **params):
-            from graphmcp.clients import GitHubMCPClient
+            from clients import GitHubMCPClient
             client = context._clients.get('github') or GitHubMCPClient(context.config.config_path)
             context._clients['github'] = client
             # A real implementation would render the body_template with context
@@ -281,7 +281,7 @@ class WorkflowBuilder:
                   parameters: Dict = None, **kwargs) -> WorkflowBuilder:
         """Add a Slack message posting step."""
         async def step_func(context, step, **params):
-            from graphmcp.clients import SlackMCPClient
+            from clients import SlackMCPClient
             client = context._clients.get('slack') or SlackMCPClient(context.config.config_path)
             context._clients['slack'] = client
             text_func = params.get('text_or_fn', text_or_fn)

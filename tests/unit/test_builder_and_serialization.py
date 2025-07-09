@@ -6,9 +6,9 @@ import re
 from unittest.mock import AsyncMock, patch, MagicMock, call
 from pathlib import Path
 
-from graphmcp.workflows import WorkflowBuilder, Workflow
-from graphmcp.workflows.builder import WorkflowStep, StepType, WorkflowResult
-from graphmcp.clients.base import BaseMCPClient, MCPConnectionError, MCPToolError
+from workflows import WorkflowBuilder, Workflow
+from workflows.builder import WorkflowStep, StepType, WorkflowResult
+from clients.base import BaseMCPClient, MCPConnectionError, MCPToolError
 
 # --- Helper Functions (module-level for pickling) ---
 
