@@ -10,9 +10,11 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-@pytest.fixture
-def mock_config_path(tmp_path):
+@pytest.fixture(scope="session") # Changed scope to session
+def real_config_path(tmp_path_factory):
     """Create a mock MCP config file for testing and return its path."""
+    # Use tmp_path_factory for session-scoped temporary directory
+    tmp_path = tmp_path_factory.mktemp("real_config")
     config = {
         "mcpServers": {
             "repomix": {"command": "npx", "args": ["-y", "repomix", "--mcp"]},
