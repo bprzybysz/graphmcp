@@ -80,7 +80,15 @@ class BaseMCPClient(ABC):
         # Prepare environment
         env = os.environ.copy()
         env.update(env_vars)
-        
+
+        # Log sensitive environment variables with truncation
+        for key, value in env_vars.items():
+            if "TOKEN" in key.upper() or "PASSWORD" in key.upper(): # Heuristic for sensitive vars
+                log_value = f"{value[:4]}...{value[-4:]}" if len(value) > 8 else "******"
+                logger.debug(f"Sensitive ENV var for '{self.server_name}': {key}={log_value}")
+            else:
+                logger.debug(f"ENV var for '{self.server_name}': {key}={value}")
+
         # Start process
         full_command = [command] + args
         logger.debug(f"Starting MCP server: {' '.join(full_command)}")
@@ -101,6 +109,7 @@ class BaseMCPClient(ABC):
             
             if process.poll() is not None:
                 stderr = process.stderr.read() if process.stderr else "No error output"
+                logger.error(f"MCP server failed to start: {stderr}") # Changed to logger.error
                 raise MCPConnectionError(f"MCP server failed to start: {stderr}")
             
             self._process = process
@@ -124,6 +133,9 @@ class BaseMCPClient(ABC):
             "params": params
         }
         
+        # Log outgoing request
+        logger.debug(f"Sending MCP request: method={method}, params={json.dumps(params)}")
+        
         try:
             # Send request
             request_json = json.dumps(request) + '\n'
@@ -133,21 +145,45 @@ class BaseMCPClient(ABC):
             # Read response
             response_line = self._process.stdout.readline()
             if not response_line:
-                raise MCPConnectionError("No response from MCP server")
+                stderr_output = self._process.stderr.read() if self._process.stderr else "No stderr output"
+                logger.error(f"No response from MCP server. Stderr: {stderr_output}")
+                raise MCPConnectionError(f"No response from MCP server. Stderr: {stderr_output}")
             
             response = json.loads(response_line.strip())
+            
+            # Log incoming response, truncate if large
+            response_str = json.dumps(response)
+            if len(response_str) > 500: # Adjust threshold as needed
+                response_str = response_str[:250] + "...[TRUNCATED]..." + response_str[-250:]
+            logger.debug(f"Received MCP response: {response_str}")
             
             # Check for errors
             if 'error' in response:
                 error = response['error']
-                raise MCPToolError(f"MCP tool error: {error.get('message', 'Unknown error')}")
+                # Read any remaining stderr output for more context on the error
+                stderr_output = ""
+                if self._process.stderr:
+                    stderr_output = self._process.stderr.read()
+
+                error_message = error.get('message', 'Unknown error')
+                if stderr_output:
+                    error_message += f"\nServer Stderr: {stderr_output}"
+
+                logger.error(f"MCP tool error: {error_message}") # Log the error message
+                raise MCPToolError(f"MCP tool error: {error_message}")
             
             return response.get('result', {})
             
         except json.JSONDecodeError as e:
-            raise MCPConnectionError(f"Invalid JSON response from MCP server: {e}")
+            # Read any remaining stderr output for more context on the error
+            stderr_output = self._process.stderr.read() if self._process.stderr else "No stderr output"
+            logger.error(f"Invalid JSON response from MCP server: {e}. Stderr: {stderr_output}")
+            raise MCPConnectionError(f"Invalid JSON response from MCP server: {e}. Stderr: {stderr_output}")
         except Exception as e:
-            raise MCPConnectionError(f"MCP communication error: {e}")
+            # Read any remaining stderr output for more context on the error
+            stderr_output = self._process.stderr.read() if self._process.stderr else "No stderr output"
+            logger.error(f"MCP communication error: {e}. Stderr: {stderr_output}")
+            raise MCPConnectionError(f"MCP communication error: {e}. Stderr: {stderr_output}")
 
     async def call_tool_with_retry(self, tool_name: str, params: Dict[str, Any], retry_count: int = 3) -> Any:
         """

@@ -114,7 +114,7 @@ class RepomixMCPClient(BaseMCPClient):
             Packed repository data with metadata
         """
         params = {
-            "url": repo_url
+            "remote": repo_url # Changed 'url' to 'remote'
         }
         
         if output_file:

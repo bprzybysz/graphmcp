@@ -116,10 +116,42 @@ class Workflow:
                     context.set_shared_value(step.id, step_result) # Make result available in shared context
                     completed_count += 1
                 else:
-                    # Mock other step types
-                    logger.info(f"Mock execution for step type {step.step_type}")
-                    results[step.id] = {"status": "mocked_success", "step_type": step.step_type.name}
-                    completed_count += 1
+                    # Execute MCP tool steps
+                    if step.server_name and step.tool_name:
+                        try:
+                            # Dynamically import the client based on server_name
+                            if step.server_name == "github":
+                                from clients import GitHubMCPClient as ClientClass
+                            elif step.server_name == "repomix":
+                                from clients import RepomixMCPClient as ClientClass
+                            elif step.server_name == "slack": # Temporarily re-add Slack for completeness, will skip it in db_decommission.py
+                                from clients import SlackMCPClient as ClientClass
+                            else:
+                                raise ValueError(f"Unsupported server name: {step.server_name}")
+
+                            client = context._clients.get(step.server_name) or ClientClass(context.config.config_path)
+                            context._clients[step.server_name] = client
+                            
+                            logger.info(f"Calling MCP tool '{step.tool_name}' on server '{step.server_name}' for step '{step.id}'")
+                            tool_result = await client.call_tool_with_retry(
+                                step.tool_name, 
+                                step.parameters,
+                                retry_count=step.retry_count
+                            )
+                            results[step.id] = ensure_serializable(tool_result)
+                            context.set_shared_value(step.id, tool_result)
+                            completed_count += 1
+                        except Exception as client_e:
+                            logger.error(f"MCP client call failed for step {step.id} ({step.name}): {client_e}")
+                            results[step.id] = {"error": str(client_e)}
+                            failed_count += 1
+                            if self.config.stop_on_error:
+                                break
+                    else:
+                        # Fallback for unhandled step types (should not happen if all are covered)
+                        logger.warning(f"Unhandled step type: {step.step_type.name} for step {step.id}. Mocking execution.")
+                        results[step.id] = {"status": "mocked_unhandled", "step_type": step.step_type.name}
+                        completed_count += 1
             except Exception as e:
                 logger.error(f"Step {step.id} failed: {e}")
                 results[step.id] = {"error": str(e)}
@@ -180,15 +212,7 @@ class WorkflowBuilder:
                          exclude_patterns: List[str] = None,
                          parameters: Dict = None, **kwargs) -> WorkflowBuilder:
         """Add a Repomix repository packing step."""
-        async def step_func(context, step, **params):
-            from clients import RepomixMCPClient
-            client = context._clients.get('repomix') or RepomixMCPClient(context.config.config_path)
-            context._clients['repomix'] = client
-            return await client.pack_repository(
-                params.get('repo_url', repo_url),
-                params.get('include_patterns', include_patterns),
-                params.get('exclude_patterns', exclude_patterns)
-            )
+        # Remove the async def step_func as it will now be handled by Workflow.execute
         
         step_params = {
             "repo_url": repo_url,
@@ -202,7 +226,8 @@ class WorkflowBuilder:
             id=step_id,
             name=f"Pack Repo: {repo_url}",
             step_type=StepType.REPOMIX,
-            custom_function=step_func,
+            server_name="repomix", # Set server_name
+            tool_name="pack_remote_repository", # Set tool_name
             parameters=step_params,
             depends_on=kwargs.get('depends_on', []),
             timeout_seconds=kwargs.get('timeout_seconds', self._config.default_timeout),
@@ -214,11 +239,7 @@ class WorkflowBuilder:
     def github_analyze_repo(self, step_id: str, repo_url: str, 
                            parameters: Dict = None, **kwargs) -> WorkflowBuilder:
         """Add a GitHub repository analysis step."""
-        async def step_func(context, step, **params):
-            from clients import GitHubMCPClient
-            client = context._clients.get('github') or GitHubMCPClient(context.config.config_path)
-            context._clients['github'] = client
-            return await client.analyze_repo_structure(params.get('repo_url', repo_url))
+        # Remove the async def step_func
 
         step_params = {"repo_url": repo_url}
         if parameters:
@@ -228,7 +249,8 @@ class WorkflowBuilder:
             id=step_id,
             name=f"Analyze Repo: {repo_url}",
             step_type=StepType.GITHUB,
-            custom_function=step_func,
+            server_name="github", # Set server_name
+            tool_name="analyze_repo_structure", # Set tool_name
             parameters=step_params,
             depends_on=kwargs.get('depends_on', []),
             timeout_seconds=kwargs.get('timeout_seconds', self._config.default_timeout),
@@ -240,20 +262,7 @@ class WorkflowBuilder:
     def github_create_pr(self, step_id: str, title: str, head: str, base: str, 
                         body_template: str, parameters: Dict = None, **kwargs) -> WorkflowBuilder:
         """Add a GitHub pull request creation step."""
-        async def step_func(context, step, **params):
-            from clients import GitHubMCPClient
-            client = context._clients.get('github') or GitHubMCPClient(context.config.config_path)
-            context._clients['github'] = client
-            # A real implementation would render the body_template with context
-            body = params.get('body_template', body_template)
-            return await client.create_pull_request(
-                context.get_shared_value("repo_owner"),
-                context.get_shared_value("repo_name"),
-                params.get('title', title),
-                params.get('head', head),
-                params.get('base', base),
-                body
-            )
+        # Remove the async def step_func
 
         step_params = {
             "title": title,
@@ -268,7 +277,8 @@ class WorkflowBuilder:
             id=step_id,
             name=f"Create PR: {title}",
             step_type=StepType.GITHUB,
-            custom_function=step_func,
+            server_name="github", # Set server_name
+            tool_name="create_pull_request", # Set tool_name
             parameters=step_params,
             depends_on=kwargs.get('depends_on', []),
             timeout_seconds=kwargs.get('timeout_seconds', self._config.default_timeout),
@@ -280,13 +290,7 @@ class WorkflowBuilder:
     def slack_post(self, step_id: str, channel_id: str, text_or_fn: Union[str, Callable], 
                   parameters: Dict = None, **kwargs) -> WorkflowBuilder:
         """Add a Slack message posting step."""
-        async def step_func(context, step, **params):
-            from clients import SlackMCPClient
-            client = context._clients.get('slack') or SlackMCPClient(context.config.config_path)
-            context._clients['slack'] = client
-            text_func = params.get('text_or_fn', text_or_fn)
-            text = text_func(context) if callable(text_func) else text_func
-            return await client.post_message(params.get('channel_id', channel_id), text)
+        # Remove the async def step_func
 
         step_params = {
             "channel_id": channel_id,
@@ -299,7 +303,8 @@ class WorkflowBuilder:
             id=step_id,
             name=f"Post to Slack: {channel_id}",
             step_type=StepType.SLACK,
-            custom_function=step_func,
+            server_name="slack", # Set server_name
+            tool_name="post_message", # Set tool_name
             parameters=step_params,
             depends_on=kwargs.get('depends_on', []),
             timeout_seconds=kwargs.get('timeout_seconds', self._config.default_timeout),

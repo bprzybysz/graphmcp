@@ -7,25 +7,28 @@ using GraphMCP framework with intelligent file processing and real-time progress
 
 import asyncio
 import time
+import logging
 from typing import Dict, Any, List
 from workflows.builder import WorkflowBuilder
+
+logger = logging.getLogger(__name__)
 
 # Helper functions for validation and setup
 
 async def validate_windsurf_rules(filesystem_client) -> bool:
-    print("Validating Windsurf rules...")
+    logger.info("Validating Windsurf rules...")
     return True
 
 async def validate_target_directories(filesystem_client) -> bool:
-    print("Validating target directories...")
+    logger.info("Validating target directories...")
     return True
 
 async def validate_git_environment() -> bool:
-    print("Validating Git environment...")
+    logger.info("Validating Git environment...")
     return True
 
 async def quality_assurance_step(context, step, **params) -> Dict[str, Any]:
-    print("Running quality assurance checks...")
+    logger.info("Running quality assurance checks...")
     return {"qa_passed": True, "confidence_score": 0.95}
 
 def create_pr_body_template() -> str:
@@ -82,7 +85,7 @@ The automated decommissioning workflow has completed successfully. Please review
 
 async def generate_workflow_summary(context, step) -> Dict[str, Any]:
     """Generate comprehensive workflow execution summary."""
-    print("Generating workflow summary...")
+    logger.info("Generating workflow summary...")
     
     # Gather all step results
     environment_validation = context.get_shared_value("environment_validation", {})
@@ -189,7 +192,7 @@ async def process_single_file(github_client, repo_owner: str, repo_name: str,
                             file_info: Dict, database_name: str, 
                             batch_number: int) -> Dict[str, Any]:
     """Process a single file for database decommissioning."""
-    print(f"Processing file {file_info['path']} in batch {batch_number}")
+    logger.info(f"Processing file {file_info['path']} in batch {batch_number}")
     await asyncio.sleep(0.2)  # Simulate processing time
     return {
         "file_path": file_info.get('path', 'unknown'),
@@ -263,10 +266,10 @@ async def process_repositories_step(context, step, target_repos: List[str],
             'repomix': repomix_client
         })
         
-        await slack_client.post_message(
-            slack_channel,
-            f"🚀 Starting decommissioning of `{database_name}` across {len(target_repos)} repositories"
-        )
+        # await slack_client.post_message(
+        #     slack_channel,
+        #     f"🚀 Starting decommissioning of `{database_name}` across {len(target_repos)} repositories"
+        # )
         
         repo_results = []
         total_files_processed = 0
@@ -281,17 +284,21 @@ async def process_repositories_step(context, step, target_repos: List[str],
             else:
                 continue
             
-            await slack_client.post_message(
-                slack_channel,
-                f"📦 Processing repository {repo_idx}/{len(target_repos)}: `{repo_owner}/{repo_name}`"
-            )
+            # await slack_client.post_message(
+            #     slack_channel,
+            #     f"📦 Processing repository {repo_idx}/{len(target_repos)}: `{repo_owner}/{repo_name}`"
+            # )
             
             try:
                 # Pack repository for analysis
+                logger.debug(f"Calling repomix_client.pack_remote_repository with repo_url: {repo_url}")
                 pack_result = await repomix_client.pack_remote_repository(repo_url)
+                logger.debug(f"pack_result: {pack_result}")
                 
                 # Analyze repository structure
+                logger.debug(f"Calling github_client.analyze_repo_structure with repo_url: {repo_url}")
                 structure_result = await github_client.analyze_repo_structure(repo_url)
+                logger.debug(f"structure_result: {structure_result}")
                 
                 # Discover files containing database references
                 discovery_result = await discover_helm_patterns_step(context, step, database_name, repo_owner, repo_name)
@@ -313,10 +320,10 @@ async def process_repositories_step(context, step, target_repos: List[str],
                         "duration": time.time() - repo_start_time
                     })
                     
-                    await slack_client.post_message(
-                        slack_channel,
-                        f"✅ Repository `{repo_owner}/{repo_name}` completed: {repo_files_processed} files processed"
-                    )
+                    # await slack_client.post_message(
+                    #     slack_channel,
+                    #     f"✅ Repository `{repo_owner}/{repo_name}` completed: {repo_files_processed} files processed"
+                    # )
                 else:
                     repo_results.append({
                         "repo_url": repo_url,
@@ -328,10 +335,10 @@ async def process_repositories_step(context, step, target_repos: List[str],
                         "duration": time.time() - repo_start_time
                     })
                     
-                    await slack_client.post_message(
-                        slack_channel,
-                        f"ℹ️ Repository `{repo_owner}/{repo_name}` completed: No database references found"
-                    )
+                    # await slack_client.post_message(
+                    #     slack_channel,
+                    #     f"ℹ️ Repository `{repo_owner}/{repo_name}` completed: No database references found"
+                    # )
                     
             except Exception as e:
                 repo_results.append({
@@ -344,10 +351,10 @@ async def process_repositories_step(context, step, target_repos: List[str],
                     "duration": time.time() - repo_start_time
                 })
                 
-                await slack_client.post_message(
-                    slack_channel,
-                    f"❌ Repository processing failed: {repo_url} - {str(e)}"
-                )
+                # await slack_client.post_message(
+                #     slack_channel,
+                #     f"❌ Repository processing failed: {repo_url} - {str(e)}"
+                # )
         
         multi_repo_result = {
             "database_name": database_name,
@@ -386,7 +393,7 @@ def create_optimized_db_decommission_workflow(
     """
     
     # Set defaults as requested
-    if target_repos is None:
+    if target_repos == []:
         target_repos = ["https://github.com/bprzybys-nc/postgres-sample-dbs"]
     
     workflow = (WorkflowBuilder("optimized-db-decommission", config_path,
@@ -416,15 +423,16 @@ def create_optimized_db_decommission_workflow(
         depends_on=["process_repositories"], 
         timeout_seconds=60
     )
-    .slack_post(
-        "notify_completion", slack_channel,
-        create_completion_message, 
-        depends_on=["quality_assurance"]
-    )
+    # .slack_post(
+    #     "notify_completion", slack_channel,
+    #     create_completion_message, 
+    #     depends_on=["quality_assurance"]
+    # )
     .custom_step(
         "workflow_summary", "Generate Comprehensive Summary",
         generate_workflow_summary, 
-        depends_on=["notify_completion"]
+        # depends_on=["notify_completion"]
+        depends_on=["quality_assurance"]
     )
     .with_config(
         max_parallel_steps=4, default_timeout=120,
@@ -483,16 +491,16 @@ async def run_optimized_decommission(
     
     result = await workflow.execute()
     
-    print(f"\n🎉 Workflow Execution Complete!")
-    print(f"Status: {result.status}")
-    print(f"Success Rate: {result.success_rate:.1f}%")
-    print(f"Duration: {result.duration_seconds:.1f}s")
+    logger.info(f"\n🎉 Workflow Execution Complete!")
+    logger.info(f"Status: {result.status}")
+    logger.info(f"Success Rate: {result.success_rate:.1f}%")
+    logger.info(f"Duration: {result.duration_seconds:.1f}s")
     
     multi_repo_result = result.get_step_result('multi_repo_result', {})
     if multi_repo_result:
-        print(f"Database: {multi_repo_result.get('database_name')}")
-        print(f"Repositories Processed: {multi_repo_result.get('repositories_processed', 0)}")
-        print(f"Files Processed: {multi_repo_result.get('total_files_processed', 0)}")
+        logger.info(f"Database: {multi_repo_result.get('database_name')}")
+        logger.info(f"Repositories Processed: {multi_repo_result.get('repositories_processed', 0)}")
+        logger.info(f"Files Processed: {multi_repo_result.get('total_files_processed', 0)}")
 
 async def run_custom_decommission():
     """Example of running with custom parameters."""
@@ -507,8 +515,8 @@ async def run_custom_decommission():
 
 if __name__ == "__main__":
     import logging
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
     
-    print("🚀 Running Database Decommissioning Workflow")
-    print("=" * 50)
+    logger.info("🚀 Running Database Decommissioning Workflow")
+    logger.info("=" * 50)
     asyncio.run(run_optimized_decommission()) 

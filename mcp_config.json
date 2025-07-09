@@ -6,7 +6,7 @@
         "@modelcontextprotocol/server-github"
       ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_PERSONAL_ACCESS_TOKEN"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "your-token-here"
       }
     },
     "slack": {
@@ -15,7 +15,7 @@
         "@modelcontextprotocol/server-slack"
       ],
       "env": {
-        "SLACK_BOT_TOKEN": "$SLACK_BOT_TOKEN"
+        "SLACK_BOT_TOKEN": "your-token-here"
       }
     },
     "repomix": {
