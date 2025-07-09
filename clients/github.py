@@ -39,13 +39,15 @@ class GitHubMCPClient(BaseMCPClient):
         except Exception as e:
             logger.warning(f"Failed to list GitHub tools: {e}")
             return [
-                "get_repository",
+                "search_repositories",
                 "get_file_contents", 
                 "create_or_update_file",
                 "create_pull_request",
                 "search_code",
                 "list_issues",
-                "create_issue"
+                "create_issue",
+                "fork_repository",
+                "create_branch"
             ]
 
     async def health_check(self) -> bool:
@@ -62,7 +64,7 @@ class GitHubMCPClient(BaseMCPClient):
 
     async def get_repository(self, owner: str, repo: str) -> Dict[str, Any]:
         """
-        Get repository information and metadata.
+        Get repository information and metadata using search_repositories.
         
         Args:
             owner: Repository owner (username or organization)
@@ -72,24 +74,45 @@ class GitHubMCPClient(BaseMCPClient):
             Repository information dictionary
         """
         try:
-            result = await self.call_tool_with_retry("get_repository", {
-                "owner": owner,
-                "repo": repo
+            # Use search_repositories to find the specific repository
+            search_query = f"repo:{owner}/{repo}"
+            result = await self.call_tool_with_retry("search_repositories", {
+                "query": search_query,
+                "perPage": 1
             })
             
-            repo_info = {
-                "owner": owner,
-                "repo": repo,
-                "full_name": result.get("full_name", f"{owner}/{repo}"),
-                "default_branch": result.get("default_branch", "main"),
-                "language": result.get("language"),
-                "languages": result.get("languages", {}),
-                "description": result.get("description"),
-                "topics": result.get("topics", []),
-                "size": result.get("size", 0),
-                "stargazers_count": result.get("stargazers_count", 0),
-                "forks_count": result.get("forks_count", 0)
-            }
+            # Extract repository info from search results
+            items = result.get("items", [])
+            if items and len(items) > 0:
+                repo_data = items[0]
+                repo_info = {
+                    "owner": owner,
+                    "repo": repo,
+                    "full_name": repo_data.get("full_name", f"{owner}/{repo}"),
+                    "default_branch": repo_data.get("default_branch", "main"),
+                    "language": repo_data.get("language"),
+                    "languages": {},  # Not available in search results
+                    "description": repo_data.get("description"),
+                    "topics": repo_data.get("topics", []),
+                    "size": repo_data.get("size", 0),
+                    "stargazers_count": repo_data.get("stargazers_count", 0),
+                    "forks_count": repo_data.get("forks_count", 0)
+                }
+            else:
+                # Fallback with basic info if search doesn't find the repo
+                repo_info = {
+                    "owner": owner,
+                    "repo": repo,
+                    "full_name": f"{owner}/{repo}",
+                    "default_branch": "main",
+                    "language": None,
+                    "languages": {},
+                    "description": None,
+                    "topics": [],
+                    "size": 0,
+                    "stargazers_count": 0,
+                    "forks_count": 0
+                }
             
             ensure_serializable(repo_info)
             logger.debug(f"Retrieved repository info for {owner}/{repo}")

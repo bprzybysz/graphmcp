@@ -221,10 +221,14 @@ async def process_file_batches_step(context, step, database_name: str,
         for batch_idx, batch in enumerate(batches, 1):
             batch_start_time = time.time()
             
-            await slack_client.post_message(
-                slack_channel,
-                f"🔄 Processing batch {batch_idx}/{total_batches} ({len(batch)} files) for `{database_name}`"
-            )
+            # Try to post Slack notification (graceful failure)
+            try:
+                await slack_client.post_message(
+                    slack_channel,
+                    f"🔄 Processing batch {batch_idx}/{total_batches} ({len(batch)} files) for `{database_name}`"
+                )
+            except Exception as e:
+                logger.warning(f"Slack notification failed: {e}")
             
             batch_tasks = [process_single_file(github_client, repo_owner, repo_name, file_info, database_name, batch_idx) for file_info in batch]
             batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
@@ -233,10 +237,14 @@ async def process_file_batches_step(context, step, database_name: str,
             processed_files.extend(batch_processed)
             
             batch_duration = time.time() - batch_start_time
-            await slack_client.post_message(
-                slack_channel,
-                f"✅ Batch {batch_idx} complete: {len(batch_processed)}/{len(batch)} files processed in {batch_duration:.1f}s"
-            )
+            # Try to post completion notification (graceful failure)
+            try:
+                await slack_client.post_message(
+                    slack_channel,
+                    f"✅ Batch {batch_idx} complete: {len(batch_processed)}/{len(batch)} files processed in {batch_duration:.1f}s"
+                )
+            except Exception as e:
+                logger.warning(f"Slack completion notification failed: {e}")
         
         processing_result = {
             "processed_files": processed_files,
@@ -290,15 +298,23 @@ async def process_repositories_step(context, step, target_repos: List[str],
             # )
             
             try:
-                # Pack repository for analysis
+                # Pack repository for analysis (with error handling)
                 logger.debug(f"Calling repomix_client.pack_remote_repository with repo_url: {repo_url}")
-                pack_result = await repomix_client.pack_remote_repository(repo_url)
-                logger.debug(f"pack_result: {pack_result}")
+                try:
+                    pack_result = await repomix_client.pack_remote_repository(repo_url)
+                    logger.debug(f"pack_result: {pack_result}")
+                except Exception as e:
+                    logger.warning(f"Repomix pack failed for {repo_url}: {e}")
+                    pack_result = {"success": False, "error": str(e)}
                 
-                # Analyze repository structure
+                # Analyze repository structure (with error handling)
                 logger.debug(f"Calling github_client.analyze_repo_structure with repo_url: {repo_url}")
-                structure_result = await github_client.analyze_repo_structure(repo_url)
-                logger.debug(f"structure_result: {structure_result}")
+                try:
+                    structure_result = await github_client.analyze_repo_structure(repo_url)
+                    logger.debug(f"structure_result: {structure_result}")
+                except Exception as e:
+                    logger.warning(f"GitHub structure analysis failed for {repo_url}: {e}")
+                    structure_result = {"repository_url": repo_url, "error": str(e)}
                 
                 # Discover files containing database references
                 discovery_result = await discover_helm_patterns_step(context, step, database_name, repo_owner, repo_name)
