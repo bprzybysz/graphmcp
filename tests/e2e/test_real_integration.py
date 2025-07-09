@@ -36,112 +36,6 @@ async def verify_slack_post(context, step):
     assert "ts" in slack_result # Changed from message_ts to ts as per Slack API response
     return {"verification": "passed"}
 
-@pytest.fixture
-def real_config_path(tmp_path):
-    """
-    Loads MCP server configurations from clients/mcp_config.json and
-    appends/overrides with e2e-specific settings and environment variables.
-    """
-    config_file_path = Path("clients/mcp_config.json")
-    with open(config_file_path, 'r') as f:
-        config = json.load(f)
-
-    # Ensure mcpServers key exists
-    if "mcpServers" not in config:
-        config["mcpServers"] = {}
-
-    # Define common args for server-github and server-slack
-    common_args_npx_y = ["-y"]
-
-    # Configure GitHub server
-    github_config = {
-        "command": "npx",
-        "args": common_args_npx_y + ["@modelcontextprotocol/server-github@2025.4.8"], # Explicit version
-        "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN", "") }
-    }
-    config["mcpServers"]["github"] = github_config
-
-    # Configure Slack server
-    slack_config = {
-        "command": "npx",
-        "args": common_args_npx_y + ["@modelcontextprotocol/server-slack"],
-        "env": { "SLACK_BOT_TOKEN": os.getenv("SLACK_BOT_TOKEN", "") }
-    }
-    config["mcpServers"]["slack"] = slack_config
-
-    # Configure Repomix server
-    # Repomix is already in mcp_config.json, ensure it's correct
-    repomix_config = {
-        "command": "npx",
-        "args": common_args_npx_y + ["repomix", "--mcp"]
-    }
-    config["mcpServers"]["repomix"] = repomix_config
-
-    # Configure Filesystem server
-    filesystem_config = {
-        "command": "npx",
-        "args": common_args_npx_y + ["@modelcontextprotocol/server-filesystem@2025.7.1", str(tmp_path)], # Added tmp_path as allowed dir
-        "env": {
-            "ALLOWED_EXTENSIONS": ".py,.js,.ts,.yaml,.yml,.md,.txt,.json"
-        }
-    }
-    config["mcpServers"]["filesystem"] = filesystem_config
-
-
-    config_file = tmp_path / "real_config.json"
-    config_file.write_text(json.dumps(config, indent=2))
-    return str(config_file)
-
-@pytest.fixture
-async def github_test_fork():
-    """Setup and teardown a GitHub fork for testing."""
-    GITHUB_PERSONAL_ACCESS_TOKEN = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
-    if not GITHUB_PERSONAL_ACCESS_TOKEN:
-        pytest.skip("GITHUB_PERSONAL_ACCESS_TOKEN not available")
-    
-    fork_data = {
-        "source_repo": "https://github.com/bprzybys-nc/postgres-sample-dbs",
-        "source_owner": "bprzybys-nc", 
-        "source_name": "postgres-sample-dbs",
-        "fork_owner": None,  # Will be set from GitHub API
-        "fork_name": "postgres-sample-dbs",
-        "test_branch": f"test-e2e-{int(time.time())}",
-        "created_fork": False,
-        "created_branch": False
-    }
-    
-    yield fork_data  # Provide fork data to test
-    
-    # Cleanup in finally block
-    try:
-        if fork_data.get("created_branch") or fork_data.get("created_fork"):
-            import subprocess
-            
-            # Delete test branch if created
-            if fork_data.get("created_branch") and fork_data.get("fork_owner"):
-                try:
-                    subprocess.run([
-                        "gh", "api", "-X", "DELETE",
-                        f"/repos/{fork_data['fork_owner']}/{fork_data['fork_name']}/git/refs/heads/{fork_data['test_branch']}"
-                    ], check=True, capture_output=True)
-                    print(f"✅ Deleted test branch: {fork_data['test_branch']}")
-                except subprocess.CalledProcessError as e:
-                    print(f"⚠️ Failed to delete branch: {e}")
-            
-            # Delete fork if created  
-            if fork_data.get("created_fork") and fork_data.get("fork_owner"):
-                try:
-                    subprocess.run([
-                        "gh", "api", "-X", "DELETE", 
-                        f"/repos/{fork_data['fork_owner']}/{fork_data['fork_name']}"
-                    ], check=True, capture_output=True)
-                    print(f"✅ Deleted fork: {fork_data['fork_owner']}/{fork_data['fork_name']}")
-                except subprocess.CalledProcessError as e:
-                    print(f"⚠️ Failed to delete fork: {e}")
-                    
-    except Exception as e:
-        print(f"⚠️ Error during GitHub cleanup: {e}")
-
 # Initialize _github_token and _slack_bot_token AFTER load_dotenv()
 _github_token = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
 _slack_bot_token = os.getenv("SLACK_BOT_TOKEN")
@@ -159,9 +53,9 @@ class TestE2EIntegration:
     """End-to-end tests with real MCP servers (when available)."""
 
     @pytest.mark.asyncio
-    async def test_real_github_integration(self, real_config_path, session_client_health_check):
+    async def test_real_github_integration(self, session_client_health_check):
         """Test with a real GitHub MCP server (if configured)."""
-        workflow = (WorkflowBuilder("e2e-github", real_config_path)
+        workflow = (WorkflowBuilder("e2e-github", "clients/mcp_config.json")
             .github_analyze_repo("analyze", "https://github.com/microsoft/typescript")
             .custom_step("validate", "Validate Results", validate_github_results, depends_on=["analyze"])
             .build()
@@ -173,10 +67,10 @@ class TestE2EIntegration:
 
     @pytest.mark.asyncio
     @pytest.mark.skip(reason="Slack integration awaiting approval") # Keep this specific skip
-    async def test_real_slack_integration(self, real_config_path, session_client_health_check):
+    async def test_real_slack_integration(self, session_client_health_check):
         """Test with a real Slack MCP server (if configured)."""
         test_channel = os.getenv("SLACK_TEST_CHANNEL", "C01234567")
-        workflow = (WorkflowBuilder("e2e-slack", real_config_path)
+        workflow = (WorkflowBuilder("e2e-slack", "clients/mcp_config.json")
             .slack_post("notify", test_channel, "🧪 E2E test message from GraphMCP")
             .custom_step("verify", "Verify Slack Post", verify_slack_post, depends_on=["notify"])
             .build()
@@ -187,9 +81,9 @@ class TestE2EIntegration:
 
     @pytest.mark.asyncio
     @pytest.mark.skip(reason="Slack integration awaiting approval") # Keep this specific skip
-    async def test_slack_token_health_check(self, real_config_path, session_client_health_check):
+    async def test_slack_token_health_check(self, session_client_health_check):
         """Performs a basic health check on the Slack MCP token by listing users."""
-        workflow = (WorkflowBuilder("e2e-slack-health", real_config_path)
+        workflow = (WorkflowBuilder("e2e-slack-health", "clients/mcp_config.json")
             .custom_step("health_check", "Slack Token Health Check", self._slack_token_health_check)
             .build()
         )
@@ -206,9 +100,9 @@ class TestE2EIntegration:
         return {"success": True, "user_count": len(users)}
 
     @pytest.mark.asyncio
-    async def test_repomix_pack_remote_repository(self, real_config_path, session_client_health_check):
+    async def test_repomix_pack_remote_repository(self, session_client_health_check):
         """Test RepomixMCPClient pack_remote_repository with real repo."""
-        repomix_client = RepomixMCPClient(real_config_path)
+        repomix_client = RepomixMCPClient("clients/mcp_config.json")
         
         try:
             # Test packing a small, known repository
@@ -233,9 +127,9 @@ class TestE2EIntegration:
             await repomix_client.close()
 
     @pytest.mark.asyncio
-    async def test_repomix_analyze_codebase_structure(self, real_config_path, session_client_health_check):
+    async def test_repomix_analyze_codebase_structure(self, session_client_health_check):
         """Test RepomixMCPClient analyze_codebase_structure."""
-        repomix_client = RepomixMCPClient(real_config_path)
+        repomix_client = RepomixMCPClient("clients/mcp_config.json")
         
         try:
             # Test analyzing codebase structure
@@ -259,9 +153,9 @@ class TestE2EIntegration:
             await repomix_client.close()
 
     @pytest.mark.asyncio
-    async def test_filesystem_operations(self, real_config_path, session_client_health_check):
+    async def test_filesystem_operations(self, session_client_health_check):
         """Test basic filesystem operations with real Filesystem MCP server."""
-        filesystem_client = FilesystemMCPClient(real_config_path)
+        filesystem_client = FilesystemMCPClient("clients/mcp_config.json")
         test_dir = Path(tempfile.mkdtemp())
         test_file = test_dir / "test_file.txt"
         file_content = "Hello, GraphMCP Filesystem!"
@@ -292,9 +186,9 @@ class TestE2EIntegration:
                 shutil.rmtree(test_dir)
 
     @pytest.mark.asyncio
-    async def test_github_repo_operations(self, real_config_path, session_client_health_check):
+    async def test_github_repo_operations(self, session_client_health_check):
         """Test GitHub repository operations."""
-        github_client = GitHubMCPClient(real_config_path)
+        github_client = GitHubMCPClient("clients/mcp_config.json")
         try:
             # Test get_repository
             repo_info = await github_client.get_repository("microsoft", "typescript")
@@ -315,9 +209,9 @@ class TestE2EIntegration:
             await github_client.close()
 
     @pytest.mark.asyncio
-    async def test_github_fork_and_branch_operations(self, real_config_path, github_test_fork, session_client_health_check):
+    async def test_github_fork_and_branch_operations(self, github_test_fork, session_client_health_check):
         """Test GitHub fork and branch creation/deletion with real GitHub MCP server."""
-        github_client = GitHubMCPClient(real_config_path)
+        github_client = GitHubMCPClient("clients/mcp_config.json")
         fork_data = github_test_fork
 
         try:
@@ -347,12 +241,12 @@ class TestE2EIntegration:
         finally:
             await github_client.close()
 
-    # This test is intentionally skipped as Slack integration is awaiting proper setup.
+    # This test is intentionally skipped as Slack integration awaiting approval.
     @pytest.mark.asyncio
     @pytest.mark.skip(reason="Slack integration awaiting approval") # Keep this specific skip
-    async def test_slack_real_integration(self, real_config_path, session_client_health_check):
+    async def test_slack_real_integration(self, session_client_health_check):
         """Test a real Slack integration by sending a message."""
-        slack_client = SlackMCPClient(real_config_path)
+        slack_client = SlackMCPClient("clients/mcp_config.json")
         test_channel = os.getenv("SLACK_TEST_CHANNEL")
         if not test_channel:
             pytest.skip("SLACK_TEST_CHANNEL environment variable not set.")
@@ -372,13 +266,13 @@ class TestE2EIntegration:
             await slack_client.close()
 
     @pytest.mark.asyncio
-    async def test_db_decommission_workflow_integration(self, real_config_path, github_test_fork, session_client_health_check):
+    async def test_db_decommission_workflow_integration(self, github_test_fork, session_client_health_check):
         """
         End-to-end test for the db_decommission workflow with real clients.
         This simulates a full run of the database decommissioning process.
         """
         # Use the real GitHub client to pre-create a dummy file for the workflow to find
-        github_client = GitHubMCPClient(real_config_path)
+        github_client = GitHubMCPClient("clients/mcp_config.json")
         fork_data = github_test_fork
         if not fork_data.get("fork_owner") or not fork_data.get("test_branch"):
             pytest.skip("GitHub fork or test branch not available for db_decommission workflow.")
@@ -410,7 +304,7 @@ class TestE2EIntegration:
             # Build and execute the workflow
             workflow = create_optimized_db_decommission_workflow(
                 workflow_id="e2e-db-decommission",
-                config_path=real_config_path,
+                config_path="clients/mcp_config.json",
                 github_repo_owner=fork_data["fork_owner"],
                 github_repo_name=fork_data["fork_name"],
                 github_branch=fork_data["test_branch"],
@@ -432,14 +326,14 @@ class TestE2EIntegration:
             await github_client.close()
 
     @pytest.mark.asyncio
-    async def test_multi_client_coordination(self, real_config_path, session_client_health_check):
+    async def test_multi_client_coordination(self, session_client_health_check):
         """Test coordination between multiple real MCP clients in a single workflow."""
         # This test ensures that different clients can be used sequentially
         # or in parallel within a single workflow without conflicts.
         
-        github_client = GitHubMCPClient(real_config_path)
-        filesystem_client = FilesystemMCPClient(real_config_path)
-        repomix_client = RepomixMCPClient(real_config_path)
+        github_client = GitHubMCPClient("clients/mcp_config.json")
+        filesystem_client = FilesystemMCPClient("clients/mcp_config.json")
+        repomix_client = RepomixMCPClient("clients/mcp_config.json")
         
         test_temp_dir = Path(tempfile.mkdtemp())
         test_local_file = test_temp_dir / "coordinated_test.txt"
