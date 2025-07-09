@@ -492,13 +492,21 @@ preview-mcp-server: check-deps ## Start standalone Preview MCP Server
 	PYTHONPATH=. $(VENV_PATH)/bin/python -m clients.preview_mcp
 	@echo "$(GREEN)✓ Preview MCP Server started$(NC)"
 
-preview-streamlit: check-deps ## Start Streamlit UI for workflow visualization
-	@echo "$(YELLOW)Starting Preview Streamlit UI...$(NC)"
-	@echo "$(CYAN)Open http://localhost:8501 in your browser$(NC)"
+preview-streamlit: check-deps ## Start Streamlit UI with new workflow visualization
+	@echo "$(YELLOW)Starting Preview Streamlit UI with Enhanced Layout...$(NC)"
+	@echo "$(CYAN)New Features:$(NC)"
+	@echo "  ✅ Left pane (25%): Real-time workflow progress tracking"
+	@echo "  ✅ Main pane (75%): Live workflow logs supporting:"
+	@echo "    📝 Markdown logs with structured bullet lists"
+	@echo "    📊 Tables with markdown rendering"
+	@echo "    🌞 Interactive sunburst charts"
+	@echo "  ✅ Auto-refresh and demo workflow simulation"
+	@echo ""
+	@echo "$(CYAN)Open http://localhost:8501 and click 'Start Demo' to see the new interface$(NC)"
 	PYTHONPATH=. $(VENV_PATH)/bin/streamlit run concrete/preview_ui/streamlit_app.py \
 		--server.port 8501 \
 		--server.address 0.0.0.0
-	@echo "$(GREEN)✓ Streamlit UI started$(NC)"
+	@echo "$(GREEN)✓ Enhanced Streamlit UI started$(NC)"
 
 preview-demo: check-deps ## Run complete preview demo (MCP server + Streamlit UI)
 	@echo "$(YELLOW)Starting GraphMCP Preview Demo...$(NC)"
@@ -525,4 +533,24 @@ async def test(): \
 	print(f'Available tools: {tools}'); \
 	print('✓ Preview MCP client basic test passed'); \
 asyncio.run(test())" || echo "$(YELLOW)⚠ Preview MCP client needs configuration$(NC)"; \
-	fi 
+	fi
+
+preview-test-ui: check-deps ## Test new UI functionality with workflow log system
+	@echo "$(YELLOW)Testing Enhanced UI Functionality...$(NC)"
+	@echo "$(CYAN)Testing workflow log system components...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
+import sys; \
+from clients.preview_mcp.workflow_log import get_workflow_log, log_info, log_table, log_sunburst; \
+from concrete.preview_ui.streamlit_app import StreamlitWorkflowUI; \
+print('Testing workflow log system...'); \
+log = get_workflow_log('test-ui'); \
+log_info('test-ui', '🚀 **UI Test Started**\n\n- Testing log system\n- Multiple entry types'); \
+log_table('test-ui', ['Feature', 'Status'], [['Progress Pane', '✅'], ['Log Pane', '✅'], ['Charts', '✅']], 'UI Features'); \
+log_sunburst('test-ui', ['UI', 'Progress', 'Logs', 'Charts'], ['', 'UI', 'UI', 'UI'], [100, 25, 50, 25], 'UI Components'); \
+print(f'✅ Created {len(log.get_entries())} log entries'); \
+print('Testing UI initialization...'); \
+ui = StreamlitWorkflowUI(); \
+print('✅ StreamlitWorkflowUI initializes successfully'); \
+print('🎉 All UI functionality tests passed!'); \
+print('💡 Run make preview-streamlit to see the new interface');"
+	@echo "$(GREEN)✓ UI functionality tests completed$(NC)" 
