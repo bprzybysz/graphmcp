@@ -8,11 +8,20 @@ Implements currently used methods extracted from working db_decommission_workflo
 import logging
 from pathlib import Path
 from typing import Any
+from dataclasses import dataclass
 
-from ..utils import FilesystemScanResult, ensure_serializable
+from ..utils import ensure_serializable
 from .base import BaseMCPClient
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FilesystemScanResult:
+    base_path: str
+    pattern: str
+    files_found: list[str]
+    matches: list[dict[str, Any]]
 
 
 class FilesystemMCPClient(BaseMCPClient):
