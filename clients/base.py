@@ -127,8 +127,15 @@ class BaseMCPClient(ABC):
             await asyncio.sleep(0.1)
             
             if process.returncode is not None:
-                stderr_data = await process.stderr.read()
-                stderr = stderr_data.decode() if stderr_data else "No error output"
+                # Use readuntil with timeout for non-blocking stderr read
+                try:
+                    stderr_data = await asyncio.wait_for(
+                        process.stderr.read(1024),  # Read up to 1KB
+                        timeout=0.5
+                    )
+                    stderr = stderr_data.decode() if stderr_data else "No error output"
+                except asyncio.TimeoutError:
+                    stderr = "Process failed (stderr timeout)"
                 logger.error(f"MCP server failed to start: {stderr}")
                 raise MCPConnectionError(f"MCP server failed to start: {stderr}")
             
@@ -173,8 +180,15 @@ class BaseMCPClient(ABC):
                 raise MCPConnectionError(f"MCP server '{self.server_name}' response timeout")
             
             if not response_line:
-                stderr_data = await self._process.stderr.read()
-                stderr_output = stderr_data.decode() if stderr_data else "No stderr output"
+                # Use timeout for non-blocking stderr read
+                try:
+                    stderr_data = await asyncio.wait_for(
+                        self._process.stderr.read(1024),
+                        timeout=0.5
+                    )
+                    stderr_output = stderr_data.decode() if stderr_data else "No stderr output"
+                except asyncio.TimeoutError:
+                    stderr_output = "No stderr available (timeout)"
                 logger.error(f"No response from MCP server. Stderr: {stderr_output}")
                 raise MCPConnectionError(f"No response from MCP server. Stderr: {stderr_output}")
             
@@ -192,8 +206,14 @@ class BaseMCPClient(ABC):
                 # Read any remaining stderr output for more context on the error
                 stderr_output = ""
                 if self._process.stderr:
-                    stderr_data = await self._process.stderr.read()
-                    stderr_output = stderr_data.decode() if stderr_data else ""
+                    try:
+                        stderr_data = await asyncio.wait_for(
+                            self._process.stderr.read(1024),
+                            timeout=0.5
+                        )
+                        stderr_output = stderr_data.decode() if stderr_data else ""
+                    except asyncio.TimeoutError:
+                        stderr_output = "stderr unavailable (timeout)"
 
                 error_message = error.get('message', 'Unknown error')
                 if stderr_output:
@@ -206,14 +226,26 @@ class BaseMCPClient(ABC):
             
         except json.JSONDecodeError as e:
             # Read any remaining stderr output for more context on the error
-            stderr_data = await self._process.stderr.read()
-            stderr_output = stderr_data.decode() if stderr_data else "No stderr output"
+            try:
+                stderr_data = await asyncio.wait_for(
+                    self._process.stderr.read(1024),
+                    timeout=0.5
+                )
+                stderr_output = stderr_data.decode() if stderr_data else "No stderr output"
+            except asyncio.TimeoutError:
+                stderr_output = "stderr unavailable (timeout)"
             logger.error(f"Invalid JSON response from MCP server: {e}. Stderr: {stderr_output}")
             raise MCPConnectionError(f"Invalid JSON response from MCP server: {e}. Stderr: {stderr_output}")
         except Exception as e:
             # Read any remaining stderr output for more context on the error
-            stderr_data = await self._process.stderr.read()
-            stderr_output = stderr_data.decode() if stderr_data else "No stderr output"
+            try:
+                stderr_data = await asyncio.wait_for(
+                    self._process.stderr.read(1024),
+                    timeout=0.5
+                )
+                stderr_output = stderr_data.decode() if stderr_data else "No stderr output"
+            except asyncio.TimeoutError:
+                stderr_output = "stderr unavailable (timeout)"
             logger.error(f"MCP communication error: {e}. Stderr: {stderr_output}")
             raise MCPConnectionError(f"MCP communication error: {e}. Stderr: {stderr_output}")
 

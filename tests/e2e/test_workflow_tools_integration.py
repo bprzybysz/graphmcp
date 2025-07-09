@@ -211,17 +211,19 @@ class TestWorkflowToolsIntegration:
     async def test_workflow_tools_coordination(self):
         """Test that all workflow tools can be initialized and work together."""
         async def test_coordination():
-            # Initialize all available workflow clients (skip Slack for now, skip GitHub due to blocking)
+            # Initialize all available workflow clients (skip Slack for now - awaiting approval)
             repomix_client = RepomixMCPClient("clients/mcp_config.json")
             filesystem_client = FilesystemMCPClient("clients/mcp_config.json")
             context7_client = Context7MCPClient("clients/mcp_config.json")
+            github_client = GitHubMCPClient("clients/mcp_config.json")
             
             try:
                 # Verify all clients can be created simultaneously
                 assert repomix_client.SERVER_NAME == "ovr_repomix"
                 assert filesystem_client.SERVER_NAME == "ovr_filesystem"
                 assert context7_client.SERVER_NAME == "ovr_context7"
-                print(f"✅ Core workflow MCP clients initialized successfully (Slack skipped - awaiting approval, GitHub skipped - async issues)")
+                assert github_client.SERVER_NAME == "ovr_github"
+                print(f"✅ All 4 core workflow MCP clients initialized successfully (Slack skipped - awaiting approval)")
                 
                 # Test basic connectivity pattern (without external dependencies)
                 test_file = Path("test_coordination.txt")
@@ -241,6 +243,7 @@ class TestWorkflowToolsIntegration:
                     repomix_client.close(),
                     filesystem_client.close(),
                     context7_client.close(),
+                    github_client.close(),
                     return_exceptions=True
                 )
 
