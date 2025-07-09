@@ -225,7 +225,7 @@ class TestE2EIntegration:
 
             assert result["success"] is True
             assert result["packed_files_count"] > 0
-            print(f"✅ Repomix packed {result["packed_files_count"]} files. Output: {result.get("output_path", "N/A")}")
+            print(f"✅ Repomix packed {result['packed_files_count']} files. Output: {result.get('output_path', 'N/A')}")
 
         except Exception as e:
             pytest.fail(f"test_repomix_pack_remote_repository failed: {e}")
@@ -251,7 +251,7 @@ class TestE2EIntegration:
             assert "repository_url" in result
             assert "files_analyzed" in result
             assert result["files_analyzed"] > 0
-            print(f"✅ Repomix analyzed {result["files_analyzed"]} files from {result["repository_url"]}")
+            print(f"✅ Repomix analyzed {result['files_analyzed']} files from {result['repository_url']}")
 
         except Exception as e:
             pytest.fail(f"test_repomix_analyze_codebase_structure failed: {e}")
