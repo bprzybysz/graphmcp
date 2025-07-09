@@ -230,7 +230,7 @@ class TestWorkflowIntegration:
     @pytest.mark.asyncio
     async def test_database_decommission_workflow_simulation(self, real_config_path, mock_mcp_clients):
         """Test database decommissioning workflow with multiple repositories."""
-        from workflows.db_decommission import create_optimized_db_decommission_workflow
+        from concrete.db_decommission import create_optimized_db_decommission_workflow
         
         # Use the actual workflow with mocked clients
         workflow = create_optimized_db_decommission_workflow(

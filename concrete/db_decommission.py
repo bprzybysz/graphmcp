@@ -190,14 +190,22 @@ async def validate_and_batch_files_step(context, step, database_name: str,
 
 async def process_single_file(github_client, repo_owner: str, repo_name: str, 
                             file_info: Dict, database_name: str, 
-                            batch_number: int) -> Dict[str, Any]:
+                            batch_number: int, feature_branch: str = None) -> Dict[str, Any]:
     """Process a single file for database decommissioning."""
     logger.info(f"Processing file {file_info['path']} in batch {batch_number}")
+    
+    # If we have a feature branch, we would update the file on that branch
+    # For now, we simulate the processing but in a real implementation,
+    # this would call github_client.create_or_update_file with branch parameter
+    
     await asyncio.sleep(0.2)  # Simulate processing time
+    
+    # Mock file processing result
     return {
         "file_path": file_info.get('path', 'unknown'),
         "changes_made": 2,
         "batch_number": batch_number,
+        "feature_branch": feature_branch,
         "success": True
     }
 
@@ -230,7 +238,11 @@ async def process_file_batches_step(context, step, database_name: str,
             except Exception as e:
                 logger.warning(f"Slack notification failed: {e}")
             
-            batch_tasks = [process_single_file(github_client, repo_owner, repo_name, file_info, database_name, batch_idx) for file_info in batch]
+            # Get feature branch from context if available
+            branch_info = context.get_shared_value("branch_info", {})
+            feature_branch = branch_info.get("feature_branch") if branch_info.get("success") else None
+            
+            batch_tasks = [process_single_file(github_client, repo_owner, repo_name, file_info, database_name, batch_idx, feature_branch) for file_info in batch]
             batch_results = await asyncio.gather(*batch_tasks, return_exceptions=True)
             
             batch_processed = [res for res in batch_results if not isinstance(res, Exception)]
@@ -389,6 +401,120 @@ async def process_repositories_step(context, step, target_repos: List[str],
     except Exception as e:
         return {"error": f"Multi-repository processing failed: {e}"}
 
+async def create_feature_branch_step(context, step, database_name: str, 
+                                   repo_owner: str, repo_name: str) -> Dict[str, Any]:
+    """Create a feature branch for database decommissioning changes."""
+    try:
+        from clients import GitHubMCPClient
+        
+        github_client = context._clients.get('ovr_github') or GitHubMCPClient(context.config.config_path)
+        context._clients['ovr_github'] = github_client
+        
+        # Generate feature branch name
+        import time
+        timestamp = int(time.time())
+        feature_branch = f"decommission-{database_name}-{timestamp}"
+        
+        # Get repository info to find default branch
+        repo_info = await github_client.get_repository(repo_owner, repo_name)
+        default_branch = repo_info.get("default_branch", "main")
+        
+        # Create the feature branch
+        branch_result = await github_client.create_branch(
+            owner=repo_owner,
+            repo=repo_name,
+            branch=feature_branch,
+            from_branch=default_branch
+        )
+        
+        if not branch_result.get("success"):
+            return {"error": f"Failed to create branch: {branch_result.get('error')}"}
+        
+        branch_info = {
+            "feature_branch": feature_branch,
+            "default_branch": default_branch,
+            "repo_owner": repo_owner,
+            "repo_name": repo_name,
+            "branch_ref": branch_result.get("ref"),
+            "success": True
+        }
+        
+        context.set_shared_value("branch_info", branch_info)
+        logger.info(f"Created feature branch '{feature_branch}' in {repo_owner}/{repo_name}")
+        return branch_info
+        
+    except Exception as e:
+        return {"error": f"Branch creation failed: {e}"}
+
+async def create_pull_request_step(context, step, database_name: str, 
+                                 repo_owner: str, repo_name: str) -> Dict[str, Any]:
+    """Create a pull request with the database decommissioning changes."""
+    try:
+        from clients import GitHubMCPClient
+        import time
+        
+        github_client = context._clients.get('ovr_github') or GitHubMCPClient(context.config.config_path)
+        context._clients['ovr_github'] = github_client
+        
+        # Get branch info from previous step
+        branch_info = context.get_shared_value("branch_info", {})
+        if not branch_info.get("success"):
+            return {"error": "No feature branch available for PR creation"}
+        
+        feature_branch = branch_info.get("feature_branch")
+        default_branch = branch_info.get("default_branch", "main")
+        
+        # Get processing results for PR body
+        processing_result = context.get_shared_value("processing_result", {})
+        qa_result = context.get_shared_value("qa_result", {})
+        
+        # Get list of modified files
+        processed_files = processing_result.get("processed_files", [])
+        files_list = "\n".join([f"- `{file_info.get('file_path', 'unknown')}`" for file_info in processed_files])
+        
+        # Create PR body using template
+        pr_body_template = create_pr_body_template()
+        pr_body = pr_body_template.format(
+            database_name=database_name,
+            files_list=files_list if files_list else "- No files were modified",
+            timestamp=time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+            confidence_score=qa_result.get("confidence_score", 0.0)
+        )
+        
+        # Create PR title
+        pr_title = f"🗄️ Decommission {database_name} database references"
+        
+        # Create the pull request
+        pr_result = await github_client.create_pull_request(
+            owner=repo_owner,
+            repo=repo_name,
+            title=pr_title,
+            head=feature_branch,
+            base=default_branch,
+            body=pr_body,
+            draft=False
+        )
+        
+        if not pr_result.get("success"):
+            return {"error": f"Failed to create PR: {pr_result.get('error')}"}
+        
+        pr_info = {
+            "pr_number": pr_result.get("number"),
+            "pr_url": pr_result.get("url"),
+            "pr_title": pr_title,
+            "feature_branch": feature_branch,
+            "base_branch": default_branch,
+            "files_modified": len(processed_files),
+            "success": True
+        }
+        
+        context.set_shared_value("pr_info", pr_info)
+        logger.info(f"Created PR #{pr_info['pr_number']} in {repo_owner}/{repo_name}: {pr_title}")
+        return pr_info
+        
+    except Exception as e:
+        return {"error": f"Pull request creation failed: {e}"}
+
 def create_optimized_db_decommission_workflow(
     database_name: str = "periodic_table",
     target_repos: List[str] = None,
@@ -411,6 +537,14 @@ def create_optimized_db_decommission_workflow(
     # Set defaults as requested
     if target_repos == []:
         target_repos = ["https://github.com/bprzybys-nc/postgres-sample-dbs"]
+    
+    # Extract repository owner and name from first target repo for branch/PR operations
+    first_repo_url = target_repos[0] if target_repos else "https://github.com/bprzybys-nc/postgres-sample-dbs"
+    if first_repo_url.startswith("https://github.com/"):
+        repo_path = first_repo_url.replace("https://github.com/", "").rstrip("/")
+        repo_owner, repo_name = repo_path.split("/")
+    else:
+        repo_owner, repo_name = "bprzybys-nc", "postgres-sample-dbs"
     
     workflow = (WorkflowBuilder("optimized-db-decommission", config_path,
                               description=f"Fast, robust decommissioning of {database_name} database across {len(target_repos)} repositories")
@@ -439,6 +573,28 @@ def create_optimized_db_decommission_workflow(
         depends_on=["process_repositories"], 
         timeout_seconds=60
     )
+    .custom_step(
+        "create_feature_branch", "Create Feature Branch for Changes",
+        create_feature_branch_step,
+        parameters={
+            "database_name": database_name,
+            "repo_owner": repo_owner,
+            "repo_name": repo_name
+        },
+        depends_on=["quality_assurance"],
+        timeout_seconds=30
+    )
+    .custom_step(
+        "create_pull_request", "Create Pull Request with Database Changes",
+        create_pull_request_step,
+        parameters={
+            "database_name": database_name,
+            "repo_owner": repo_owner,
+            "repo_name": repo_name
+        },
+        depends_on=["create_feature_branch"],
+        timeout_seconds=60
+    )
     # .slack_post(
     #     "notify_completion", slack_channel,
     #     create_completion_message, 
@@ -448,7 +604,7 @@ def create_optimized_db_decommission_workflow(
         "workflow_summary", "Generate Comprehensive Summary",
         generate_workflow_summary, 
         # depends_on=["notify_completion"]
-        depends_on=["quality_assurance"]
+        depends_on=["create_pull_request"]
     )
     .with_config(
         max_parallel_steps=4, default_timeout=120,

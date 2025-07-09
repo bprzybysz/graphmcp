@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from workflows import WorkflowBuilder
-from workflows.db_decommission import create_optimized_db_decommission_workflow
+from concrete.db_decommission import create_optimized_db_decommission_workflow
 from clients import (
     RepomixMCPClient, 
     GitHubMCPClient, 

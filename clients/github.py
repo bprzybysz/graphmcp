@@ -482,4 +482,130 @@ class GitHubMCPClient(BaseMCPClient):
             
         except Exception as e:
             logger.error(f"Failed to create issue in {owner}/{repo}: {e}")
-            return {"success": False, "title": title, "error": str(e)} 
+            return {"success": False, "title": title, "error": str(e)}
+
+    def _extract_json_from_mcp_response(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract JSON data from MCP response content field.
+        
+        Args:
+            result: MCP response with content field
+            
+        Returns:
+            Parsed JSON data or empty dict if parsing fails
+        """
+        try:
+            if "content" in result and isinstance(result["content"], list) and len(result["content"]) > 0:
+                first_content = result["content"][0]
+                if isinstance(first_content, dict) and "text" in first_content:
+                    import json
+                    return json.loads(first_content["text"])
+            return {}
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            logger.warning(f"Failed to parse MCP response content: {e}")
+            return {}
+
+    async def fork_repository(self, owner: str, repo: str, organization: str = None) -> Dict[str, Any]:
+        """
+        Fork a repository to the authenticated user's account or specified organization.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            organization: Optional organization to fork to (defaults to user account)
+            
+        Returns:
+            Fork information dictionary
+        """
+        params = {
+            "owner": owner,
+            "repo": repo
+        }
+        
+        if organization:
+            params["organization"] = organization
+        
+        try:
+            result = await self.call_tool_with_retry("fork_repository", params)
+            
+            # Extract JSON data from MCP response content
+            fork_data = self._extract_json_from_mcp_response(result)
+            
+            fork_result = {
+                "success": True,
+                "name": fork_data.get("name"),
+                "full_name": fork_data.get("full_name"),
+                "owner": fork_data.get("owner", {}),
+                "html_url": fork_data.get("html_url"),
+                "clone_url": fork_data.get("clone_url"),
+                "default_branch": fork_data.get("default_branch", "main"),
+                "fork": fork_data.get("fork", True),
+                "created_at": fork_data.get("created_at")
+            }
+            
+            ensure_serializable(fork_result)
+            logger.info(f"Forked repository {owner}/{repo} to {fork_result.get('full_name')}")
+            return fork_result
+            
+        except Exception as e:
+            logger.error(f"Failed to fork repository {owner}/{repo}: {e}")
+            return {
+                "success": False,
+                "owner": owner,
+                "repo": repo,
+                "error": str(e)
+            }
+
+    async def create_branch(self, owner: str, repo: str, branch: str, 
+                           from_branch: str = None) -> Dict[str, Any]:
+        """
+        Create a new branch in the repository.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            branch: Name for the new branch
+            from_branch: Source branch to create from (defaults to default branch)
+            
+        Returns:
+            Branch creation result
+        """
+        params = {
+            "owner": owner,
+            "repo": repo,
+            "branch": branch
+        }
+        
+        if from_branch:
+            params["from_branch"] = from_branch
+        
+        try:
+            result = await self.call_tool_with_retry("create_branch", params)
+            
+            # Extract JSON data from MCP response content
+            branch_data = self._extract_json_from_mcp_response(result)
+            
+            branch_result = {
+                "success": True,
+                "ref": branch_data.get("ref"),
+                "node_id": branch_data.get("node_id"),
+                "url": branch_data.get("url"),
+                "object": branch_data.get("object", {}),
+                "owner": owner,
+                "repo": repo,
+                "branch": branch
+            }
+            
+            ensure_serializable(branch_result)
+            logger.info(f"Created branch '{branch}' in {owner}/{repo}")
+            return branch_result
+            
+        except Exception as e:
+            logger.error(f"Failed to create branch '{branch}' in {owner}/{repo}: {e}")
+            return {
+                "success": False,
+                "owner": owner,
+                "repo": repo,
+                "branch": branch,
+                "error": str(e)
+            } 
