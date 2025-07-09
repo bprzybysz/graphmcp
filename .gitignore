@@ -43,3 +43,4 @@ repomix-output.xml
 # uv and virtual environment specific files
 .venv/
 /[=]*
+secrets.json
