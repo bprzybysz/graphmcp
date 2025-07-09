@@ -86,9 +86,9 @@ class TestWorkflowIntegration:
     @pytest.fixture
     def mock_mcp_clients(self):
         """Enhanced mock MCP clients for integration testing."""
-        with patch('graphmcp.clients.RepomixMCPClient') as mock_repomix, \
-             patch('graphmcp.clients.SlackMCPClient') as mock_slack, \
-             patch('graphmcp.clients.GitHubMCPClient') as mock_github:
+        with patch('clients.RepomixMCPClient') as mock_repomix, \
+             patch('clients.SlackMCPClient') as mock_slack, \
+             patch('clients.GitHubMCPClient') as mock_github:
             
             # Configure mock Repomix client
             mock_repomix_instance = mock_repomix.return_value

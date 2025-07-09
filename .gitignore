@@ -27,6 +27,9 @@ ovora_mcp_config.json
 test-results-*.xml
 test-results-unit.xml
 
+# tmp doc
+tmp_*.md
+
 # Build artifacts and caches
 build/
 dist/
