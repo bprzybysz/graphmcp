@@ -112,7 +112,7 @@ async def generate_workflow_summary(context, step) -> Dict[str, Any]:
 async def validate_environment_step(context, step, database_name: str) -> Dict[str, Any]:
     """Fast environment validation with parallel checks."""
     try:
-        from graphmcp.clients import FilesystemMCPClient
+        from graphmcp.clients import FilesystemMCPClient, GitHubMCPClient, SlackMCPClient
         filesystem_client = context._clients.get('filesystem') or FilesystemMCPClient(context.config.config_path)
         context._clients['filesystem'] = filesystem_client
         
