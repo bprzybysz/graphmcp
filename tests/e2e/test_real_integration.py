@@ -42,12 +42,12 @@ _slack_bot_token = os.getenv("SLACK_BOT_TOKEN")
 
 @pytest.mark.e2e
 @pytest.mark.skipif(
-    not ("BP6yrK" in _github_token),
-    reason="GITHUB_PERSONAL_ACCESS_TOKEN env var not set or does not contain sequence in it"
+    not _github_token or len(_github_token) < 20,
+    reason="GITHUB_PERSONAL_ACCESS_TOKEN env var not set or invalid"
 )
 @pytest.mark.skipif(
-    not ("yMTEx" in _slack_bot_token),
-    reason="SLACK_BOT_TOKEN env var not set or does not contain sequence in it"
+    not _slack_bot_token or len(_slack_bot_token) < 20,
+    reason="SLACK_BOT_TOKEN env var not set or invalid"
 )
 class TestE2EIntegration:
     """End-to-end tests with real MCP servers (when available)."""
@@ -91,7 +91,6 @@ class TestE2EIntegration:
         assert result.status == "completed"
         assert result.step_results["health_check"]["success"] is True
 
-    @pytest.mark.asyncio
     async def _slack_token_health_check(self, context, step):
         from clients import SlackMCPClient
         client = context._clients.get('slack') or SlackMCPClient(context.config.config_path)

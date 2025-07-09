@@ -3,6 +3,7 @@ Shared fixtures for GraphMCP tests.
 """
 
 import pytest
+import pytest_asyncio # Import pytest_asyncio
 import json
 import logging
 from clients import GitHubMCPClient, RepomixMCPClient, SlackMCPClient, Context7MCPClient, BrowserMCPClient, FilesystemMCPClient
@@ -67,7 +68,7 @@ def real_config_path(tmp_path_factory):
     config_file.write_text(json.dumps(config, indent=2))
     return str(config_file)
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session") # Changed to pytest_asyncio.fixture
 async def session_client_health_check(real_config_path):
     """Perform health checks on all MCP clients once per test session."""
     logger.info("Performing MCP client health checks...")
@@ -96,7 +97,7 @@ async def session_client_health_check(real_config_path):
     
     yield 
 
-@pytest.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session") # Changed to pytest_asyncio.fixture
 async def github_test_fork(real_config_path):
     """Setup and teardown a GitHub fork for testing."""
     # We're using real_config_path to ensure the environment is set up

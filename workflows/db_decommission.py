@@ -115,9 +115,9 @@ async def generate_workflow_summary(context, step) -> Dict[str, Any]:
 async def validate_environment_step(context, step, database_name: str) -> Dict[str, Any]:
     """Fast environment validation with parallel checks."""
     try:
-        from clients import FilesystemMCPClient, GitHubMCPClient, SlackMCPClient
-        filesystem_client = context._clients.get('filesystem') or FilesystemMCPClient(context.config.config_path)
-        context._clients['filesystem'] = filesystem_client
+        from clients import FilesystemMCPClient, GitHubMCPClient, SlackMCPClient, RepomixMCPClient
+        filesystem_client = context._clients.get('ovr_filesystem') or FilesystemMCPClient(context.config.config_path)
+        context._clients['ovr_filesystem'] = filesystem_client
         
         validation_tasks = [
             validate_windsurf_rules(filesystem_client),
@@ -210,10 +210,10 @@ async def process_file_batches_step(context, step, database_name: str,
         batch_result = context.get_shared_value("file_batches", {})
         batches = batch_result.get("batches", [])
         
-        github_client = context._clients.get('github') or GitHubMCPClient(context.config.config_path)
-        slack_client = context._clients.get('slack') or SlackMCPClient(context.config.config_path)
-        context._clients['github'] = github_client
-        context._clients['slack'] = slack_client
+        github_client = context._clients.get('ovr_github') or GitHubMCPClient(context.config.config_path)
+        slack_client = context._clients.get('ovr_slack') or SlackMCPClient(context.config.config_path)
+        context._clients['ovr_github'] = github_client
+        context._clients['ovr_slack'] = slack_client
         
         processed_files = []
         total_batches = len(batches)
@@ -256,14 +256,14 @@ async def process_repositories_step(context, step, target_repos: List[str],
     try:
         from clients import GitHubMCPClient, SlackMCPClient, RepomixMCPClient
         
-        github_client = context._clients.get('github') or GitHubMCPClient(context.config.config_path)
-        slack_client = context._clients.get('slack') or SlackMCPClient(context.config.config_path)
-        repomix_client = context._clients.get('repomix') or RepomixMCPClient(context.config.config_path)
+        github_client = context._clients.get('ovr_github') or GitHubMCPClient(context.config.config_path)
+        slack_client = context._clients.get('ovr_slack') or SlackMCPClient(context.config.config_path)
+        repomix_client = context._clients.get('ovr_repomix') or RepomixMCPClient(context.config.config_path)
         
         context._clients.update({
-            'github': github_client,
-            'slack': slack_client,
-            'repomix': repomix_client
+            'ovr_github': github_client,
+            'ovr_slack': slack_client,
+            'ovr_repomix': repomix_client
         })
         
         # await slack_client.post_message(
@@ -455,21 +455,21 @@ async def run_optimized_decommission(
     import json
     config = {
         "mcpServers": {
-            "github": {
+            "ovr_github": {
                 "command": "npx",
                 "args": ["@modelcontextprotocol/server-github"],
                 "env": {
                     "GITHUB_PERSONAL_ACCESS_TOKEN": "your-token-here"
                 }
             },
-            "slack": {
+            "ovr_slack": {
                 "command": "npx", 
                 "args": ["@modelcontextprotocol/server-slack"],
                 "env": {
                     "SLACK_BOT_TOKEN": "your-token-here"
                 }
             },
-            "repomix": {
+            "ovr_repomix": {
                 "command": "npx",
                 "args": ["repomix", "--mcp"]
             }

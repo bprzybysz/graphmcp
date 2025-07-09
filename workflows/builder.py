@@ -164,6 +164,14 @@ class Workflow:
 
         status = "completed" if failed_count == 0 else ("partial_success" if completed_count > 0 else "failed")
 
+        # Cleanup: Close all cached MCP clients to prevent memory leaks
+        for client_name, client in context._clients.items():
+            try:
+                await client.close()
+                logger.debug(f"Closed MCP client: {client_name}")
+            except Exception as e:
+                logger.warning(f"Error closing MCP client {client_name}: {e}")
+
         return WorkflowResult(
             status=status,
             duration_seconds=duration,

@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 import subprocess
 import tempfile
 import os
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +57,11 @@ class BaseMCPClient(ABC):
         logger.info(f"Initialized {self.__class__.__name__} for server '{self.server_name}'")
 
     async def _load_config(self) -> Dict[str, Any]:
-        """Load MCP server configuration from config file."""
+        """Load MCP server configuration from config file and .env."""
         if self._config is None:
+            # Load environment variables from .env file first
+            load_dotenv()
+
             if not self.config_path.exists():
                 raise MCPConnectionError(f"MCP config file not found: {self.config_path}")
             
@@ -78,17 +82,28 @@ class BaseMCPClient(ABC):
         config = await self._load_config()
         command = config.get('command')
         args = config.get('args', [])
-        env_vars = config.get('env', {})
         
-        if not command:
-            raise MCPConnectionError(f"No command specified for server '{self.server_name}'")
+        # Environment variables from config.json
+        config_env_vars = config.get('env', {})
+
+        # Merge environment variables with proper substitution: .env has highest precedence, then config.json, then system env
+        env = os.environ.copy() # Start with system environment variables
         
-        # Prepare environment
-        env = os.environ.copy()
-        env.update(env_vars)
+        # Perform variable substitution for config.json environment variables
+        for key, value in config_env_vars.items():
+            if isinstance(value, str) and value.startswith("$"):
+                # Substitute environment variable (remove the $ prefix)
+                env_var_name = value[1:]
+                env[key] = os.getenv(env_var_name, "")
+                logger.debug(f"Substituted env var {key}=${env_var_name} -> {key}={env[key][:4]}...{env[key][-4:] if len(env[key]) > 8 else '***'}")
+            else:
+                env[key] = str(value)
+        
+        # Note: load_dotenv() is called in _load_config and already modifies os.environ,
+        # so values from .env are implicitly included in os.environ.copy() here.
 
         # Log sensitive environment variables with truncation
-        for key, value in env_vars.items():
+        for key, value in env.items(): # Iterate over the final 'env' dictionary
             if "TOKEN" in key.upper() or "PASSWORD" in key.upper(): # Heuristic for sensitive vars
                 log_value = f"{value[:4]}...{value[-4:]}" if len(value) > 8 else "******"
                 logger.debug(f"Sensitive ENV var for '{self.server_name}': {key}={log_value}")
