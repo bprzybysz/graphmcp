@@ -8,6 +8,7 @@ websockets>=10.0
 
 # Data validation and serialization  
 pydantic>=2.0.0
+python-dotenv>=1.0.0 # Added for e2e test environment variable loading
 jsonschema>=4.17.0
 
 # Logging and utilities

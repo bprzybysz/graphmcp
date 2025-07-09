@@ -1,0 +1,65 @@
+{
+  "mcpServers": {
+    "ovr_github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github@2025.4.8"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_PERSONAL_ACCESS_TOKEN"
+      },
+      "disabled": false
+    },
+    "ovr_context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@1.0.14"
+      ],
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": "10000"
+      },
+      "disabled": false
+    },
+    "ovr_filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem@2025.7.1",
+        "workbench"
+      ],
+      "env": {},
+      "disabled": false
+    },
+    "ovr_browser": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search@0.6.2"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "$BRAVE_API_KEY"
+      },
+      "disabled": false
+    },
+    "ovr_slack": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-slack"
+      ],
+      "env": {
+        "SLACK_BOT_TOKEN": "$SLACK_BOT_TOKEN"
+      },
+      "disabled": false
+    },
+    "ovr_repomix": {
+      "command": "npx",
+      "args": [
+        "repomix",
+        "--mcp"
+      ],
+      "disabled": false
+    }
+  }
+}

@@ -33,13 +33,13 @@ class FilesystemMCPClient(BaseMCPClient):
     for future expansion when filesystem operations are needed.
     """
 
-    def __init__(self, config_path: str | Path, server_name: str = "ovr_filesystem"):
+    def __init__(self, config_path: str | Path, server_name: str = "filesystem"):
         """
         Initialize Filesystem MCP client.
         
         Args:
             config_path: Path to MCP configuration file
-            server_name: Name of Filesystem server in config (default: "ovr_filesystem")
+            server_name: Name of Filesystem server in config (default: "filesystem")
         """
         super().__init__(config_path, server_name)
 
@@ -187,6 +187,12 @@ class FilesystemMCPClient(BaseMCPClient):
         except Exception as e:
             logger.error(f"Failed to write file {file_path}: {e}")
             return False
+
+    async def list_available_tools(self) -> list[str]:
+        """
+        List available tools for the Filesystem MCP client.
+        """
+        return ["read_file", "list_directory", "search_files", "write_file"]
 
     # Placeholder methods for future filesystem operations
     
