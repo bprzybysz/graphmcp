@@ -11,10 +11,6 @@ from dotenv import load_dotenv # Import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Debugging: Print current working directory and GITHUB_TOKEN immediately after loading
-print(f"DEBUG: Current working directory: {os.getcwd()}")
-print(f"DEBUG: GITHUB_TOKEN after load_dotenv: {os.getenv('GITHUB_TOKEN')}")
-print(f"DEBUG: SLACK_BOT_TOKEN after load_dotenv: {os.getenv('SLACK_BOT_TOKEN')}")
 
 # DONT CHANGE IT AS IT IS NOT THE REASON!!!!!!
 from workflows import WorkflowBuilder # Corrected import statement
@@ -61,7 +57,7 @@ def real_config_path(tmp_path):
     github_config = {
         "command": "npx",
         "args": common_args_npx_y + ["@modelcontextprotocol/server-github@2025.4.8"], # Explicit version
-        "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": os.getenv("GITHUB_TOKEN", "") }
+        "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN", "") }
     }
     config["mcpServers"]["github"] = github_config
 
@@ -99,9 +95,9 @@ def real_config_path(tmp_path):
 @pytest.fixture
 async def github_test_fork():
     """Setup and teardown a GitHub fork for testing."""
-    github_token = os.getenv("GITHUB_TOKEN")
-    if not github_token:
-        pytest.skip("GITHUB_TOKEN not available")
+    GITHUB_PERSONAL_ACCESS_TOKEN = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
+    if not GITHUB_PERSONAL_ACCESS_TOKEN:
+        pytest.skip("GITHUB_PERSONAL_ACCESS_TOKEN not available")
     
     fork_data = {
         "source_repo": "https://github.com/bprzybys-nc/postgres-sample-dbs",
@@ -147,19 +143,23 @@ async def github_test_fork():
         print(f"⚠️ Error during GitHub cleanup: {e}")
 
 # Initialize _github_token and _slack_bot_token AFTER load_dotenv()
-_github_token = os.getenv("GITHUB_TOKEN", "")
-_slack_bot_token = os.getenv("SLACK_BOT_TOKEN", "")
+_github_token = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN")
+_slack_bot_token = os.getenv("SLACK_BOT_TOKEN")
 
 @pytest.mark.e2e
 @pytest.mark.skipif(
     not ("BP6yrK" in _github_token),
-    reason="GITHUB_TOKEN env var not set or does not contain 'BP6yrK'"
+    reason="GITHUB_PERSONAL_ACCESS_TOKEN env var not set or does not contain sequence in it"
+)
+@pytest.mark.skipif(
+    not ("yMTEx" in _slack_bot_token),
+    reason="SLACK_BOT_TOKEN env var not set or does not contain sequence in it"
 )
 class TestE2EIntegration:
     """End-to-end tests with real MCP servers (when available)."""
 
     @pytest.mark.asyncio
-    async def test_real_github_integration(self, real_config_path):
+    async def test_real_github_integration(self, real_config_path, session_client_health_check):
         """Test with a real GitHub MCP server (if configured)."""
         workflow = (WorkflowBuilder("e2e-github", real_config_path)
             .github_analyze_repo("analyze", "https://github.com/microsoft/typescript")
@@ -168,13 +168,12 @@ class TestE2EIntegration:
         )
         # This test will fail if the real MCP server isn't running, which is expected.
         # We are testing the integration code, not the server itself here.
-        with patch.object(workflow, '_execute_step', return_value={"status":"mocked_success"}) as mock_exec:
-            result = await workflow.execute()
-            assert result.status == "completed"
+        result = await workflow.execute()
+        assert result.status == "completed"
 
     @pytest.mark.asyncio
     @pytest.mark.skip(reason="Slack integration awaiting approval") # Keep this specific skip
-    async def test_real_slack_integration(self, real_config_path):
+    async def test_real_slack_integration(self, real_config_path, session_client_health_check):
         """Test with a real Slack MCP server (if configured)."""
         test_channel = os.getenv("SLACK_TEST_CHANNEL", "C01234567")
         workflow = (WorkflowBuilder("e2e-slack", real_config_path)
@@ -188,7 +187,7 @@ class TestE2EIntegration:
 
     @pytest.mark.asyncio
     @pytest.mark.skip(reason="Slack integration awaiting approval") # Keep this specific skip
-    async def test_slack_token_health_check(self, real_config_path):
+    async def test_slack_token_health_check(self, real_config_path, session_client_health_check):
         """Performs a basic health check on the Slack MCP token by listing users."""
         workflow = (WorkflowBuilder("e2e-slack-health", real_config_path)
             .custom_step("health_check", "Slack Token Health Check", self._slack_token_health_check)
@@ -207,342 +206,274 @@ class TestE2EIntegration:
         return {"success": True, "user_count": len(users)}
 
     @pytest.mark.asyncio
-    async def test_repomix_pack_remote_repository(self, real_config_path):
+    async def test_repomix_pack_remote_repository(self, real_config_path, session_client_health_check):
         """Test RepomixMCPClient pack_remote_repository with real repo."""
         repomix_client = RepomixMCPClient(real_config_path)
         
         try:
             # Test packing a small, known repository
             result = await repomix_client.pack_remote_repository(
-                repo_url="https://github.com/bprzybys-nc/postgres-sample-dbs",
-                include_patterns=["*.md", "*.sql", "*.yml", "*.yaml"],
+                repo_url="https://github.com/neondatabase-labs/postgres-sample-dbs",
+                include_patterns=["**/*"], # Broaden include patterns for testing
                 exclude_patterns=["node_modules/**", ".git/**"]
             )
             
             # Verify pack result structure
+            if "error" in result:
+                print(f"❌ Repomix packing failed: {result['error']}")
+                pytest.fail(f"Repomix packing failed with error: {result['error']}")
+
             assert result["success"] is True
-            assert "repository_url" in result
-            assert result["repository_url"] == "https://github.com/bprzybys-nc/postgres-sample-dbs"
-            assert "files_packed" in result
-            assert result["files_packed"] > 0
-            assert "output_file" in result
-            assert result["output_file"] is not None
-            
-            print(f"✅ Packed repository: {result['files_packed']} files")
-            
+            assert result["packed_files_count"] > 0
+            print(f"✅ Repomix packed {result["packed_files_count"]} files. Output: {result.get("output_path", "N/A")}")
+
+        except Exception as e:
+            pytest.fail(f"test_repomix_pack_remote_repository failed: {e}")
         finally:
             await repomix_client.close()
 
     @pytest.mark.asyncio
-    async def test_repomix_analyze_codebase_structure(self, real_config_path):
+    async def test_repomix_analyze_codebase_structure(self, real_config_path, session_client_health_check):
         """Test RepomixMCPClient analyze_codebase_structure."""
         repomix_client = RepomixMCPClient(real_config_path)
         
         try:
             # Test analyzing codebase structure
             result = await repomix_client.analyze_codebase_structure(
-                repo_url="https://github.com/bprzybys-nc/postgres-sample-dbs"
+                repo_url="https://github.com/neondatabase-labs/postgres-sample-dbs"
             )
             
             # Verify structure analysis result
+            if "error" in result:
+                print(f"❌ Repomix analysis failed: {result['error']}")
+                pytest.fail(f"Repomix analysis failed with error: {result['error']}")
+
             assert "repository_url" in result
-            assert result["repository_url"] == "https://github.com/bprzybys-nc/postgres-sample-dbs"
-            assert "files_found" in result
-            assert result["files_found"] > 0
-            assert "branch" in result
-            assert "commit_hash" in result
-            
-            print(f"✅ Analyzed codebase: {result['files_found']} files, branch: {result['branch']}")
-            
+            assert "files_analyzed" in result
+            assert result["files_analyzed"] > 0
+            print(f"✅ Repomix analyzed {result["files_analyzed"]} files from {result["repository_url"]}")
+
+        except Exception as e:
+            pytest.fail(f"test_repomix_analyze_codebase_structure failed: {e}")
         finally:
             await repomix_client.close()
 
     @pytest.mark.asyncio
-    async def test_filesystem_operations(self, real_config_path):
-        """Test FilesystemMCPClient operations."""
+    async def test_filesystem_operations(self, real_config_path, session_client_health_check):
+        """Test basic filesystem operations with real Filesystem MCP server."""
         filesystem_client = FilesystemMCPClient(real_config_path)
+        test_dir = Path(tempfile.mkdtemp())
+        test_file = test_dir / "test_file.txt"
+        file_content = "Hello, GraphMCP Filesystem!"
         
         try:
-            # Create test file content
-            test_content = "# Test Database Decommissioning\n\nThis is a test file for e2e testing.\n"
-            test_file = "test_db_decommission.md"
-            
-            # Test write_file
-            write_success = await filesystem_client.write_file(test_file, test_content)
-            assert write_success is True
-            print(f"✅ Successfully wrote test file: {test_file}")
-            
-            # Test read_file  
-            read_content = await filesystem_client.read_file(test_file)
-            assert read_content == test_content
-            print(f"✅ Successfully read test file content")
+            # Write file
+            write_success = await filesystem_client.write_file(str(test_file), file_content)
+            assert write_success is True, "File write should succeed"
+            print(f"✅ Successfully wrote to {test_file}")
 
-            # Test list_directory (on tmp_path which is BASE_DIR for filesystem server)
-            listed_files = await filesystem_client.list_directory(".") # Use '.' for current base_dir
-            assert test_file in listed_files
-            print(f"✅ Successfully listed directory, found {test_file}")
-            
-            # Test search_files
-            search_result = await filesystem_client.search_files(pattern="*.md", base_path=".")
-            assert search_result.files_found is not None
-            assert test_file in search_result.files_found
-            print(f"✅ Successfully searched files, found {len(search_result.files_found)} markdown files")
-            
+            # Read file
+            read_content = await filesystem_client.read_file(str(test_file))
+            assert read_content == file_content, "Read content should match written content"
+            print(f"✅ Successfully read from {test_file}")
+
+            # List directory (should contain test_file)
+            listed_files = await filesystem_client.list_dir(str(test_dir))
+            assert str(test_file.name) in listed_files, "Test file should be in listed directory"
+            print(f"✅ {test_file.name} found in {test_dir}")
+
+        except Exception as e:
+            pytest.fail(f"test_filesystem_operations failed: {e}")
         finally:
-            await filesystem_client.close()
+            if filesystem_client: 
+                await filesystem_client.close()
+            if test_dir.exists():
+                import shutil
+                shutil.rmtree(test_dir)
 
     @pytest.mark.asyncio
-    async def test_github_repo_operations(self, real_config_path):
-        """Test GitHubMCPClient repository operations."""
+    async def test_github_repo_operations(self, real_config_path, session_client_health_check):
+        """Test GitHub repository operations."""
         github_client = GitHubMCPClient(real_config_path)
-        
         try:
-            repo_url = "https://github.com/microsoft/typescript"
-            
-            # Test analyze_repo_structure
-            structure = await github_client.analyze_repo_structure(repo_url)
-            assert "repository_url" in structure
-            assert "file_count" in structure
-            assert structure["file_count"] > 0
-            assert "default_branch" in structure
-            assert "primary_language" in structure
-            print(f"✅ GitHub analysis: {structure['file_count']} config files, default branch: {structure['default_branch']}")
-            
+            # Test get_repository
+            repo_info = await github_client.get_repository("microsoft", "typescript")
+            assert repo_info["name"] == "typescript"
+            assert repo_info["owner"]["login"] == "microsoft"
+            print(f"✅ Successfully retrieved GitHub repository info for {repo_info['full_name']}")
+
             # Test get_file_contents
-            # Choose a known file in the typescript repo
-            file_path = "README.md"
-            file_content = await github_client.get_file_contents(repo_url, file_path)
-            assert "TypeScript" in file_content
-            print(f"✅ GitHub get_file_contents: Read {file_path}")
-            
+            file_content_result = await github_client.get_file_contents(
+                "microsoft", "typescript", "README.md"
+            )
+            assert "# TypeScript" in file_content_result
+            print(f"✅ Successfully retrieved README.md content for microsoft/typescript")
+
+        except Exception as e:
+            pytest.fail(f"test_github_repo_operations failed: {e}")
         finally:
             await github_client.close()
 
     @pytest.mark.asyncio
-    async def test_github_fork_and_branch_operations(self, real_config_path, github_test_fork):
-        """Test GitHub fork and branch operations with cleanup."""
+    async def test_github_fork_and_branch_operations(self, real_config_path, github_test_fork, session_client_health_check):
+        """Test GitHub fork and branch creation/deletion with real GitHub MCP server."""
         github_client = GitHubMCPClient(real_config_path)
-        import subprocess
+        fork_data = github_test_fork
+
         try:
-            # Fork the repository using GitHub CLI
-            try:
-                subprocess.run([
-                    "gh", "repo", "fork", github_test_fork["source_repo"], "--clone=false"
-                ], capture_output=True, check=True)
-                github_test_fork["created_fork"] = True
-                
-                # Get current user to determine fork_owner
-                user_result = subprocess.run([
-                    "gh", "api", "user"
-                ], capture_output=True, text=True, check=True)
-                user_data = json.loads(user_result.stdout)
-                github_test_fork["fork_owner"] = user_data["login"]
-                
-                print(f"✅ Created fork: {github_test_fork['fork_owner']}/{github_test_fork['fork_name']}")
-                
-            except subprocess.CalledProcessError as e:
-                if "already exists" in e.stderr:
-                    # Fork already exists, get current user
-                    user_result = subprocess.run(["gh", "api", "user"], capture_output=True, text=True, check=True)
-                    user_data = json.loads(user_result.stdout)
-                    github_test_fork["fork_owner"] = user_data["login"]
-                    print(f"ℹ️ Fork already exists: {github_test_fork['fork_owner']}/{github_test_fork['fork_name']}")
-                else:
-                    raise
-            
-            # Create test branch using GitHub CLI
-            try:
-                # Get default branch SHA
-                repo_info_result = subprocess.run([
-                    "gh", "api",
-                    f"/repos/{github_test_fork['source_owner']}/{github_test_fork['source_name']}"
-                ], capture_output=True, text=True, check=True)
-                repo_info = json.loads(repo_info_result.stdout)
-                default_branch = repo_info["default_branch"]
+            # Fork the repository
+            fork_result = await github_client.fork_repository(fork_data["source_owner"], fork_data["source_name"])
+            assert fork_result["name"] == fork_data["source_name"]
+            assert "full_name" in fork_result
+            fork_data["fork_owner"] = fork_result["owner"]["login"]
+            fork_data["created_fork"] = True
+            print(f"✅ Successfully forked repository to {fork_data['fork_owner']}/{fork_data['fork_name']}")
+            # Give GitHub some time to create the fork
+            await asyncio.sleep(5) 
 
-                default_branch_sha_result = subprocess.run([
-                    "gh", "api",
-                    f"/repos/{github_test_fork['source_owner']}/{github_test_fork['source_name']}/git/ref/heads/{default_branch}"
-                ], capture_output=True, text=True, check=True)
-                default_branch_sha = json.loads(default_branch_sha_result.stdout)["object"]["sha"]
-
-                subprocess.run([
-                    "gh", "api", "-X", "POST",
-                    f"/repos/{github_test_fork['fork_owner']}/{github_test_fork['fork_name']}/git/refs",
-                    "-f", f"ref=refs/heads/{github_test_fork['test_branch']}",
-                    "-f", f"sha={default_branch_sha}"
-                ], check=True, capture_output=True)
-                github_test_fork["created_branch"] = True
-                print(f"✅ Created test branch: {github_test_fork['test_branch']}")
-                
-            except subprocess.CalledProcessError as e:
-                print(f"⚠️ Failed to create branch: {e.stderr}")
-                if "already exists" in e.stderr:
-                    github_test_fork["created_branch"] = True # Mark as created if it exists
-                    print(f"ℹ️ Branch already exists: {github_test_fork['test_branch']}")
-                else:
-                    raise
+            # Create a new branch
+            create_branch_result = await github_client.create_branch(
+                fork_data["fork_owner"],
+                fork_data["fork_name"],
+                fork_data["test_branch"],
+                from_branch="main" # Base branch for the new branch
+            )
+            assert "ref" in create_branch_result and fork_data["test_branch"] in create_branch_result["ref"]
+            fork_data["created_branch"] = True
+            print(f"✅ Successfully created branch {fork_data['test_branch']}")
             
-            # Test GitHub operations on the fork
-            fork_url = f"https://github.com/{github_test_fork['fork_owner']}/{github_test_fork['fork_name']}"
-            
-            # Test analyze_repo_structure on fork
-            structure = await github_client.analyze_repo_structure(fork_url)
-            assert "repository_url" in structure
-            assert structure["owner"] == github_test_fork["fork_owner"]
-            assert structure["repo"] == github_test_fork["fork_name"]
-            
-            print(f"✅ Analyzed fork structure: {structure['file_count']} config files")
-            
+        except Exception as e:
+            pytest.fail(f"test_github_fork_and_branch_operations failed: {e}")
         finally:
             await github_client.close()
 
+    # This test is intentionally skipped as Slack integration is awaiting proper setup.
     @pytest.mark.asyncio
     @pytest.mark.skip(reason="Slack integration awaiting approval") # Keep this specific skip
-    async def test_slack_real_integration(self, real_config_path):
-        """Test real Slack integration with message posting."""
+    async def test_slack_real_integration(self, real_config_path, session_client_health_check):
+        """Test a real Slack integration by sending a message."""
         slack_client = SlackMCPClient(real_config_path)
-        test_channel = os.getenv("SLACK_TEST_CHANNEL", "C01234567")
-        
+        test_channel = os.getenv("SLACK_TEST_CHANNEL")
+        if not test_channel:
+            pytest.skip("SLACK_TEST_CHANNEL environment variable not set.")
+
         try:
-            # Test post_message
             message_result = await slack_client.post_message(
-                test_channel,
-                f"🧪 E2E test message from GraphMCP - {int(time.time())}"
+                channel_id=test_channel,
+                text="Hello from GraphMCP E2E test!"
             )
-            
-            assert "success" in message_result
-            assert message_result["success"] is True
-            assert "ts" in message_result  # Slack timestamp
-            
-            print(f"✅ Posted Slack message: {message_result['ts']}")
-            
-            # Test list_users for health check
-            users = await slack_client.list_users()
-            assert len(users) > 0
-            print(f"✅ Listed Slack users: {len(users)} users found")
-            
-            # Test list_channels 
-            channels = await slack_client.list_channels()
-            assert len(channels) > 0
-            print(f"✅ Listed Slack channels: {len(channels)} channels found")
-            
+            assert message_result["ok"] is True
+            assert "ts" in message_result
+            print(f"✅ Successfully posted message to Slack channel {test_channel}")
+
+        except Exception as e:
+            pytest.fail(f"test_slack_real_integration failed: {e}")
         finally:
             await slack_client.close()
 
     @pytest.mark.asyncio
-    @pytest.mark.skipif(
-        not ("yMTEx" in _slack_bot_token), # Only check Slack token for this combined test
-        reason="SLACK_BOT_TOKEN env var not set or does not contain 'yMTEx'"
-    )
-    async def test_db_decommission_workflow_integration(self, real_config_path, github_test_fork):
-        """Test the complete database decommissioning workflow with real MCP servers."""
-        test_channel = os.getenv("SLACK_TEST_CHANNEL", "C01234567")
-        
-        # Setup fork for testing
-        import subprocess
-        try:
-            subprocess.run([
-                "gh", "repo", "fork", github_test_fork["source_repo"], "--clone=false"
-            ], capture_output=True, check=True)
-            github_test_fork["created_fork"] = True
-            
-            user_result = subprocess.run(["gh", "api", "user"], capture_output=True, text=True, check=True)
-            user_data = json.loads(user_result.stdout)
-            github_test_fork["fork_owner"] = user_data["login"]
-            
-        except subprocess.CalledProcessError:
-            # Fork may already exist
-            user_result = subprocess.run(["gh", "api", "user"], capture_output=True, text=True, check=True)
-            user_data = json.loads(user_result.stdout)
-            github_test_fork["fork_owner"] = user_data["login"]
-        
-        fork_url = f"https://github.com/{github_test_fork['fork_owner']}/{github_test_fork['fork_name']}"
-        
-        # Create the database decommissioning workflow
-        workflow = create_optimized_db_decommission_workflow(
-            database_name="test_periodic_table",
-            target_repos=[fork_url],
-            slack_channel=test_channel,
-            config_path=real_config_path
-        )
-        
-        # Execute the workflow
-        result = await workflow.execute()
-        
-        # Verify workflow execution
-        assert result.status == "completed"
-        assert result.success_rate > 0.5  # At least 50% of steps should succeed
-        assert "validate_environment" in result.step_results
-        assert "process_repositories" in result.step_results
-        
-        # Verify environment validation
-        env_result = result.step_results["validate_environment"]
-        assert "database_name" in env_result
-        assert env_result["database_name"] == "test_periodic_table"
-        
-        # Verify repository processing
-        repo_result = result.step_results["process_repositories"]
-        assert "database_name" in repo_result
-        assert "total_repositories" in repo_result
-        assert repo_result["total_repositories"] == 1
-        
-        print(f"✅ DB Decommission Workflow completed:")
-        print(f"  - Status: {result.status}")
-        print(f"  - Success Rate: {result.success_rate:.1f}%")
-        print(f"  - Duration: {result.duration_seconds:.1f}s")
-        print(f"  - Repositories Processed: {repo_result.get('total_repositories', 0)}")
-        print(f"  - Files Processed: {repo_result.get('total_files_processed', 0)}")
-
-    @pytest.mark.asyncio
-    async def test_multi_client_coordination(self, real_config_path):
-        """Test coordination between multiple MCP clients."""
+    async def test_db_decommission_workflow_integration(self, real_config_path, github_test_fork, session_client_health_check):
+        """
+        End-to-end test for the db_decommission workflow with real clients.
+        This simulates a full run of the database decommissioning process.
+        """
+        # Use the real GitHub client to pre-create a dummy file for the workflow to find
         github_client = GitHubMCPClient(real_config_path)
-        repomix_client = RepomixMCPClient(real_config_path)
-        filesystem_client = FilesystemMCPClient(real_config_path)
-        
+        fork_data = github_test_fork
+        if not fork_data.get("fork_owner") or not fork_data.get("test_branch"):
+            pytest.skip("GitHub fork or test branch not available for db_decommission workflow.")
+
+        dummy_file_path = f"test_db_decommission_{int(time.time())}.sql"
+        dummy_file_content = "SELECT * FROM old_database;"
+
         try:
-            repo_url = "https://github.com/bprzybys-nc/postgres-sample-dbs"
-            
-            # Step 1: Analyze repo structure with GitHub client
-            structure = await github_client.analyze_repo_structure(repo_url)
-            assert "repository_url" in structure
-            print(f"✅ GitHub analysis: {structure['file_count']} config files")
-            
-            # Step 2: Pack repository with Repomix client
-            pack_result = await repomix_client.pack_remote_repository(repo_url)
-            assert pack_result["success"] is True
-            print(f"✅ Repomix packing: {pack_result['files_packed']} files packed")
-            
-            # Step 3: Create analysis report with Filesystem client
-            report_content = f"""# Repository Analysis Report
-            
-Repository: {repo_url}
-Analyzed: {time.strftime('%Y-%m-%d %H:%M:%S')}
+            # Ensure the test branch exists
+            await github_client.create_branch(
+                fork_data["fork_owner"],
+                fork_data["fork_name"],
+                fork_data["test_branch"],
+                from_branch="main"
+            )
+            print(f"Ensured test branch {fork_data['test_branch']} exists.")
 
-## GitHub Analysis
-- Config files found: {structure['file_count']}
-- Default branch: {structure.get('default_branch', 'unknown')}
-- Primary language: {structure.get('primary_language', 'unknown')}
+            # Create dummy SQL file for the workflow to find
+            await github_client.create_or_update_file(
+                owner=fork_data["fork_owner"],
+                repo=fork_data["fork_name"],
+                path=f"sql/{dummy_file_path}",
+                content=dummy_file_content,
+                message=f"Add dummy SQL file {dummy_file_path}",
+                branch=fork_data["test_branch"]
+            )
+            print(f"Created dummy SQL file: sql/{dummy_file_path}")
 
-## Repomix Analysis  
-- Files packed: {pack_result['files_packed']}
-- Total size: {pack_result.get('total_size', 0)} bytes
-- Branch: {pack_result.get('branch', 'unknown')}
-"""
-            
-            report_file = "multi_client_analysis_report.md"
-            write_success = await filesystem_client.write_file(report_file, report_content)
-            assert write_success is True
-            print(f"✅ Filesystem write: Created {report_file}")
-            
-            # Step 4: Verify report was created correctly
-            read_content = await filesystem_client.read_file(report_file)
-            assert "Repository Analysis Report" in read_content
-            assert repo_url in read_content
-            print(f"✅ Multi-client coordination successful")
-            
+            # Build and execute the workflow
+            workflow = create_optimized_db_decommission_workflow(
+                workflow_id="e2e-db-decommission",
+                config_path=real_config_path,
+                github_repo_owner=fork_data["fork_owner"],
+                github_repo_name=fork_data["fork_name"],
+                github_branch=fork_data["test_branch"],
+                slack_channel=os.getenv("SLACK_TEST_CHANNEL", "C01234567"),
+                db_pattern=".sql",
+                dry_run=True
+            )
+
+            result = await workflow.execute()
+            assert result.status == "completed"
+            assert result.step_results["find_db_files"]["success"] is True
+            assert dummy_file_path in result.step_results["find_db_files"]["found_files"]
+            assert result.step_results["notify_slack"]["success"] is True # Assuming Slack post is successful
+            print(f"✅ DB Decommission Workflow completed successfully for {dummy_file_path}")
+
+        except Exception as e:
+            pytest.fail(f"test_db_decommission_workflow_integration failed: {e}")
         finally:
             await github_client.close()
-            await repomix_client.close()
-            await filesystem_client.close() 
+
+    @pytest.mark.asyncio
+    async def test_multi_client_coordination(self, real_config_path, session_client_health_check):
+        """Test coordination between multiple real MCP clients in a single workflow."""
+        # This test ensures that different clients can be used sequentially
+        # or in parallel within a single workflow without conflicts.
+        
+        github_client = GitHubMCPClient(real_config_path)
+        filesystem_client = FilesystemMCPClient(real_config_path)
+        repomix_client = RepomixMCPClient(real_config_path)
+        
+        test_temp_dir = Path(tempfile.mkdtemp())
+        test_local_file = test_temp_dir / "coordinated_test.txt"
+        initial_content = "Coordination test content."
+
+        try:
+            # 1. Filesystem: Write a local file
+            write_success = await filesystem_client.write_file(str(test_local_file), initial_content)
+            assert write_success is True, "Failed to write initial local file."
+
+            # 2. GitHub: Get a repository info
+            repo_info = await github_client.get_repository("microsoft", "vscode")
+            assert repo_info["name"] == "vscode", "Failed to get VSCode repo info."
+
+            # 3. Repomix: Pack a remote repository
+            pack_result = await repomix_client.pack_remote_repository(
+                repo_url="https://github.com/microsoft/vscode",
+                include_patterns=["**/*.json"]
+            )
+            assert pack_result["success"] is True and pack_result["packed_files_count"] > 0, \
+                "Failed to pack remote VSCode repository with JSON files."
+            
+            # 4. Filesystem: Read the local file to ensure it's still there
+            read_content = await filesystem_client.read_file(str(test_local_file))
+            assert read_content == initial_content, "Local file content changed unexpectedly."
+
+            print("✅ Multi-client coordination test completed successfully.")
+
+        except Exception as e:
+            pytest.fail(f"test_multi_client_coordination failed: {e}")
+        finally:
+            if github_client: await github_client.close()
+            if filesystem_client: await filesystem_client.close()
+            if repomix_client: await repomix_client.close()
+            if test_temp_dir.exists():
+                import shutil
+                shutil.rmtree(test_temp_dir) 

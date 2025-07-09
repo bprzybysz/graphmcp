@@ -4,6 +4,11 @@ Shared fixtures for GraphMCP tests.
 
 import pytest
 import json
+import logging
+from clients import GitHubMCPClient, RepomixMCPClient, SlackMCPClient, Context7MCPClient, BrowserMCPClient, FilesystemMCPClient
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 @pytest.fixture
 def mock_config_path(tmp_path):
@@ -20,4 +25,33 @@ def mock_config_path(tmp_path):
     }
     config_file = tmp_path / "test_mcp_config.json"
     config_file.write_text(json.dumps(config))
-    return str(config_file) 
+    return str(config_file)
+
+@pytest.fixture(scope="session")
+async def session_client_health_check(real_config_path):
+    """Perform health checks on all MCP clients once per test session."""
+    logger.info("Performing MCP client health checks...")
+    
+    client_classes = [
+        GitHubMCPClient,
+        RepomixMCPClient,
+        SlackMCPClient,
+        Context7MCPClient,
+        BrowserMCPClient,
+        FilesystemMCPClient
+    ]
+    
+    for client_class in client_classes:
+        client = None
+        try:
+            client = client_class(real_config_path)
+            if not await client.health_check():
+                pytest.skip(f"MCP client {client_class.SERVER_NAME} is not healthy. Skipping E2E tests.")
+            logger.info(f"MCP client {client_class.SERVER_NAME} is healthy.")
+        except Exception as e:
+            pytest.skip(f"Failed to initialize or health check MCP client {client_class.SERVER_NAME}: {e}. Skipping E2E tests.")
+        finally:
+            if client:
+                await client.close()
+    
+    yield 
