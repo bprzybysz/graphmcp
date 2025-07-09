@@ -188,6 +188,18 @@ class FilesystemMCPClient(BaseMCPClient):
             logger.error(f"Failed to write file {file_path}: {e}")
             return False
 
+    async def health_check(self) -> bool:
+        """
+        Perform a health check by listing available Filesystem tools.
+        """
+        try:
+            await self.list_available_tools()
+            logger.debug(f"FilesystemMCPClient ({self.server_name}) health check successful.")
+            return True
+        except Exception as e:
+            logger.warning(f"FilesystemMCPClient ({self.server_name}) health check failed: {e}")
+            return False
+
     async def list_available_tools(self) -> list[str]:
         """
         List available tools for the Filesystem MCP client.

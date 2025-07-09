@@ -48,6 +48,18 @@ class GitHubMCPClient(BaseMCPClient):
                 "create_issue"
             ]
 
+    async def health_check(self) -> bool:
+        """
+        Perform a health check by listing available GitHub tools.
+        """
+        try:
+            await self.list_available_tools()
+            logger.debug(f"GitHubMCPClient ({self.server_name}) health check successful.")
+            return True
+        except Exception as e:
+            logger.warning(f"GitHubMCPClient ({self.server_name}) health check failed: {e}")
+            return False
+
     async def get_repository(self, owner: str, repo: str) -> Dict[str, Any]:
         """
         Get repository information and metadata.

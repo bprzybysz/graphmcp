@@ -266,6 +266,16 @@ class BaseMCPClient(ABC):
             List of available tool names
         """
         pass
+    
+    @abstractmethod
+    async def health_check(self) -> bool:
+        """
+        Perform a health check on the MCP server to verify it's operational.
+        
+        Returns:
+            True if the server is healthy, False otherwise.
+        """
+        pass
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(server='{self.server_name}', config='{self.config_path}')" 

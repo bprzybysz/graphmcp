@@ -114,6 +114,18 @@ class SlackMCPClient(BaseMCPClient):
                 "error": str(e)
             }
 
+    async def health_check(self) -> bool:
+        """
+        Perform a health check by listing available Slack tools.
+        """
+        try:
+            await self.list_available_tools()
+            logger.debug(f"SlackMCPClient ({self.server_name}) health check successful.")
+            return True
+        except Exception as e:
+            logger.warning(f"SlackMCPClient ({self.server_name}) health check failed: {e}")
+            return False
+
     async def list_channels(self, types: str = "public_channel,private_channel",
                            exclude_archived: bool = True,
                            limit: int = 1000) -> List[Dict[str, Any]]:

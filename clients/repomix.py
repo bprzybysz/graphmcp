@@ -96,6 +96,18 @@ class RepomixMCPClient(BaseMCPClient):
                 "error": str(e)
             }
 
+    async def health_check(self) -> bool:
+        """
+        Perform a health check by listing available Repomix tools.
+        """
+        try:
+            await self.list_available_tools()
+            logger.debug(f"RepomixMCPClient ({self.server_name}) health check successful.")
+            return True
+        except Exception as e:
+            logger.warning(f"RepomixMCPClient ({self.server_name}) health check failed: {e}")
+            return False
+
     async def pack_remote_repository(self, repo_url: str, output_file: str = None,
                                    include_patterns: List[str] = None,
                                    exclude_patterns: List[str] = None,
