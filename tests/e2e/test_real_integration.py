@@ -4,7 +4,7 @@ import asyncio
 from unittest.mock import patch
 import json
 
-from graphmcp.workflows import WorkflowBuilder # Corrected import statement
+from workflows import WorkflowBuilder # Corrected import statement
 
 # --- Placeholder Helper Functions ---
 async def validate_github_results(context, step):
