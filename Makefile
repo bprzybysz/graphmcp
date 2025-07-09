@@ -15,7 +15,7 @@ PYTHON_VERSION := 3.11
 UV_VERSION := 0.4.29
 PROJECT_NAME := graphmcp
 VENV_PATH := .venv
-SRC_PATH := graphmcp
+SRC_PATH := .
 TEST_PATH := tests
 
 # Colors for output
@@ -139,7 +139,7 @@ format: check-deps ## Format code with black and ruff
 graphmcp-test-unit: check-deps ## Run comprehensive unit tests for GraphMCP framework
 	@echo "$(YELLOW)Running GraphMCP unit tests...$(NC)"
 	@if [ -f "$(TEST_PATH)/unit/test_builder_and_serialization.py" ]; then \
-		$(VENV_PATH)/bin/pytest $(TEST_PATH)/unit/ \
+		PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/unit/ \
 			--verbose \
 			--cov=$(SRC_PATH) \
 			--cov-report=term-missing \
@@ -156,7 +156,7 @@ graphmcp-test-unit: check-deps ## Run comprehensive unit tests for GraphMCP fram
 graphmcp-test-integration: check-deps ## Run integration tests with mocked MCP servers
 	@echo "$(YELLOW)Running GraphMCP integration tests...$(NC)"
 	@if [ -f "$(TEST_PATH)/integration/test_workflow_execution.py" ]; then \
-		$(VENV_PATH)/bin/pytest $(TEST_PATH)/integration/ \
+		PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/integration/ \
 			--verbose \
 			--cov=$(SRC_PATH) \
 			--cov-report=term-missing \
