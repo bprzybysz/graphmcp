@@ -287,28 +287,23 @@ class WorkflowBuilder:
         self._steps.append(step)
         return self
 
-    def slack_post(self, step_id: str, channel_id: str, text_or_fn: Union[str, Callable], 
-                  parameters: Dict = None, **kwargs) -> WorkflowBuilder:
+    def slack_post(self, step_id: str, channel_id: str, text: str, parameters: Dict = None, **kwargs) -> WorkflowBuilder:
         """Add a Slack message posting step."""
-        # Remove the async def step_func
-
         step_params = {
             "channel_id": channel_id,
-            "text_or_fn": text_or_fn
+            "text": text
         }
         if parameters:
             step_params.update(parameters)
 
         step = WorkflowStep(
             id=step_id,
-            name=f"Post to Slack: {channel_id}",
+            name=f"Slack Post: {channel_id}",
             step_type=StepType.SLACK,
-            server_name="slack", # Set server_name
-            tool_name="post_message", # Set tool_name
+            server_name="slack",
+            tool_name="slack_post_message", # Corrected tool name
             parameters=step_params,
-            depends_on=kwargs.get('depends_on', []),
-            timeout_seconds=kwargs.get('timeout_seconds', self._config.default_timeout),
-            retry_count=kwargs.get('retry_count', self._config.default_retry_count)
+            **kwargs
         )
         self._steps.append(step)
         return self
