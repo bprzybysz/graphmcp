@@ -62,6 +62,16 @@ class BaseMCPClient(ABC):
             # Load environment variables from .env file first
             load_dotenv()
 
+            # Overwrite with secrets.json if it exists
+            secrets_path = Path("secrets.json")
+            if secrets_path.exists():
+                logger.info("Found secrets.json, loading secrets...")
+                with open(secrets_path, 'r') as f:
+                    secrets = json.load(f)
+                for key, value in secrets.items():
+                    os.environ[key] = str(value)
+                    logger.debug(f"Loaded secret: {key}")
+
             if not self.config_path.exists():
                 raise MCPConnectionError(f"MCP config file not found: {self.config_path}")
             
