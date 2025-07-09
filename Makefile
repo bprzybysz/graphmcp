@@ -480,4 +480,49 @@ quick-test: check-deps ## Run quick tests (unit only)
 	@echo "$(GREEN)✓ Quick tests completed$(NC)" 
 
 test-e2e:
-	.venv/bin/python -m pytest tests/e2e/test_real_integration.py -m e2e -v 
+	.venv/bin/python -m pytest tests/e2e/test_real_integration.py -m e2e -v
+
+# =============================================================================
+# PREVIEW-MCP INTEGRATION
+# =============================================================================
+
+preview-mcp-server: check-deps ## Start standalone Preview MCP Server
+	@echo "$(YELLOW)Starting Preview MCP Server...$(NC)"
+	@echo "$(CYAN)Mode: Standalone stdio server for workflow streaming$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python -m clients.preview_mcp
+	@echo "$(GREEN)✓ Preview MCP Server started$(NC)"
+
+preview-streamlit: check-deps ## Start Streamlit UI for workflow visualization
+	@echo "$(YELLOW)Starting Preview Streamlit UI...$(NC)"
+	@echo "$(CYAN)Open http://localhost:8501 in your browser$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/streamlit run concrete/preview_ui/streamlit_app.py \
+		--server.port 8501 \
+		--server.address 0.0.0.0
+	@echo "$(GREEN)✓ Streamlit UI started$(NC)"
+
+preview-demo: check-deps ## Run complete preview demo (MCP server + Streamlit UI)
+	@echo "$(YELLOW)Starting GraphMCP Preview Demo...$(NC)"
+	@echo "$(CYAN)This will start MCP server and Streamlit UI$(NC)"
+	@chmod +x concrete/demo.sh
+	@./concrete/demo.sh
+
+preview-test: check-deps ## Test preview-mcp client integration
+	@echo "$(YELLOW)Testing Preview MCP Client...$(NC)"
+	@if [ -f "$(TEST_PATH)/unit/test_preview_mcp_client.py" ]; then \
+		PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/unit/test_preview_mcp_client.py \
+			--verbose \
+			--tb=short; \
+		echo "$(GREEN)✓ Preview MCP tests completed$(NC)"; \
+	else \
+		echo "$(BLUE)ℹ Creating basic preview-mcp test...$(NC)"; \
+		echo "$(CYAN)  Testing client initialization and tool listing$(NC)"; \
+		PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
+import asyncio; \
+from clients.preview_mcp import PreviewMCPClient; \
+async def test(): \
+	client = PreviewMCPClient('mcp_config.json'); \
+	tools = await client.list_available_tools(); \
+	print(f'Available tools: {tools}'); \
+	print('✓ Preview MCP client basic test passed'); \
+asyncio.run(test())" || echo "$(YELLOW)⚠ Preview MCP client needs configuration$(NC)"; \
+	fi 

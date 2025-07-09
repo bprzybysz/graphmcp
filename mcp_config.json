@@ -24,6 +24,16 @@
         "repomix",
         "--mcp"
       ]
+    },
+    "preview-mcp": {
+      "command": "python",
+      "args": [
+        "-m", "clients.preview_mcp.server"
+      ],
+      "env": {
+        "PYTHONPATH": ".",
+        "LOG_LEVEL": "INFO"
+      }
     }
   }
 }
