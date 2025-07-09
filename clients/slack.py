@@ -21,16 +21,16 @@ class SlackMCPClient(BaseMCPClient):
     Provides tools for posting messages, managing channels,
     reactions, and other Slack workspace interactions.
     """
+    SERVER_NAME = "slack"
     
-    def __init__(self, config_path: str | Path, server_name: str = "slack"):
+    def __init__(self, config_path: str | Path):
         """
         Initialize Slack MCP client.
         
         Args:
             config_path: Path to MCP configuration file
-            server_name: Name of Slack server in config (default: "slack")
         """
-        super().__init__(config_path, server_name)
+        super().__init__(config_path)
 
     async def list_available_tools(self) -> List[str]:
         """List available Slack MCP tools."""

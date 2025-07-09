@@ -21,16 +21,16 @@ class RepomixMCPClient(BaseMCPClient):
     Repomix packages repositories into optimized single files
     for efficient AI analysis and processing.
     """
+    SERVER_NAME = "repomix"
     
-    def __init__(self, config_path: str | Path, server_name: str = "repomix"):
+    def __init__(self, config_path: str | Path):
         """
         Initialize Repomix MCP client.
         
         Args:
             config_path: Path to MCP configuration file
-            server_name: Name of Repomix server in config (default: "repomix")
         """
-        super().__init__(config_path, server_name)
+        super().__init__(config_path)
 
     async def list_available_tools(self) -> List[str]:
         """List available Repomix MCP tools."""

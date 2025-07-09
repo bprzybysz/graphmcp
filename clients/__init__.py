@@ -12,12 +12,14 @@ from .filesystem import FilesystemMCPClient
 # even if they are not used in the final workflow.
 
 class Context7MCPClient(BaseMCPClient):
-    def __init__(self, config_path, server_name="context7"):
-        super().__init__(config_path, server_name)
+    SERVER_NAME = "context7"
+    def __init__(self, config_path):
+        super().__init__(config_path)
 
 class BrowserMCPClient(BaseMCPClient):
-     def __init__(self, config_path, server_name="browser"):
-        super().__init__(config_path, server_name)
+    SERVER_NAME = "browser"
+    def __init__(self, config_path):
+        super().__init__(config_path)
 
 
 __all__ = [

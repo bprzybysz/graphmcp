@@ -20,16 +20,16 @@ class GitHubMCPClient(BaseMCPClient):
     Provides tools for repository analysis, file management,
     pull request creation, and code search.
     """
+    SERVER_NAME = "github"
     
-    def __init__(self, config_path: str | Path, server_name: str = "github"):
+    def __init__(self, config_path: str | Path):
         """
         Initialize GitHub MCP client.
         
         Args:
             config_path: Path to MCP configuration file
-            server_name: Name of GitHub server in config (default: "github")
         """
-        super().__init__(config_path, server_name)
+        super().__init__(config_path)
 
     async def list_available_tools(self) -> List[str]:
         """List available GitHub MCP tools."""

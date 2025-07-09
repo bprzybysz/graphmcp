@@ -32,16 +32,16 @@ class FilesystemMCPClient(BaseMCPClient):
     used in the current db_decommission_workflow. This provides structure
     for future expansion when filesystem operations are needed.
     """
+    SERVER_NAME = "filesystem"
 
-    def __init__(self, config_path: str | Path, server_name: str = "filesystem"):
+    def __init__(self, config_path: str | Path):
         """
         Initialize Filesystem MCP client.
         
         Args:
             config_path: Path to MCP configuration file
-            server_name: Name of Filesystem server in config (default: "filesystem")
         """
-        super().__init__(config_path, server_name)
+        super().__init__(config_path)
 
     async def read_file(self, file_path: str) -> str:
         """

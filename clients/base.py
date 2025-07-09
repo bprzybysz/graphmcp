@@ -32,22 +32,28 @@ class BaseMCPClient(ABC):
     This class handles the low-level communication with MCP servers via stdio,
     session management, and error handling.
     """
-    
-    def __init__(self, config_path: str | Path, server_name: str):
+    SERVER_NAME: str = None # Subclasses must override this
+
+    def __init__(self, config_path: str | Path):
         """
-        Initialize MCP client for a specific server.
+        Initialize MCP client. The server_name is determined by the class's SERVER_NAME attribute.
         
         Args:
             config_path: Path to MCP configuration file
-            server_name: Name of the MCP server in the configuration
         """
+        if self.SERVER_NAME is None:
+            raise NotImplementedError(
+                f"Subclasses of BaseMCPClient must define a SERVER_NAME class attribute. "
+                f"For client {self.__class__.__name__}, SERVER_NAME is not set."
+            )
+
         self.config_path = Path(config_path)
-        self.server_name = server_name
+        self.server_name = self.SERVER_NAME # Get from class attribute
         self._config = None
         self._process = None
         self._session_id = None
         
-        logger.info(f"Initialized {self.__class__.__name__} for server '{server_name}'")
+        logger.info(f"Initialized {self.__class__.__name__} for server '{self.server_name}'")
 
     async def _load_config(self) -> Dict[str, Any]:
         """Load MCP server configuration from config file."""
