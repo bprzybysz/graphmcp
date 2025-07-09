@@ -51,22 +51,29 @@ class Context7MCPClient(BaseMCPClient):
         Resolve a library ID based on its name.
         """
         try:
-            result = await self._send_mcp_request("tools/resolve-library-id", {"library_name": library_name})
+            result = await self.call_tool_with_retry("resolve-library-id", {"libraryName": library_name})
             return result
         except Exception as e:
             logger.warning(f"Failed to resolve library ID for {library_name}: {e}")
-            return {}
+            return {"error": str(e)}
 
-    async def get_library_docs(self, library_id: str) -> Dict[str, Any]:
+    async def get_library_docs(self, library_id: str, topic: str = None, tokens: int = 10000) -> Dict[str, Any]:
         """
         Get documentation for a specific library.
         """
         try:
-            result = await self._send_mcp_request("tools/get-library-docs", {"library_id": library_id})
+            params = {
+                "context7CompatibleLibraryID": library_id,
+                "tokens": tokens
+            }
+            if topic:
+                params["topic"] = topic
+                
+            result = await self.call_tool_with_retry("get-library-docs", params)
             return result
         except Exception as e:
             logger.warning(f"Failed to get library docs for {library_id}: {e}")
-            return {}
+            return {"error": str(e)}
 
 class BrowserMCPClient(BaseMCPClient):
     SERVER_NAME = "ovr_browser"

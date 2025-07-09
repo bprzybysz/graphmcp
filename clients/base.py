@@ -77,8 +77,8 @@ class BaseMCPClient(ABC):
         
         return self._config
 
-    async def _start_server_process(self) -> subprocess.Popen:
-        """Start the MCP server process."""
+    async def _start_server_process(self) -> asyncio.subprocess.Process:
+        """Start the MCP server process using asyncio subprocess."""
         config = await self._load_config()
         command = config.get('command')
         args = config.get('args', [])
@@ -115,22 +115,21 @@ class BaseMCPClient(ABC):
         logger.debug(f"Starting MCP server: {' '.join(full_command)}")
         
         try:
-            process = subprocess.Popen(
-                full_command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                env=env,
-                text=True,
-                bufsize=0
+            process = await asyncio.create_subprocess_exec(
+                *full_command,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env
             )
             
             # Wait a moment for server to initialize
             await asyncio.sleep(0.1)
             
-            if process.poll() is not None:
-                stderr = process.stderr.read() if process.stderr else "No error output"
-                logger.error(f"MCP server failed to start: {stderr}") # Changed to logger.error
+            if process.returncode is not None:
+                stderr_data = await process.stderr.read()
+                stderr = stderr_data.decode() if stderr_data else "No error output"
+                logger.error(f"MCP server failed to start: {stderr}")
                 raise MCPConnectionError(f"MCP server failed to start: {stderr}")
             
             self._process = process
@@ -141,7 +140,7 @@ class BaseMCPClient(ABC):
             raise MCPConnectionError(f"Failed to start MCP server '{self.server_name}': {e}")
 
     async def _send_mcp_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Send JSON-RPC request to MCP server."""
+        """Send JSON-RPC request to MCP server using async I/O."""
         if not self._process:
             await self._start_server_process()
         
@@ -158,19 +157,28 @@ class BaseMCPClient(ABC):
         logger.debug(f"Sending MCP request: method={method}, params={json.dumps(params)}")
         
         try:
-            # Send request
+            # Send request using async write
             request_json = json.dumps(request) + '\n'
-            self._process.stdin.write(request_json)
-            self._process.stdin.flush()
+            self._process.stdin.write(request_json.encode())
+            await self._process.stdin.drain()
             
-            # Read response
-            response_line = self._process.stdout.readline()
+            # Read response using async readline with timeout
+            try:
+                response_line = await asyncio.wait_for(
+                    self._process.stdout.readline(),
+                    timeout=30.0  # 30 second timeout
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"MCP server '{self.server_name}' response timeout")
+                raise MCPConnectionError(f"MCP server '{self.server_name}' response timeout")
+            
             if not response_line:
-                stderr_output = self._process.stderr.read() if self._process.stderr else "No stderr output"
+                stderr_data = await self._process.stderr.read()
+                stderr_output = stderr_data.decode() if stderr_data else "No stderr output"
                 logger.error(f"No response from MCP server. Stderr: {stderr_output}")
                 raise MCPConnectionError(f"No response from MCP server. Stderr: {stderr_output}")
             
-            response = json.loads(response_line.strip())
+            response = json.loads(response_line.decode().strip())
             
             # Log incoming response, truncate if large
             response_str = json.dumps(response)
@@ -184,25 +192,28 @@ class BaseMCPClient(ABC):
                 # Read any remaining stderr output for more context on the error
                 stderr_output = ""
                 if self._process.stderr:
-                    stderr_output = self._process.stderr.read()
+                    stderr_data = await self._process.stderr.read()
+                    stderr_output = stderr_data.decode() if stderr_data else ""
 
                 error_message = error.get('message', 'Unknown error')
                 if stderr_output:
                     error_message += f"\nServer Stderr: {stderr_output}"
 
-                logger.error(f"MCP tool error: {error_message}") # Log the error message
+                logger.error(f"MCP tool error: {error_message}")
                 raise MCPToolError(f"MCP tool error: {error_message}")
             
             return response.get('result', {})
             
         except json.JSONDecodeError as e:
             # Read any remaining stderr output for more context on the error
-            stderr_output = self._process.stderr.read() if self._process.stderr else "No stderr output"
+            stderr_data = await self._process.stderr.read()
+            stderr_output = stderr_data.decode() if stderr_data else "No stderr output"
             logger.error(f"Invalid JSON response from MCP server: {e}. Stderr: {stderr_output}")
             raise MCPConnectionError(f"Invalid JSON response from MCP server: {e}. Stderr: {stderr_output}")
         except Exception as e:
             # Read any remaining stderr output for more context on the error
-            stderr_output = self._process.stderr.read() if self._process.stderr else "No stderr output"
+            stderr_data = await self._process.stderr.read()
+            stderr_output = stderr_data.decode() if stderr_data else "No stderr output"
             logger.error(f"MCP communication error: {e}. Stderr: {stderr_output}")
             raise MCPConnectionError(f"MCP communication error: {e}. Stderr: {stderr_output}")
 
@@ -255,9 +266,11 @@ class BaseMCPClient(ABC):
         if self._process:
             try:
                 self._process.terminate()
-                await asyncio.sleep(0.1)
-                if self._process.poll() is None:
+                try:
+                    await asyncio.wait_for(self._process.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
                     self._process.kill()
+                    await self._process.wait()
                 logger.info(f"MCP server '{self.server_name}' closed")
             except Exception as e:
                 logger.warning(f"Error closing MCP server: {e}")

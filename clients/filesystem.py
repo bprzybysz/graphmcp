@@ -58,15 +58,20 @@ class FilesystemMCPClient(BaseMCPClient):
         try:
             result = await self.call_tool_with_retry("read_file", params)
             
-            # Extract content (pattern may vary by filesystem server implementation)
-            if result and hasattr(result, 'content'):
-                content = str(result.content)
-                ensure_serializable(content)
-                logger.debug(f"Read file {file_path}: {len(content)} characters")
-                return content
-            else:
-                logger.warning(f"No content returned for file: {file_path}")
-                return ""
+            # Extract content based on actual filesystem server response format
+            # Response format: {'content': [{'type': 'text', 'text': '...'}]}
+            if result and isinstance(result, dict) and 'content' in result:
+                content_items = result.get('content', [])
+                if content_items and len(content_items) > 0:
+                    first_item = content_items[0]
+                    if isinstance(first_item, dict) and 'text' in first_item:
+                        content = str(first_item['text'])
+                        ensure_serializable(content)
+                        logger.debug(f"Read file {file_path}: {len(content)} characters")
+                        return content
+            
+            logger.warning(f"No content returned for file: {file_path}")
+            return ""
                 
         except Exception as e:
             logger.error(f"Failed to read file {file_path}: {e}")
@@ -87,15 +92,29 @@ class FilesystemMCPClient(BaseMCPClient):
         try:
             result = await self.call_tool_with_retry("list_directory", params)
             
-            # Extract directory listing (pattern may vary by filesystem server implementation)
-            if result and hasattr(result, 'files'):
-                files = list(result.files) if result.files else []
-                ensure_serializable(files)
-                logger.debug(f"Listed directory {dir_path}: {len(files)} items")
-                return files
-            else:
-                logger.warning(f"No directory listing returned for: {dir_path}")
-                return []
+            # Extract directory listing based on actual filesystem server response format
+            # Response format: {'content': [{'type': 'text', 'text': '[FILE] name1\n[DIR] name2\n...'}]}
+            if result and isinstance(result, dict) and 'content' in result:
+                content_items = result.get('content', [])
+                if content_items and len(content_items) > 0:
+                    first_item = content_items[0]
+                    if isinstance(first_item, dict) and 'text' in first_item:
+                        text_content = first_item['text']
+                        # Parse the directory listing format: [FILE] name or [DIR] name
+                        files = []
+                        for line in text_content.split('\n'):
+                            line = line.strip()
+                            if line.startswith('[FILE]') or line.startswith('[DIR]'):
+                                # Extract the name after [FILE] or [DIR]
+                                name = line.split('] ', 1)[1] if '] ' in line else line
+                                files.append(name)
+                        
+                        ensure_serializable(files)
+                        logger.debug(f"Listed directory {dir_path}: {len(files)} items")
+                        return files
+            
+            logger.warning(f"No directory listing returned for: {dir_path}")
+            return []
                 
         except Exception as e:
             logger.error(f"Failed to list directory {dir_path}: {e}")
@@ -174,8 +193,16 @@ class FilesystemMCPClient(BaseMCPClient):
         try:
             result = await self.call_tool_with_retry("write_file", params)
             
-            # Check if write was successful (pattern may vary by filesystem server implementation)
-            success = result and (hasattr(result, 'success') and result.success)
+            # Check if write was successful based on actual filesystem server response format
+            # Response format: {'content': [{'type': 'text', 'text': 'Successfully wrote to ...'}]}
+            success = False
+            if result and isinstance(result, dict) and 'content' in result:
+                content_items = result.get('content', [])
+                if content_items and len(content_items) > 0:
+                    first_item = content_items[0]
+                    if isinstance(first_item, dict) and 'text' in first_item:
+                        response_text = first_item['text']
+                        success = 'successfully wrote' in response_text.lower()
             
             if success:
                 logger.debug(f"Successfully wrote file: {file_path}")

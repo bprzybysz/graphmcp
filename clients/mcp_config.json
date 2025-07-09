@@ -28,13 +28,15 @@
       },
       "ovr_filesystem": {
         "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-filesystem@2025.7.1", "workbench"],
+        "args": ["-y", "@modelcontextprotocol/server-filesystem@2025.7.1", "."],
         "env": {}
       },
       "ovr_browser": {
         "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
-        "env": {}
+        "args": ["-y", "@modelcontextprotocol/server-brave-search@0.6.2"],
+        "env": {
+          "BRAVE_API_KEY": "$BRAVE_API_KEY"
+        }
       }
     }
-  } 
+} 
