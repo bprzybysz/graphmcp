@@ -1,16 +1,43 @@
 # GraphMCP Quick Reference
 
 > **⚡ Fast reference for GraphMCP patterns, APIs, and troubleshooting**
+> **🎉 NEW: Complete Pull Request Creation & Database Decommission Workflow**
 
 ## Client Types & Use Cases
 
 | Client Type | Best For | Returns | Example |
 |-------------|----------|---------|---------|
 | `MultiServerMCPClient` | Legacy migration, multi-server ops | String results | `await client.call_github_tools(repo_url)` |
-| `GitHubMCPClient` | GitHub operations, repo analysis | Structured data | `await github.analyze_repository(repo_url)` |
+| `GitHubMCPClient` | **GitHub workflows, fork/branch/PR** | Structured data | `await github.fork_repository("owner", "repo")` |
 | `Context7MCPClient` | Documentation search | Structured data | `await context7.get_library_docs(lib_id)` |
 | `FilesystemMCPClient` | File operations | Structured data | `await fs.search_files("*.py", "/src")` |
 | `BrowserMCPClient` | Web automation | String/basic data | `await browser.navigate_to_url(url)` |
+
+## 🚀 NEW: GitHub Workflow Operations
+
+| Operation | Method | Returns | Example |
+|-----------|--------|---------|---------|
+| **Fork Repository** | `fork_repository(owner, repo, org=None)` | Fork details | `await github.fork_repository("microsoft", "typescript")` |
+| **Create Branch** | `create_branch(owner, repo, branch, from_branch=None)` | Branch details | `await github.create_branch(owner, repo, "feature-branch")` |
+| **Create Pull Request** | `create_pull_request(owner, repo, title, head, base, body)` | PR details | `await github.create_pull_request(...)` |
+| **Repository Info** | `get_repository(owner, repo)` | Repo metadata | `await github.get_repository("owner", "repo")` |
+
+## 📊 Database Decommission Workflow
+
+```python
+from concrete.db_decommission import create_optimized_db_decommission_workflow
+
+# Complete automated workflow: Fork → Branch → Process → PR
+workflow = create_optimized_db_decommission_workflow(
+    database_name="user_sessions",
+    target_repos=["https://github.com/company/service-a"],
+    slack_channel="C01234567",
+    config_path="clients/mcp_config.json"
+)
+
+result = await workflow.execute()
+# Returns: WorkflowResult with success_rate, duration, step_results
+```
 
 ## Common Import Patterns
 
@@ -77,10 +104,23 @@ servers = client.list_servers()
 ### Specialized Clients
 
 ```python
-# GitHub
+# GitHub - Complete Workflow Operations
 github = GitHubMCPClient("config.json")
+
+# Repository operations
 analysis = await github.analyze_repository(repo_url)  # -> GitHubSearchResult
 tech_stack = await github.extract_tech_stack(repo_url)  # -> List[str]
+repo_info = await github.get_repository("owner", "repo")  # -> dict
+
+# Fork & Branch operations  
+fork_result = await github.fork_repository("owner", "repo")  # -> dict
+branch_result = await github.create_branch("owner", "repo", "feature-branch")  # -> dict
+
+# Pull Request operations
+pr_result = await github.create_pull_request(
+    owner="owner", repo="repo", title="Feature", 
+    head="fork-owner:feature-branch", base="main", body="Description"
+)  # -> dict
 
 # Context7
 context7 = Context7MCPClient("config.json")
@@ -190,6 +230,112 @@ async def analysis_node(state: State) -> State:
     }
 ```
 
+## GitHub Workflow Patterns
+
+### Pattern: Complete Fork → Branch → PR Flow
+
+```python
+async def automated_pr_workflow(source_owner: str, source_repo: str, changes_description: str):
+    github = GitHubMCPClient("config.json")
+    
+    # 1. Fork repository
+    fork_result = await github.fork_repository(source_owner, source_repo)
+    if not fork_result["success"]:
+        return {"error": f"Fork failed: {fork_result['error']}"}
+    
+    fork_owner = fork_result["owner"]["login"]
+    fork_name = fork_result["name"]
+    
+    # 2. Create feature branch
+    branch_name = f"automated-changes-{int(time.time())}"
+    branch_result = await github.create_branch(fork_owner, fork_name, branch_name)
+    if not branch_result["success"]:
+        return {"error": f"Branch creation failed: {branch_result['error']}"}
+    
+    # 3. (Make your file changes here using filesystem/file upload operations)
+    
+    # 4. Create pull request
+    pr_result = await github.create_pull_request(
+        owner=source_owner,
+        repo=source_repo,
+        title=f"Automated: {changes_description}",
+        head=f"{fork_owner}:{branch_name}",
+        base="main",
+        body=f"Automated changes: {changes_description}\\n\\nGenerated via GraphMCP framework"
+    )
+    
+    return {
+        "success": pr_result.get("success", False),
+        "pr_url": pr_result.get("html_url"),
+        "pr_number": pr_result.get("number")
+    }
+```
+
+### Pattern: Database Decommission Workflow
+
+```python
+from concrete.db_decommission import create_optimized_db_decommission_workflow
+
+async def decommission_database_across_repos():
+    """Production-ready database decommissioning with PR creation."""
+    
+    workflow = create_optimized_db_decommission_workflow(
+        database_name="legacy_user_sessions",
+        target_repos=[
+            "https://github.com/company/user-service",
+            "https://github.com/company/auth-service", 
+            "https://github.com/company/shared-configs"
+        ],
+        slack_channel="C01234567",  # Optional
+        config_path="clients/mcp_config.json"
+    )
+    
+    result = await workflow.execute()
+    
+    # Check results
+    print(f"✅ Status: {result.status}")
+    print(f"📊 Success Rate: {result.success_rate:.1f}%")
+    print(f"⏱️ Duration: {result.duration_seconds:.1f}s")
+    
+    # Extract PR information
+    for step_name, step_result in result.step_results.items():
+        if step_name == 'create_pull_request' and step_result.get('success'):
+            pr_info = step_result.get('pull_request', {})
+            print(f"🔄 Created PR #{pr_info.get('number')}: {pr_info.get('html_url')}")
+    
+    return result
+```
+
+### Pattern: Error Handling for GitHub Operations
+
+```python
+async def robust_github_operation():
+    github = GitHubMCPClient("config.json")
+    
+    try:
+        # Test connectivity first
+        tools = await github.list_available_tools()
+        if not tools:
+            raise Exception("GitHub MCP server not available")
+        
+        # Perform operations with proper error checking
+        fork_result = await github.fork_repository("owner", "repo")
+        
+        if not fork_result.get("success", False):
+            error_msg = fork_result.get("error", "Unknown fork error")
+            if "already exists" in error_msg.lower():
+                print("⚠️ Repository already forked, continuing...")
+                # Handle existing fork scenario
+            else:
+                raise Exception(f"Fork failed: {error_msg}")
+        
+        return fork_result
+        
+    except Exception as e:
+        print(f"❌ GitHub operation failed: {e}")
+        return {"success": False, "error": str(e)}
+```
+
 ## Performance Tips
 
 | Tip | Impact | Implementation |
@@ -198,6 +344,8 @@ async def analysis_node(state: State) -> State:
 | **Parallel requests** | High | `await asyncio.gather(*tasks)` |
 | **Cache expensive calls** | Medium | Store results with TTL |
 | **Lazy client creation** | Medium | Create clients only when needed |
+| **Check fork before creating** | Medium | Avoid duplicate fork operations |
+| **Batch repository operations** | High | Process multiple repos in parallel |
 | **Monitor session count** | Medium | Use logging to track sessions |
 
 ## Debugging Checklist
