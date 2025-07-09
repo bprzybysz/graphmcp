@@ -2,6 +2,7 @@ import pytest
 import os
 import asyncio
 from unittest.mock import patch
+import json
 
 from workflows import WorkflowBuilder
 
@@ -13,9 +14,10 @@ async def validate_github_results(context, step):
     return {"validation": "passed"}
 
 async def verify_slack_post(context, step):
-    slack_result = context.get_step_result("notify")
+    slack_result = context.get_shared_value("notify")
+    print(f"DEBUG: Slack Post Result: {slack_result}") # Added debug print
     assert slack_result["success"] is True
-    assert "message_ts" in slack_result
+    assert "ts" in slack_result # Changed from message_ts to ts as per Slack API response
     return {"verification": "passed"}
 
 @pytest.fixture
@@ -37,7 +39,7 @@ def real_config_path(tmp_path):
       }
     }
     config_file = tmp_path / "real_config.json"
-    config_file.write_text(str(config))
+    config_file.write_text(json.dumps(config, indent=2))
     return str(config_file)
 
 
@@ -69,6 +71,25 @@ class TestE2EIntegration:
             .custom_step("verify", "Verify Slack Post", verify_slack_post, depends_on=["notify"])
             .build()
         )
-        with patch.object(workflow, '_execute_step', return_value={"success": True, "message_ts": "123.456"}) as mock_exec:
-            result = await workflow.execute()
-            assert result.status == "completed" 
+        result = await workflow.execute()
+        assert result.status == "completed"
+        assert result.step_results["notify"]["success"] is True 
+
+    @pytest.mark.e2e
+    @pytest.mark.skipif(not os.getenv("SLACK_BOT_TOKEN"), reason="SLACK_BOT_TOKEN env var not set")
+    async def test_slack_token_health_check(self, real_config_path):
+        """Performs a basic health check on the Slack MCP token by listing users."""
+        workflow = (WorkflowBuilder("e2e-slack-health", real_config_path)
+            .custom_step("health_check", "Slack Token Health Check", self._slack_token_health_check)
+            .build()
+        )
+        result = await workflow.execute()
+        assert result.status == "completed"
+        assert result.step_results["health_check"]["success"] is True
+
+    async def _slack_token_health_check(self, context, step):
+        from clients import SlackMCPClient
+        client = context._clients.get('slack') or SlackMCPClient(context.config.config_path)
+        context._clients['slack'] = client
+        users = await client.list_users()
+        return {"success": True, "user_count": len(users)} 
