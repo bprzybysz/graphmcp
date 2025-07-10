@@ -1,8 +1,8 @@
 """
-Unit tests for Enhanced Database Decommissioning Components.
+Unit tests for Database Decommissioning Components.
 
 Tests for:
-- enhanced_discover_patterns_step()
+- discover_patterns_step()
 - PatternDiscoveryEngine.discover_patterns_in_repository()
 - SourceTypeClassifier.classify_file()
 - ContextualRulesEngine.process_file_with_contextual_rules()
@@ -292,11 +292,11 @@ DB_HOST=localhost
         assert result.source_type == SourceType.CONFIG
 
 
-class TestEnhancedDiscoverPatternsStep:
-    """Test cases for enhanced_discover_patterns_step function."""
+class TestDiscoverPatternsStep:
+    """Test cases for discover_patterns_step function."""
     
     @pytest.mark.asyncio
-    async def test_enhanced_discover_patterns_step_mock(self):
+    async def test_discover_patterns_step_mock(self):
         """Test enhanced discover patterns step with mocked context."""
         
         # Mock context

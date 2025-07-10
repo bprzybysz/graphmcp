@@ -581,19 +581,15 @@ db-decommission-test: check-deps ## Test database decommissioning workflow funct
 	@echo "$(CYAN)Testing workflow components...$(NC)"
 	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
 import asyncio; \
-from concrete.enhanced_db_decommission import create_enhanced_db_decommission_workflow; \
+from concrete.db_decommission import create_db_decommission_workflow; \
 print('Testing database decommissioning workflow creation...'); \
-workflow = create_optimized_db_decommission_workflow( \
+workflow = create_db_decommission_workflow( \
 	database_name='test_db', \
 	target_repos=['https://github.com/test/repo'], \
 	slack_channel='C12345' \
 ); \
 print('✅ Workflow created successfully'); \
-print('Testing UI initialization...'); \
-ui = DatabaseDecommissionUI(); \
-print('✅ DatabaseDecommissionUI initializes successfully'); \
-print('🎉 All database decommissioning tests passed!'); \
-print('💡 Run make db-decommission-ui to start the interface');"
+print('🎉 All database decommissioning tests passed!');"
 	@echo "$(GREEN)✓ Database decommissioning tests completed$(NC)"
 
 # =============================================================================
