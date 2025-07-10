@@ -6,6 +6,7 @@ from .repomix import RepomixMCPClient
 from .slack import SlackMCPClient
 from .github import GitHubMCPClient
 from .filesystem import FilesystemMCPClient
+from .preview_mcp import PreviewMCPClient
 from typing import List, Dict, Any
 import logging
 
@@ -129,6 +130,7 @@ __all__ = [
     "SlackMCPClient",
     "GitHubMCPClient",
     "FilesystemMCPClient",
+    "PreviewMCPClient",
     "Context7MCPClient",
     "BrowserMCPClient",
 ] 

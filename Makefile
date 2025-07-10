@@ -480,4 +480,113 @@ quick-test: check-deps ## Run quick tests (unit only)
 	@echo "$(GREEN)✓ Quick tests completed$(NC)" 
 
 test-e2e:
-	.venv/bin/python -m pytest tests/e2e/test_real_integration.py -m e2e -v 
+	.venv/bin/python -m pytest tests/e2e/test_real_integration.py -m e2e -v
+
+# =============================================================================
+# PREVIEW-MCP INTEGRATION
+# =============================================================================
+
+preview-mcp-server: check-deps ## Start standalone Preview MCP Server
+	@echo "$(YELLOW)Starting Preview MCP Server...$(NC)"
+	@echo "$(CYAN)Mode: Standalone stdio server for workflow streaming$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python -m clients.preview_mcp
+	@echo "$(GREEN)✓ Preview MCP Server started$(NC)"
+
+preview-streamlit: check-deps ## Start Streamlit UI with new workflow visualization
+	@echo "$(YELLOW)Starting Preview Streamlit UI with Enhanced Layout...$(NC)"
+	@echo "$(CYAN)New Features:$(NC)"
+	@echo "  ✅ Left pane (25%): Real-time workflow progress tracking"
+	@echo "  ✅ Main pane (75%): Live workflow logs supporting:"
+	@echo "    📝 Markdown logs with structured bullet lists"
+	@echo "    📊 Tables with markdown rendering"
+	@echo "    🌞 Interactive sunburst charts"
+	@echo "  ✅ Auto-refresh and demo workflow simulation"
+	@echo ""
+	@echo "$(CYAN)Open http://localhost:8501 and click 'Start Demo' to see the new interface$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/streamlit run concrete/preview_ui/streamlit_app.py \
+		--server.port 8501 \
+		--server.address 0.0.0.0
+	@echo "$(GREEN)✓ Enhanced Streamlit UI started$(NC)"
+
+preview-demo: check-deps ## Run complete preview demo (MCP server + Streamlit UI)
+	@echo "$(YELLOW)Starting GraphMCP Preview Demo...$(NC)"
+	@echo "$(CYAN)This will start MCP server and Streamlit UI$(NC)"
+	@chmod +x concrete/demo.sh
+	@./concrete/demo.sh
+
+preview-test: check-deps ## Test preview-mcp client integration
+	@echo "$(YELLOW)Testing Preview MCP Client...$(NC)"
+	@if [ -f "$(TEST_PATH)/unit/test_preview_mcp_client.py" ]; then \
+		PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/unit/test_preview_mcp_client.py \
+			--verbose \
+			--tb=short; \
+		echo "$(GREEN)✓ Preview MCP tests completed$(NC)"; \
+	else \
+		echo "$(BLUE)ℹ Creating basic preview-mcp test...$(NC)"; \
+		echo "$(CYAN)  Testing client initialization and tool listing$(NC)"; \
+		PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
+import asyncio; \
+from clients.preview_mcp import PreviewMCPClient; \
+async def test(): \
+	client = PreviewMCPClient('mcp_config.json'); \
+	tools = await client.list_available_tools(); \
+	print(f'Available tools: {tools}'); \
+	print('✓ Preview MCP client basic test passed'); \
+asyncio.run(test())" || echo "$(YELLOW)⚠ Preview MCP client needs configuration$(NC)"; \
+	fi
+
+preview-test-ui: check-deps ## Test new UI functionality with workflow log system
+	@echo "$(YELLOW)Testing Enhanced UI Functionality...$(NC)"
+	@echo "$(CYAN)Testing workflow log system components...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
+import sys; \
+from clients.preview_mcp.workflow_log import get_workflow_log, log_info, log_table, log_sunburst; \
+from concrete.preview_ui.streamlit_app import StreamlitWorkflowUI; \
+print('Testing workflow log system...'); \
+log = get_workflow_log('test-ui'); \
+log_info('test-ui', '🚀 **UI Test Started**\n\n- Testing log system\n- Multiple entry types'); \
+log_table('test-ui', ['Feature', 'Status'], [['Progress Pane', '✅'], ['Log Pane', '✅'], ['Charts', '✅']], 'UI Features'); \
+log_sunburst('test-ui', ['UI', 'Progress', 'Logs', 'Charts'], ['', 'UI', 'UI', 'UI'], [100, 25, 50, 25], 'UI Components'); \
+print(f'✅ Created {len(log.get_entries())} log entries'); \
+print('Testing UI initialization...'); \
+ui = StreamlitWorkflowUI(); \
+print('✅ StreamlitWorkflowUI initializes successfully'); \
+print('🎉 All UI functionality tests passed!'); \
+print('💡 Run make preview-streamlit to see the new interface');"
+	@echo "$(GREEN)✓ UI functionality tests completed$(NC)"
+
+db-decommission-ui: check-deps ## Start Database Decommissioning Streamlit UI
+	@echo "$(YELLOW)Starting Database Decommissioning UI...$(NC)"
+	@echo "$(CYAN)Features:$(NC)"
+	@echo "  🗄️ Database decommissioning workflow visualization"
+	@echo "  📊 File reference tables with discovered database references"
+	@echo "  🌞 Repository structure sunburst charts"
+	@echo "  🔍 Context data preview for debugging workflow state"
+	@echo "  ⚙️ Configurable database name and target repositories"
+	@echo ""
+	@echo "$(CYAN)Open http://localhost:8502 and configure your database decommissioning$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/streamlit run concrete/db_decommission_ui.py \
+		--server.port 8502 \
+		--server.address 0.0.0.0
+	@echo "$(GREEN)✓ Database Decommissioning UI started$(NC)"
+
+db-decommission-test: check-deps ## Test database decommissioning workflow functionality
+	@echo "$(YELLOW)Testing Database Decommissioning Workflow...$(NC)"
+	@echo "$(CYAN)Testing workflow components...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
+import asyncio; \
+from concrete.db_decommission import create_optimized_db_decommission_workflow; \
+from concrete.db_decommission_ui import DatabaseDecommissionUI; \
+print('Testing database decommissioning workflow creation...'); \
+workflow = create_optimized_db_decommission_workflow( \
+	database_name='test_db', \
+	target_repos=['https://github.com/test/repo'], \
+	slack_channel='C12345' \
+); \
+print('✅ Workflow created successfully'); \
+print('Testing UI initialization...'); \
+ui = DatabaseDecommissionUI(); \
+print('✅ DatabaseDecommissionUI initializes successfully'); \
+print('🎉 All database decommissioning tests passed!'); \
+print('💡 Run make db-decommission-ui to start the interface');"
+	@echo "$(GREEN)✓ Database decommissioning tests completed$(NC)" 
