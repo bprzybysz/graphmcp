@@ -65,14 +65,14 @@ class ParameterService:
                 level=SecretLevel.REQUIRED,
                 pattern=r"^(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82})$",
                 description="GitHub Personal Access Token",
-                example="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                example="ghp_[36_chars]"
             ),
             SecretPattern(
                 name="GITHUB_TOKEN", 
                 level=SecretLevel.OPTIONAL,
                 pattern=r"^(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82})$",
                 description="Alternative GitHub Token",
-                example="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                example="ghp_[36_chars]"
             ),
             
             # Slack tokens
@@ -81,14 +81,14 @@ class ParameterService:
                 level=SecretLevel.REQUIRED,
                 pattern=r"^xoxb-[0-9]+-[0-9]+-[a-zA-Z0-9]{24}$",
                 description="Slack Bot Token",
-                example="xoxb-1234567890-1234567890-xxxxxxxxxxxxxxxxxxxxxxxx"
+                example="xoxb-[numbers]-[numbers]-[24_chars]"
             ),
             SecretPattern(
                 name="SLACK_APP_TOKEN",
                 level=SecretLevel.OPTIONAL,
                 pattern=r"^xapp-[0-9]+-[A-Z0-9]+-[0-9]+-[a-f0-9]{64}$",
                 description="Slack App Token",
-                example="xapp-1-A01234567890-1234567890-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                example="xapp-[n]-[A123]-[n]-[64_hex_chars]"
             ),
             
             # Database connection strings
@@ -97,7 +97,7 @@ class ParameterService:
                 level=SecretLevel.OPTIONAL,
                 pattern=r"^(postgresql|mysql|sqlite)://.*$",
                 description="Database connection URL",
-                example="postgresql://user:pass@localhost:5432/dbname"
+                example="postgresql://user:pass@host:port/db"
             ),
             
             # API Keys
@@ -106,7 +106,7 @@ class ParameterService:
                 level=SecretLevel.OPTIONAL,
                 pattern=r"^sk-[a-zA-Z0-9]{48}$",
                 description="OpenAI API Key",
-                example="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                example="sk-[48_chars]"
             ),
             
             # Generic patterns
@@ -115,7 +115,7 @@ class ParameterService:
                 level=SecretLevel.OPTIONAL,
                 pattern=r"^[a-zA-Z0-9_\-]{16,}$",
                 description="Generic API Key",
-                example="api_key_1234567890abcdef"
+                example="api_key_[alphanumeric]"
             ),
         ]
     
