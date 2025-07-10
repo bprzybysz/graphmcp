@@ -1,169 +1,154 @@
 """
-Streamlit UI for MCP Workflow Agent with real-time workflow visualization.
+Enhanced Streamlit UI for GraphMCP Preview with real-time workflow visualization.
 
-This module provides a web interface using Streamlit for interacting with
-the MCP workflow agent and visualizing workflow execution in real-time.
-
-Features:
-- Left thin pane (25%): Workflow steps with real-time progress tracking
-- Main pane (75%): Workflow log supporting logs, tables, and sunburst charts
-
-Requires Python 3.11+
+This module provides a modern, responsive UI with:
+- Left progress pane (25%): Real-time workflow step tracking
+- Main log pane (75%): Live workflow logs with multiple content types
 """
 
-from __future__ import annotations
-
 import time
-from unittest.mock import Mock
-from typing import Optional, Generator
+from datetime import datetime
+from typing import Optional
 
+# Import logging system
+from clients.preview_mcp.workflow_log import (
+    get_workflow_log, log_info, log_table, log_sunburst,
+    LogEntry, LogEntryType, TableData, SunburstData
+)
+from clients.preview_mcp.context import WorkflowContext, WorkflowStatus
+
+# Try to import Streamlit with graceful fallback
 try:
     import streamlit as st
-    import plotly.io as pio
+    import plotly.graph_objects as go
     STREAMLIT_AVAILABLE = True
 except ImportError:
     STREAMLIT_AVAILABLE = False
-    # Mock streamlit for type checking when not available
+    
+    # Mock Streamlit for testing
     class MockStreamlit:
         def __init__(self):
             # Mock session_state to be a dynamic object like real Streamlit session_state
-            self.session_state = Mock()
+            self.session_state = type('MockSessionState', (), {})()
             
-            # Mock sidebar to support context manager protocol
-            self.sidebar = Mock()
-            self.sidebar.__enter__ = Mock(return_value=self.sidebar)
-            self.sidebar.__exit__ = Mock(return_value=None)
-
-        def title(self, text): pass
-        def markdown(self, text, unsafe_allow_html=False): pass
-        def chat_message(self, role): return Mock()
-        def chat_input(self, placeholder): return ""
-        def selectbox(self, label, options, help=None): return options[0] if options else None
-        def button(self, text): return False
-        def write(self, text): pass
-        def error(self, text): pass
-        def spinner(self, text): 
-            mock_spinner = Mock()
-            mock_spinner.__enter__ = Mock(return_value=mock_spinner)
-            mock_spinner.__exit__ = Mock(return_value=None)
-            return mock_spinner
-        def empty(self): return Mock()
-        def columns(self, widths): 
-            mock_cols = [Mock() for _ in widths]
-            for col in mock_cols:
-                col.__enter__ = Mock(return_value=col)
-                col.__exit__ = Mock(return_value=None)
-                col.metric = Mock() # Mock metric for columns as well
-            return mock_cols
-        def expander(self, title, expanded=False): 
-            mock_expander = Mock()
-            mock_expander.__enter__ = Mock(return_value=mock_expander)
-            mock_expander.__exit__ = Mock(return_value=None)
-            return mock_expander
-        def subheader(self, text): pass
-        def caption(self, text): pass
-        def metric(self, label, value): pass
+        def title(self, text): print(f"TITLE: {text}")
+        def markdown(self, text, unsafe_allow_html=False): print(f"MARKDOWN: {text}")
+        def button(self, text, key=None, help=None): return False
+        def checkbox(self, text, value=False, key=None): return value
+        def metric(self, label, value): print(f"METRIC: {label}={value}")
+        def info(self, text): print(f"INFO: {text}")
+        def error(self, text): print(f"ERROR: {text}")
+        def caption(self, text): print(f"CAPTION: {text}")
+        def progress(self, value): print(f"PROGRESS: {value}")
         def rerun(self): pass
         def set_page_config(self, **kwargs): pass
-        def __enter__(self): return self
-        def __exit__(self, *args): pass
-        def json(self, data): pass
-        def plotly_chart(self, fig, **kwargs): pass
+        
+        def spinner(self, text): 
+            return type('MockSpinner', (), {'__enter__': lambda s: None, '__exit__': lambda s, *a: None})()
+        
+        def columns(self, widths): 
+            return [type('MockColumn', (), {'__enter__': lambda s: None, '__exit__': lambda s, *a: None})() for _ in range(len(widths) if isinstance(widths, list) else widths)]
+        
+        def expander(self, title, expanded=False): 
+            return type('MockExpander', (), {'__enter__': lambda s: None, '__exit__': lambda s, *a: None})()
+        
         def container(self): 
-            mock_container = Mock()
-            mock_container.__enter__ = Mock(return_value=mock_container)
-            mock_container.__exit__ = Mock(return_value=None)
-            return mock_container
-    
+            return type('MockContainer', (), {'__enter__': lambda s: None, '__exit__': lambda s, *a: None})()
+        
+        def plotly_chart(self, fig, use_container_width=True): 
+            print(f"PLOTLY_CHART: {fig}")
+
     st = MockStreamlit()
 
-import asyncio
-import sys
-import os
-from datetime import datetime
-from typing import Dict, List, Optional, Any, Generator
-import time
-import traceback
-
-# Add the project's root directory to sys.path for module discovery
-# This is necessary for absolute imports to work when the script is run directly
-script_dir = os.path.dirname(__file__)
-project_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
-sys.path.insert(0, project_root)
-
-# Import our components
-from clients.preview_mcp.context import WorkflowContext, WorkflowStatus
-from clients.preview_mcp.logging import create_workflow_logger, WorkflowLogger
-from clients.preview_mcp.workflow_log import (
-    get_workflow_log, LogEntryType, LogEntry, TableData, SunburstData,
-    log_info, log_warning, log_error, log_table, log_sunburst
-)
-
-
 class StreamlitWorkflowUI:
-    """Streamlit UI for workflow visualization with left progress pane and main log pane."""
+    """Enhanced Streamlit UI for MCP workflow visualization."""
     
     def __init__(self):
         """Initialize the Streamlit UI."""
-        if not STREAMLIT_AVAILABLE:
-            print("Warning: Streamlit not available. Install with: pip install streamlit")
-            return
-            
-        self.workflow_logger: Optional[WorkflowLogger] = None
-        
-    def _get_logger(self) -> WorkflowLogger:
-        """Get or create workflow logger."""
-        if not self.workflow_logger:
-            workflow_id = getattr(st.session_state, 'workflow_id', 'streamlit-session')
-            session_id = getattr(st.session_state, 'session_id', 'default')
-            self.workflow_logger = create_workflow_logger(workflow_id, session_id)
-        return self.workflow_logger
-        
+        pass
+
     def initialize_session_state(self):
-        """Initialize Streamlit session state variables."""
+        """Initialize Streamlit session state with default values."""
         if not STREAMLIT_AVAILABLE:
             return
             
-        # Initialize workflow context
-        if not hasattr(st.session_state, 'workflow_context'):
+        # Initialize session state
+        if 'workflow_context' not in st.session_state:
             st.session_state.workflow_context = WorkflowContext(
-                workflow_id="streamlit-session"
+                workflow_id=f"session-{int(time.time())}"
             )
-            st.session_state.workflow_id = "streamlit-session"
-            st.session_state.session_id = "default"
         
-        # Initialize workflow log
-        if not hasattr(st.session_state, 'workflow_log'):
+        if 'workflow_id' not in st.session_state:
+            st.session_state.workflow_id = st.session_state.workflow_context.workflow_id
+            
+        if 'workflow_log' not in st.session_state:
             st.session_state.workflow_log = get_workflow_log(st.session_state.workflow_id)
             
-        # Initialize demo mode
-        if not hasattr(st.session_state, 'demo_mode'):
+        if 'demo_mode' not in st.session_state:
             st.session_state.demo_mode = False
             
-        # Initialize auto-refresh
-        if not hasattr(st.session_state, 'auto_refresh'):
+        if 'auto_refresh' not in st.session_state:
             st.session_state.auto_refresh = True
-    
+        
+    def run(self):
+        """Run the Streamlit application with proper left progress and main log panes."""
+        if not STREAMLIT_AVAILABLE:
+            st.error("Streamlit is not installed. Please install it with: pip install streamlit")
+            return
+
+        st.set_page_config(
+            layout="wide", 
+            page_title="MCP Workflow Agent",
+            page_icon="🔄"
+        )
+
+        # Initialize session state
+        self.initialize_session_state()
+
+        st.title("🔄 MCP Workflow Agent")
+        st.markdown("Real-time workflow visualization with live progress tracking and log streaming")
+
+        # Create the main layout: Left pane (25%) and Main pane (75%)
+        left_col, main_col = st.columns([1, 3])
+        
+        # Left Progress Pane (25%)
+        with left_col:
+            st.markdown("### 🔄 Workflow Progress")
+            self.render_progress_pane()
+        
+        # Main Log Pane (75%) 
+        with main_col:
+            st.markdown("### 📋 Workflow Log")
+            self.render_log_pane()
+        
+        # Auto-refresh for demo mode
+        if st.session_state.demo_mode and st.session_state.auto_refresh:
+            time.sleep(2)  # Wait 2 seconds between steps
+            self.simulate_demo_progress()
+            st.rerun()
+
     def render_progress_pane(self):
-        """Render the left progress pane with workflow steps."""
+        """Render the left progress pane with workflow controls and step tracking."""
         if not STREAMLIT_AVAILABLE:
             return
             
-        st.subheader("🔄 Workflow Progress")
-        
         context = st.session_state.workflow_context
         
         # Workflow controls
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("▶️ Start Demo", help="Start demo workflow"):
+            if st.button("🚀 Start Demo", key="start_demo"):
                 self.start_demo_workflow()
         with col2:
-            if st.button("🗑️ Clear", help="Clear workflow and logs"):
+            if st.button("🗑️ Clear", key="clear_logs"):
                 self.clear_workflow()
         
         # Auto-refresh toggle
-        st.session_state.auto_refresh = st.checkbox("🔄 Auto-refresh", value=st.session_state.auto_refresh)
+        st.session_state.auto_refresh = st.checkbox(
+            "🔄 Auto-refresh", 
+            value=st.session_state.auto_refresh,
+            key="auto_refresh_checkbox"
+        )
         
         # Workflow status
         status_icons = {
@@ -174,51 +159,32 @@ class StreamlitWorkflowUI:
         }
         
         st.markdown(f"**Status:** {status_icons.get(context.status, '⚪')} {context.status.value}")
-        st.markdown(f"**Steps:** {len(context.steps)}")
         
-        # Progress bar
+        # Progress bar and steps
         if context.steps:
             completed_steps = sum(1 for step in context.steps if step.status == WorkflowStatus.COMPLETED)
             progress = completed_steps / len(context.steps)
             st.progress(progress)
             st.caption(f"{completed_steps}/{len(context.steps)} completed")
-        
-        # Step list with real-time updates
-        st.markdown("---")
-        st.markdown("**Steps:**")
-        
-        for i, step in enumerate(context.steps):
-            status_icon = status_icons.get(step.status, '⚪')
             
-            # Create expandable step
-            with st.container():
-                # Step header
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.markdown(f"**{i+1}.** {step.name}")
-                with col2:
-                    st.markdown(f"{status_icon}")
+            # Step list
+            st.markdown("**Steps:**")
+            for i, step in enumerate(context.steps):
+                status_icon = status_icons.get(step.status, '⚪')
+                st.markdown(f"{status_icon} **{i+1}.** {step.name}")
                 
-                # Step details
-                if step.input_data:
-                    st.caption(f"📥 Input: {', '.join(step.input_data.keys())}")
-                
-                if step.output_data and step.status == WorkflowStatus.COMPLETED:
-                    st.caption("✅ Completed")
-                elif step.status == WorkflowStatus.FAILED:
-                    st.caption("❌ Failed")
-                elif step.status == WorkflowStatus.IN_PROGRESS:
+                if step.status == WorkflowStatus.IN_PROGRESS:
                     st.caption("🔄 Running...")
-                
-                st.markdown("---")
-    
+                elif step.status == WorkflowStatus.COMPLETED:
+                    st.caption("✅ Completed")
+        else:
+            st.info("No workflow steps yet. Click 'Start Demo' to begin!")
+
     def render_log_pane(self):
         """Render the main log pane with workflow logs."""
         if not STREAMLIT_AVAILABLE:
             return
             
-        st.subheader("📋 Workflow Log")
-        
         workflow_log = st.session_state.workflow_log
         entries = workflow_log.get_entries()
         
@@ -226,7 +192,7 @@ class StreamlitWorkflowUI:
             st.info("No log entries yet. Start a workflow to see logs here.")
             return
         
-        # Log summary
+        # Log summary metrics
         summary = workflow_log.get_summary()
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -242,7 +208,7 @@ class StreamlitWorkflowUI:
         # Render log entries
         for entry in entries:
             self.render_log_entry(entry)
-    
+
     def render_log_entry(self, entry: LogEntry):
         """Render a single log entry based on its type."""
         if not STREAMLIT_AVAILABLE:
@@ -282,7 +248,7 @@ class StreamlitWorkflowUI:
         
         # Add separator
         st.markdown("---")
-    
+
     def start_demo_workflow(self):
         """Start a demo workflow with sample data."""
         if not STREAMLIT_AVAILABLE:
@@ -318,7 +284,7 @@ class StreamlitWorkflowUI:
         ))
         
         st.rerun()
-    
+
     def simulate_demo_progress(self):
         """Simulate demo workflow progress."""
         if not st.session_state.demo_mode:
@@ -373,7 +339,7 @@ class StreamlitWorkflowUI:
             context.status = WorkflowStatus.COMPLETED
             st.session_state.demo_mode = False
             log_info(st.session_state.workflow_id, "🎉 **Workflow completed successfully!**\n\n- All steps finished\n- No errors encountered")
-    
+
     def clear_workflow(self):
         """Clear current workflow and logs."""
         if not STREAMLIT_AVAILABLE:
@@ -387,101 +353,6 @@ class StreamlitWorkflowUI:
         st.session_state.demo_mode = False
         
         st.rerun()
-        
-    def run(self):
-        """Run the Streamlit application."""
-        if not STREAMLIT_AVAILABLE:
-            st.error("Streamlit is not installed. Please install it with: pip install streamlit")
-            return
-
-        st.set_page_config(
-            layout="wide", 
-            page_title="MCP Workflow Agent",
-            page_icon="🔄"
-        )
-
-        # Custom CSS for layout and styling
-        st.markdown(
-            """
-            <style>
-            /* Main container styling */
-            .main .block-container {
-                padding-top: 2rem;
-                padding-bottom: 2rem;
-            }
-            
-            /* Progress pane styling */
-            .progress-pane {
-                background-color: #f8f9fa;
-                border-radius: 10px;
-                padding: 1rem;
-                height: 80vh;
-                overflow-y: auto;
-            }
-            
-            /* Log pane styling */
-            .log-pane {
-                background-color: #ffffff;
-                border-radius: 10px;
-                padding: 1rem;
-                height: 80vh;
-                overflow-y: auto;
-                border: 1px solid #e0e0e0;
-            }
-            
-            /* Workflow step styling */
-            .workflow-step {
-                margin-bottom: 0.5rem;
-                padding: 0.5rem;
-                border-radius: 5px;
-                background-color: #ffffff;
-                border: 1px solid #e0e0e0;
-            }
-            
-            /* Log entry styling */
-            .log-entry {
-                margin-bottom: 1rem;
-                padding: 0.75rem;
-                border-radius: 5px;
-                background-color: #f8f9fa;
-            }
-            
-            /* Reduce font size for compact display */
-            .small-text {
-                font-size: 0.85em;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-
-        self.initialize_session_state()
-
-        st.title("🔄 MCP Workflow Agent")
-        st.markdown("Real-time workflow visualization with live progress tracking and log streaming")
-
-        # Main layout: Left pane (25%) and Right pane (75%)
-        col1, col2 = st.columns([1, 3])
-        
-        with col1:
-            # Left pane: Workflow progress
-            with st.container():
-                st.markdown('<div class="progress-pane">', unsafe_allow_html=True)
-                self.render_progress_pane()
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        with col2:
-            # Right pane: Workflow log
-            with st.container():
-                st.markdown('<div class="log-pane">', unsafe_allow_html=True)
-                self.render_log_pane()
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Auto-refresh for demo mode
-        if st.session_state.demo_mode and st.session_state.auto_refresh:
-            time.sleep(2)  # Wait 2 seconds between steps
-            self.simulate_demo_progress()
-            st.rerun()
 
 
 def main():
