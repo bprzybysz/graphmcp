@@ -17,6 +17,7 @@ class SourceType(Enum):
     CONFIG = "config"
     SQL = "sql"
     PYTHON = "python"
+    SHELL = "shell"
     DOCUMENTATION = "documentation"
     UNKNOWN = "unknown"
 
@@ -99,6 +100,22 @@ class SourceTypeClassifier:
                     r"def\s+\w+\(request",
                 ]
             },
+            SourceType.SHELL: {
+                "file_extensions": [".sh", ".bash", ".zsh", ".ksh", ".csh", ".fish"],
+                "file_names": ["install.sh", "deploy.sh", "build.sh", "setup.sh", 
+                             "start.sh", "stop.sh", "restart.sh", "configure.sh"],
+                "directory_patterns": ["scripts/", "bin/", "tools/", "deployment/"],
+                "content_patterns": [
+                    r"#!/bin/(sh|bash|zsh|ksh|csh|fish)",
+                    r"function\s+\w+\s*\(\s*\)",
+                    r"\w+\s*\(\s*\)\s*\{",
+                    r"if\s+\[\s*.*\s*\]",
+                    r"for\s+\w+\s+in",
+                    r"while\s+\[\s*.*\s*\]",
+                    r"case\s+.*\s+in",
+                    r"export\s+\w+=",
+                ]
+            },
             SourceType.DOCUMENTATION: {
                 "file_extensions": [".md", ".rst", ".txt", ".adoc", ".wiki"],
                 "file_names": ["README.md", "CHANGELOG.md", "CONTRIBUTING.md", 
@@ -126,6 +143,8 @@ class SourceTypeClassifier:
             "fastapi": [r"from\s+fastapi", r"@app\.(get|post|put|delete)", r"FastAPI\("],
             "sqlalchemy": [r"from\s+sqlalchemy", r"declarative_base", r"Column\("],
             "alembic": [r"from\s+alembic", r"revision\s*=", r"down_revision\s*="],
+            "bash": [r"#!/bin/bash", r"function\s+\w+", r"if\s+\["],
+            "shell": [r"#!/bin/sh", r"case\s+.*\s+in", r"for\s+\w+\s+in"],
         }
     
     def classify_file(self, file_path: str, content: Optional[str] = None) -> ClassificationResult:
@@ -220,6 +239,8 @@ class SourceTypeClassifier:
             rule_files.append("workflows/ruliade/sql_rules.md")
         elif source_type == SourceType.PYTHON:
             rule_files.append("workflows/ruliade/python_rules.md")
+        elif source_type == SourceType.SHELL:
+            rule_files.append("workflows/ruliade/shell_rules.md")
         
         return rule_files
     
@@ -309,6 +330,16 @@ def get_database_search_patterns(source_type: SourceType, database_name: str) ->
             f'db.*{database_name}',
             f'{database_name}.*model',
             f'class.*{database_name}',
+        ] + base_patterns
+    
+    elif source_type == SourceType.SHELL:
+        return [
+            f'DB_.*{database_name}',
+            f'{database_name.upper()}_DB',
+            f'database.*{database_name}',
+            f'{database_name}.*database',
+            f'psql.*{database_name}',
+            f'mysql.*{database_name}',
         ] + base_patterns
     
     else:

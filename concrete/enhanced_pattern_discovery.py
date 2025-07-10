@@ -280,13 +280,7 @@ class PatternDiscoveryEngine:
                 (r"settings\.py$", "Django settings"),
                 (r"requirements\.txt$", "Python deps"),
             ],
-            SourceType.JAVASCRIPT: [
-                (r"\.js$", "JavaScript files"),
-                (r"\.ts$", "TypeScript files"),
-                (r"package\.json$", "NPM package"),
-                (r"\.vue$", "Vue components"),
-                (r"\.jsx?$", "React components"),
-            ]
+            # Note: JavaScript files would be classified as UNKNOWN since JS is not in SourceType enum
         }
         
         for source_type, file_patterns in file_type_patterns.items():
