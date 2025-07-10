@@ -45,3 +45,5 @@ repomix-output.xml
 venv/
 /[=]*
 secrets.json
+
+logs/

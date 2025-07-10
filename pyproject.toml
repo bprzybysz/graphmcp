@@ -23,10 +23,58 @@ dependencies = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v -s"
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config", 
+    "--verbose",
+    "--tb=short",
+    "--cov=concrete",
+    "--cov=clients",
+    "--cov=lib",
+    "--cov=utils",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=80",
+    "-ra"
+]
 markers = [
-    "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
+    "unit: Unit tests",
+    "integration: Integration tests", 
+    "e2e: End-to-end tests",
+    "slow: Slow tests (> 1 second)",
+    "external: Tests that require external services",
+    "database: Tests that require database",
+    "mcp: Tests that require MCP servers",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
 ]
 
 [tool.setuptools.packages.find]
-where = ["."] 
+where = ["."]
+
+[tool.coverage.run]
+source = ["concrete", "clients", "lib", "utils"]
+omit = [
+    "*/tests/*",
+    "*/venv/*", 
+    "*/__pycache__/*",
+    "*/.*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError", 
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.coverage.html]
+directory = "htmlcov" 
