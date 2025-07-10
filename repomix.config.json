@@ -1,0 +1,54 @@
+{
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "topFilesLength": 15
+  },
+  "include": [
+    "**/*.py",
+    "**/*.md",
+    "**/*.json",
+    "**/*.yaml",
+    "**/*.yml",
+    "**/*.toml",
+    "**/*.ini",
+    "**/*.txt",
+    "**/*.sh",
+    "Makefile"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "tests/data/**",
+      "tests/test_data/**",
+      "**/test_data/**",
+      "**/__pycache__/**",
+      "**/.pytest_cache/**",
+      "**/htmlcov/**",
+      "**/.coverage",
+      "**/test-results-*.xml",
+      "**/*.pyc",
+      "**/*.pyo",
+      "**/*.pyd",
+      "**/repomix-output.xml",
+      "**/.venv/**",
+      "**/venv/**",
+      "**/node_modules/**",
+      "**/.git/**",
+      "**/logs/**",
+      "**/tmp/**",
+      "**/temp/**",
+      "**/.DS_Store",
+      "**/Thumbs.db",
+      "**/*.log",
+      "**/*.lock",
+      "**/garbage/**",
+      "**/cache/**",
+      "**/.mypy_cache/**",
+      "**/.tox/**"
+    ]
+  }
+} 

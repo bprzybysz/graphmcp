@@ -25,10 +25,10 @@
 ## 📊 Database Decommission Workflow
 
 ```python
-from concrete.db_decommission import create_optimized_db_decommission_workflow
+from concrete.db_decommission import create_db_decommission_workflow
 
 # Complete automated workflow: Fork → Branch → Process → PR
-workflow = create_optimized_db_decommission_workflow(
+workflow = create_db_decommission_workflow(
     database_name="user_sessions",
     target_repos=["https://github.com/company/service-a"],
     slack_channel="C01234567",
@@ -274,12 +274,12 @@ async def automated_pr_workflow(source_owner: str, source_repo: str, changes_des
 ### Pattern: Database Decommission Workflow
 
 ```python
-from concrete.db_decommission import create_optimized_db_decommission_workflow
+from concrete.db_decommission import create_db_decommission_workflow
 
 async def decommission_database_across_repos():
     """Production-ready database decommissioning with PR creation."""
     
-    workflow = create_optimized_db_decommission_workflow(
+    workflow = create_db_decommission_workflow(
         database_name="legacy_user_sessions",
         target_repos=[
             "https://github.com/company/user-service",

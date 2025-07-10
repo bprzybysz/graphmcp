@@ -35,7 +35,10 @@ class WorkflowMetrics:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert metrics to dictionary."""
-        return asdict(self)
+        result = asdict(self)
+        # Include the duration property since asdict() doesn't include @property methods
+        result['duration'] = self.duration
+        return result
 
 class DatabaseWorkflowLogger:
     """Enhanced logger for database decommissioning workflows."""
@@ -322,6 +325,12 @@ class DatabaseWorkflowLogger:
         
         self.metrics.errors_encountered += 1
     
+    def log_info(self, message: str, context: Dict[str, Any] = None):
+        """Log an info message."""
+        self.logger.info(f"ℹ️ INFO: {message}")
+        if context:
+            self.logger.info(f"   Context: {json.dumps(context, indent=4)}")
+    
     def get_metrics_summary(self) -> Dict[str, Any]:
         """Get comprehensive workflow metrics."""
         return {
@@ -348,6 +357,42 @@ class DatabaseWorkflowLogger:
             output_file = Path(output_path)
             output_file.parent.mkdir(parents=True, exist_ok=True)
             
+            # Clean step metrics to avoid circular references
+            cleaned_step_metrics = {}
+            for step_name, step_data in self.step_metrics.items():
+                cleaned_step_data = {
+                    "start_time": step_data.get("start_time"),
+                    "end_time": step_data.get("end_time"),
+                    "duration": step_data.get("duration"),
+                    "description": step_data.get("description"),
+                    "parameters": step_data.get("parameters", {}),
+                    "success": step_data.get("success", True)
+                }
+                
+                # Safely include result data, excluding potential circular refs
+                if "result" in step_data:
+                    result = step_data["result"]
+                    if isinstance(result, dict):
+                        # Create a clean copy excluding potential circular references
+                        cleaned_result = {}
+                        safe_keys = ["database_name", "total_repositories", "repositories_processed", 
+                                   "repositories_failed", "total_files_processed", "total_files_modified",
+                                   "workflow_version", "success", "duration", "components_initialized",
+                                   "environment_status", "validation_issues", "pattern_count", 
+                                   "config_loaded", "qa_checks", "all_checks_passed", "quality_score",
+                                   "recommendations", "summary", "features_used", "next_steps"]
+                        
+                        for key in safe_keys:
+                            if key in result:
+                                cleaned_result[key] = result[key]
+                        
+                        cleaned_step_data["result"] = cleaned_result
+                    else:
+                        cleaned_step_data["result"] = str(result)
+                
+                cleaned_step_metrics[step_name] = cleaned_step_data
+            
+            # Create export data with cleaned metrics
             export_data = {
                 "workflow_info": {
                     "database_name": self.database_name,
@@ -355,7 +400,23 @@ class DatabaseWorkflowLogger:
                     "current_step": self.current_step,
                     "current_repository": self.current_repository
                 },
-                "metrics": self.get_metrics_summary()
+                "metrics": {
+                    "workflow_metrics": self.metrics.to_dict(),
+                    "step_metrics": cleaned_step_metrics,
+                    "performance_summary": {
+                        "total_duration": self.metrics.duration,
+                        "avg_time_per_repo": (
+                            self.metrics.duration / max(self.metrics.repositories_processed, 1)
+                        ),
+                        "files_per_second": (
+                            self.metrics.files_processed / max(self.metrics.duration, 1)
+                        ),
+                        "success_rate": (
+                            1 - (self.metrics.errors_encountered / 
+                                 max(self.metrics.files_processed, 1))
+                        ) if self.metrics.files_processed > 0 else 0
+                    }
+                }
             }
             
             with open(output_file, 'w') as f:

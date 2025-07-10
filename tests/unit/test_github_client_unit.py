@@ -13,7 +13,7 @@ from pathlib import Path
 
 from clients import GitHubMCPClient
 from clients.base import MCPToolError
-from concrete.db_decommission import create_feature_branch_step, create_pull_request_step
+from concrete.db_decommission import create_db_decommission_workflow
 
 
 class TestGitHubMCPClientUnitTests:
@@ -264,206 +264,69 @@ class TestGitHubMCPClientUnitTests:
             assert result["url"] == "https://github.com/testuser/postgres-sample-dbs/pull/42"
 
 
-class TestWorkflowStepFunctions:
-    """Unit tests for workflow step functions that use GitHub client methods."""
+class TestWorkflowCreation:
+    """Unit tests for database decommissioning workflow creation."""
 
-    @pytest.fixture
-    def mock_context(self):
-        """Create a mock workflow context."""
-        context = MagicMock()
-        context._clients = {}
-        context.config = MagicMock()
-        context.config.config_path = "mcp_config.json"
-        context.get_shared_value = MagicMock()
-        context.set_shared_value = MagicMock()
-        return context
+    def test_create_workflow_with_defaults(self):
+        """Test creating workflow with default parameters."""
+        workflow = create_db_decommission_workflow()
+        
+        # Verify workflow was created
+        assert workflow is not None
+        assert hasattr(workflow, 'steps')
+        assert len(workflow.steps) == 4  # Should have 4 enhanced steps
+        
+        # Verify step names
+        step_names = [step.id for step in workflow.steps]
+        assert "validate_environment" in step_names
+        assert "process_repositories" in step_names
+        assert "quality_assurance" in step_names
+        assert "workflow_summary" in step_names
 
-    @pytest.fixture
-    def mock_step(self):
-        """Create a mock workflow step."""
-        step = MagicMock()
-        step.id = "test_step"
-        return step
-
-    @pytest.mark.asyncio
-    async def test_create_feature_branch_step_success(self, mock_context, mock_step):
-        """Test successful feature branch creation step."""
-        # Mock GitHub client and its methods
-        mock_github_client = AsyncMock()
-        mock_github_client.get_repository = AsyncMock(return_value={
-            "default_branch": "main",
-            "name": "postgres-sample-dbs"
-        })
-        mock_github_client.create_branch = AsyncMock(return_value={
-            "success": True,
-            "ref": "refs/heads/decommission-example_database-1642678800",
-            "node_id": "test-node-id",
-            "url": "https://api.github.com/test"
-        })
-        
-        mock_context._clients = {"ovr_github": mock_github_client}
-        
-        # Mock time.time() to get predictable branch names
-        with patch('time.time', return_value=1642678800):
-            result = await create_feature_branch_step(
-                mock_context, 
-                mock_step, 
-                database_name="example_database",
-                repo_owner="testuser",
-                repo_name="postgres-sample-dbs"
-            )
-        
-        # Verify GitHub client methods were called correctly
-        mock_github_client.get_repository.assert_called_once_with("testuser", "postgres-sample-dbs")
-        mock_github_client.create_branch.assert_called_once_with(
-            owner="testuser",
-            repo="postgres-sample-dbs",
-            branch="decommission-example_database-1642678800",
-            from_branch="main"
+    def test_create_workflow_with_custom_params(self):
+        """Test creating workflow with custom parameters."""
+        custom_repos = ["https://github.com/test/repo1", "https://github.com/test/repo2"]
+        workflow = create_db_decommission_workflow(
+            database_name="custom_db",
+            target_repos=custom_repos,
+            slack_channel="C98765432"
         )
         
-        # Verify the result
-        assert result["success"] is True
-        assert result["feature_branch"] == "decommission-example_database-1642678800"
-        assert result["default_branch"] == "main"
-        assert result["repo_owner"] == "testuser"
-        assert result["repo_name"] == "postgres-sample-dbs"
+        # Verify workflow configuration
+        assert workflow is not None
         
-        # Verify context was updated
-        mock_context.set_shared_value.assert_called_once()
+        # Check if parameters are properly set in workflow steps
+        process_step = next((step for step in workflow.steps if step.id == "process_repositories"), None)
+        assert process_step is not None
+        assert process_step.parameters["database_name"] == "custom_db"
+        assert process_step.parameters["target_repos"] == custom_repos
+        assert process_step.parameters["slack_channel"] == "C98765432"
 
-    @pytest.mark.asyncio
-    async def test_create_feature_branch_step_error(self, mock_context, mock_step):
-        """Test feature branch creation step error handling."""
-        # Mock GitHub client with error
-        mock_github_client = AsyncMock()
-        mock_github_client.get_repository = AsyncMock(side_effect=Exception("Repository not found"))
+    def test_workflow_step_dependencies(self):
+        """Test that workflow steps have correct dependencies."""
+        workflow = create_db_decommission_workflow()
         
-        mock_context._clients = {"ovr_github": mock_github_client}
+        # Build a dependency map
+        step_deps = {step.id: step.depends_on for step in workflow.steps}
         
-        result = await create_feature_branch_step(
-            mock_context, 
-            mock_step, 
-            database_name="example_database",
-            repo_owner="nonexistent",
-            repo_name="repo"
-        )
-        
-        assert "error" in result
-        assert "Repository not found" in result["error"]
+        # Verify dependencies are set correctly
+        assert step_deps["validate_environment"] == []  # No dependencies
+        assert "validate_environment" in step_deps["process_repositories"]
+        assert "process_repositories" in step_deps["quality_assurance"]
+        assert "quality_assurance" in step_deps["workflow_summary"]
 
-    @pytest.mark.asyncio
-    async def test_create_pull_request_step_success(self, mock_context, mock_step):
-        """Test successful pull request creation step."""
-        # Mock GitHub client
-        mock_github_client = AsyncMock()
-        mock_github_client.create_pull_request = AsyncMock(return_value={
-            "success": True,
-            "number": 42,
-            "url": "https://github.com/testuser/postgres-sample-dbs/pull/42"
-        })
+    def test_workflow_timeouts(self):
+        """Test that workflow steps have appropriate timeouts."""
+        workflow = create_db_decommission_workflow()
         
-        mock_context._clients = {"ovr_github": mock_github_client}
+        # Create timeout map
+        step_timeouts = {step.id: step.timeout_seconds for step in workflow.steps}
         
-        # Mock shared values from previous steps
-        mock_context.get_shared_value.side_effect = lambda key, default=None: {
-            "branch_info": {
-                "success": True,
-                "feature_branch": "decommission-example_database-1642678800",
-                "default_branch": "main"
-            },
-            "processing_result": {
-                "processed_files": [
-                    {"file_path": "chart1.yaml"},
-                    {"file_path": "chart2.yaml"}
-                ]
-            },
-            "qa_result": {"confidence_score": 95.5}
-        }.get(key, default)
-        
-        # Mock time.strftime for predictable timestamps
-        with patch('time.strftime', return_value="2024-01-15 10:30:00 UTC"), \
-             patch('time.gmtime'):
-            result = await create_pull_request_step(
-                mock_context, 
-                mock_step, 
-                database_name="example_database",
-                repo_owner="testuser",
-                repo_name="postgres-sample-dbs"
-            )
-        
-        # Verify PR creation was called with correct parameters
-        mock_github_client.create_pull_request.assert_called_once()
-        call_args = mock_github_client.create_pull_request.call_args[1]
-        
-        assert call_args["owner"] == "testuser"
-        assert call_args["repo"] == "postgres-sample-dbs"
-        assert call_args["title"] == "🗄️ Decommission example_database database references"
-        assert call_args["head"] == "decommission-example_database-1642678800"
-        assert call_args["base"] == "main"
-        assert "example_database" in call_args["body"]
-        assert "chart1.yaml" in call_args["body"]
-        assert "chart2.yaml" in call_args["body"]
-        
-        # Verify the result
-        assert result["success"] is True
-        assert result["pr_number"] == 42
-        assert result["pr_url"] == "https://github.com/testuser/postgres-sample-dbs/pull/42"
-        assert result["feature_branch"] == "decommission-example_database-1642678800"
-        assert result["files_modified"] == 2
-
-    @pytest.mark.asyncio
-    async def test_create_pull_request_step_no_branch_info(self, mock_context, mock_step):
-        """Test pull request creation step when branch info is missing."""
-        mock_context._clients = {}
-        mock_context.get_shared_value.side_effect = lambda key, default=None: {
-            "branch_info": {"success": False}
-        }.get(key, default)
-        
-        result = await create_pull_request_step(
-            mock_context, 
-            mock_step, 
-            database_name="example_database",
-            repo_owner="testuser",
-            repo_name="postgres-sample-dbs"
-        )
-        
-        assert "error" in result
-        assert "No feature branch available" in result["error"]
-
-    @pytest.mark.asyncio
-    async def test_create_pull_request_step_pr_creation_failure(self, mock_context, mock_step):
-        """Test pull request creation step when PR creation fails."""
-        # Mock GitHub client with failure
-        mock_github_client = AsyncMock()
-        mock_github_client.create_pull_request = AsyncMock(return_value={
-            "success": False,
-            "error": "Pull request already exists"
-        })
-        
-        mock_context._clients = {"ovr_github": mock_github_client}
-        mock_context.get_shared_value.side_effect = lambda key, default=None: {
-            "branch_info": {
-                "success": True,
-                "feature_branch": "test-branch",
-                "default_branch": "main"
-            },
-            "processing_result": {"processed_files": []},
-            "qa_result": {"confidence_score": 90.0}
-        }.get(key, default)
-        
-        with patch('time.strftime', return_value="2024-01-15 10:30:00 UTC"), \
-             patch('time.gmtime'):
-            result = await create_pull_request_step(
-                mock_context, 
-                mock_step, 
-                database_name="example_database",
-                repo_owner="testuser",
-                repo_name="postgres-sample-dbs"
-            )
-        
-        assert "error" in result
-        assert "Pull request already exists" in result["error"]
+        # Verify timeout values are reasonable
+        assert step_timeouts["validate_environment"] == 30
+        assert step_timeouts["process_repositories"] == 600  # 10 minutes for processing
+        assert step_timeouts["quality_assurance"] == 60
+        assert step_timeouts["workflow_summary"] == 30
 
 
 class TestGitHubClientIntegration:

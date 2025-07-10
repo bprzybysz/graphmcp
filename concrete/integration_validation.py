@@ -20,7 +20,7 @@ from concrete.enhanced_pattern_discovery import PatternDiscoveryEngine, enhanced
 from concrete.source_type_classifier import SourceTypeClassifier, SourceType, get_database_search_patterns
 from concrete.contextual_rules_engine import ContextualRulesEngine
 from concrete.workflow_logger import DatabaseWorkflowLogger
-from concrete.enhanced_db_decommission import create_enhanced_db_decommission_workflow
+from concrete.db_decommission import create_db_decommission_workflow
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -313,23 +313,22 @@ class IntegrationValidator:
         logger.info("🔄 Validating Database Reference Change...")
         
         # Check default parameter in workflow creation function
-        from concrete.db_decommission import create_optimized_db_decommission_workflow
-        from concrete.enhanced_db_decommission import create_enhanced_db_decommission_workflow
+        from concrete.db_decommission import create_db_decommission_workflow
         import inspect
         
         validation_results = {}
         
-        # Check original workflow function
-        sig = inspect.signature(create_optimized_db_decommission_workflow)
+        # Check workflow function
+        sig = inspect.signature(create_db_decommission_workflow)
         original_default = sig.parameters['database_name'].default
-        validation_results["original_workflow"] = {
+        validation_results["workflow"] = {
             "default_value": original_default,
             "changed_from_periodic_table": original_default != "periodic_table",
             "is_example_database": original_default == "example_database"
         }
         
         # Check enhanced workflow function  
-        sig_enhanced = inspect.signature(create_enhanced_db_decommission_workflow)
+        sig_enhanced = inspect.signature(create_db_decommission_workflow)
         enhanced_default = sig_enhanced.parameters['database_name'].default
         validation_results["enhanced_workflow"] = {
             "default_value": enhanced_default,
@@ -371,7 +370,7 @@ class IntegrationValidator:
         
         try:
             # Test enhanced workflow creation
-            workflow = create_enhanced_db_decommission_workflow(
+            workflow = create_db_decommission_workflow(
                 database_name="test_integration_db",
                 target_repos=["https://github.com/test/repo"],
                 config_path="test_config.json"
@@ -384,11 +383,11 @@ class IntegrationValidator:
             mock_step = type('MockStep', (), {})()
             
             # This would normally require MCP clients, so we'll test the function signature
-            discovery_function_available = callable(enhanced_discover_patterns_step)
+            discovery_function_available = callable(discover_patterns_step)
             
             integration_tests = [
                 {"component": "enhanced_workflow_creation", "success": workflow_created},
-                {"component": "enhanced_pattern_discovery_function", "success": discovery_function_available},
+                {"component": "pattern_discovery_function", "success": discovery_function_available},
                 {"component": "context_integration", "success": hasattr(context, 'set_shared_value')},
                 {"component": "logger_integration", "success": True},  # Already tested above
                 {"component": "rules_engine_integration", "success": True},  # Already tested above

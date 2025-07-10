@@ -581,8 +581,7 @@ db-decommission-test: check-deps ## Test database decommissioning workflow funct
 	@echo "$(CYAN)Testing workflow components...$(NC)"
 	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
 import asyncio; \
-from concrete.db_decommission import create_optimized_db_decommission_workflow; \
-from concrete.db_decommission_ui import DatabaseDecommissionUI; \
+from concrete.enhanced_db_decommission import create_enhanced_db_decommission_workflow; \
 print('Testing database decommissioning workflow creation...'); \
 workflow = create_optimized_db_decommission_workflow( \
 	database_name='test_db', \
@@ -607,7 +606,7 @@ kill-all: ## Kill all running GraphMCP processes (enhanced workflow, streamlit, 
 	@echo "  🔄 Enhanced database decommission workflows"
 	@echo "  🌐 Streamlit servers (all ports)"
 	@echo "  📊 MCP servers and demos"
-	@pkill -f "enhanced_db_decommission" || echo "$(BLUE)  No enhanced decommission processes$(NC)"
+	@pkill -f "db_decommission" || echo "$(BLUE)  No decommission processes$(NC)"
 	@pkill -f "streamlit" || echo "$(BLUE)  No streamlit processes$(NC)"
 	@pkill -f "preview_mcp" || echo "$(BLUE)  No preview MCP processes$(NC)"
 	@pkill -f "demo.sh" || echo "$(BLUE)  No demo script processes$(NC)"
@@ -637,23 +636,23 @@ start-ui-8501: kill-port-8501 ## Start enhanced database decommission UI on port
 	@echo ""
 	@echo "$(GREEN)Port 8501 cleared - starting UI...$(NC)"
 	@echo "$(CYAN)Open http://localhost:8501 to access the enhanced interface$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/python enhanced_db_decommission_demo.py \
+	PYTHONPATH=. $(VENV_PATH)/bin/python db_decommission_demo.py \
 		--mode ui \
 		--port 8501 \
 		--database example_database \
 		--repos https://github.com/bprzybys-nc/postgres-sample-dbs
 
-start-demo-8501: kill-port-8501 ## Start enhanced E2E demo on port 8501 with browser (kills existing processes first)
-	@echo "$(YELLOW)Starting Enhanced E2E Demo on port 8501...$(NC)"
+start-demo-8501: kill-port-8501 ## Start E2E demo on port 8501 with browser (kills existing processes first)
+	@echo "$(YELLOW)Starting E2E Demo on port 8501...$(NC)"
 	@echo "$(CYAN)Demo Configuration:$(NC)"
 	@echo "  🗄️ Database: chinook (real database from postgres-sample-dbs)"
 	@echo "  📁 Repository: https://github.com/bprzybys-nc/postgres-sample-dbs"
 	@echo "  🌐 Port: 8501 (automatically opens browser)"
-	@echo "  🔄 Mode: Full E2E with enhanced pattern discovery"
+	@echo "  🔄 Mode: Full E2E with pattern discovery"
 	@echo ""
 	@echo "$(GREEN)Port 8501 cleared - starting demo...$(NC)"
 	@echo "$(CYAN)Browser will open automatically to http://localhost:8501$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/python enhanced_db_decommission_demo.py \
+	PYTHONPATH=. $(VENV_PATH)/bin/python db_decommission_demo.py \
 		--mode e2e \
 		--port 8501 \
 		--database chinook \
@@ -675,4 +674,4 @@ check-ports: ## Show which ports are in use by GraphMCP processes
 	done
 
 restart-ui: kill-all start-demo-8501 ## Full restart: kill all processes and start fresh demo on 8501
-	@echo "$(GREEN)✓ Full restart completed - Enhanced demo running on port 8501$(NC)" 
+	@echo "$(GREEN)✓ Full restart completed - Demo running on port 8501$(NC)" 

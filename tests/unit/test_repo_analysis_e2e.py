@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 # Import the actual components we're testing (no enhanced prefix)
-from concrete.enhanced_pattern_discovery import PatternDiscoveryEngine
+from concrete.pattern_discovery import PatternDiscoveryEngine
 from concrete.source_type_classifier import SourceTypeClassifier, SourceType
 from concrete.contextual_rules_engine import ContextualRulesEngine
 
@@ -68,6 +68,71 @@ REPOSITORY_TEST_CASES = {
         },
         expected_processing_approach="agent_based",  # LOGIC_HEAVY = requires AI analysis
         description="Flight operations database - critical infrastructure with complex business logic"
+    ),
+    
+    "periodic_table": RepositoryAnalysisTestCase(
+        database_name="periodic_table",
+        scenario_type="CONFIG_ONLY",
+        criticality="LOW", 
+        expected_total_matches=24,  # Number of files containing periodic_table references
+        expected_file_types={
+            "sql": 2,       # SQL schema files
+            "markdown": 5,  # Documentation files
+            "yaml": 3,      # Configuration files
+            "shell": 3,     # Deployment scripts  
+            "python": 10,   # Scripts and utilities
+            "terraform": 1, # Infrastructure code
+        },
+        expected_processing_approach="deterministic",  # CONFIG_ONLY = safe to auto-process
+        description="Chemical elements reference database - configuration-only data with low criticality"
+    ),
+    
+    "pagila": RepositoryAnalysisTestCase(
+        database_name="pagila",
+        scenario_type="MIXED",
+        criticality="MEDIUM",
+        expected_total_matches=23,  # Number of files containing pagila references
+        expected_file_types={
+            "markdown": 5,  # Documentation files
+            "python": 13,   # Service layer and application code
+            "yaml": 2,      # Configuration files
+            "shell": 3,     # Deployment scripts
+        },
+        expected_processing_approach="hybrid",  # MIXED = some automation + human review
+        description="DVD rental store database - mixed infrastructure and service layer integration"
+    ),
+    
+    "netflix": RepositoryAnalysisTestCase(
+        database_name="netflix",
+        scenario_type="MIXED",
+        criticality="MEDIUM",
+        expected_total_matches=21,  # Number of files containing netflix references
+        expected_file_types={
+            "python": 13,   # Service layer and application code
+            "markdown": 4,  # Documentation files
+            "yaml": 2,      # Configuration files
+            "shell": 1,     # Deployment scripts
+            "sql": 1,       # Schema/data files
+        },
+        expected_processing_approach="hybrid",  # MIXED = some automation + human review
+        description="Content catalog database - mixed infrastructure and service layer integration"
+    ),
+    
+    "lego": RepositoryAnalysisTestCase(
+        database_name="lego",
+        scenario_type="LOGIC_HEAVY",
+        criticality="CRITICAL",
+        expected_total_matches=22,  # Number of files containing lego references
+        expected_file_types={
+            "python": 12,   # Business intelligence and analytics code
+            "markdown": 4,  # Documentation files
+            "yaml": 2,      # Configuration files
+            "shell": 1,     # Deployment scripts
+            "sql": 2,       # Schema/data files
+            "terraform": 1, # Infrastructure code
+        },
+        expected_processing_approach="agent_based",  # LOGIC_HEAVY = requires AI analysis
+        description="Product analytics system - critical revenue intelligence with complex business logic"
     ),
     
     # =============================================================================
@@ -196,6 +261,166 @@ class TestRepositoryAnalysisE2E:
         self._validate_file_type_distribution(discovery_result, test_case)
         
         # Step 4: Validate processing approach
+        processing_approach = self._determine_processing_approach(discovery_result, test_case)
+        assert processing_approach == test_case.expected_processing_approach, \
+            f"Expected {test_case.expected_processing_approach} approach, got {processing_approach}"
+        
+        # Step 5: Test actual file classification on sample files
+        self._test_file_classification_on_real_content(discovery_result, test_case)
+        
+        print(f"✅ {test_case.database_name} analysis complete - all validations passed")
+    
+    @pytest.mark.e2e
+    def test_periodic_table_complete_analysis(self):
+        """
+        Complete analysis test for periodic_table database.
+        
+        Tests CONFIG_ONLY scenario with LOW criticality:
+        1. Real pattern discovery using Repomix content
+        2. File classification on real content  
+        3. Deterministic processing approach validation
+        4. Expected results validation for reference data
+        """
+        test_case = REPOSITORY_TEST_CASES["periodic_table"]
+        
+        print(f"\n🧪 Testing {test_case.database_name} - {test_case.description}")
+        print(f"Expected: {test_case.expected_total_matches} files with matches, {test_case.scenario_type} scenario")
+        
+        # Step 1: Simulate pattern discovery with real repository content
+        discovery_result = self._run_real_pattern_discovery(
+            test_case.database_name,
+            "bprzybys-nc", 
+            "postgres-sample-dbs"
+        )
+        
+        # Step 2: Validate total matches
+        assert discovery_result["total_files"] == test_case.expected_total_matches, \
+            f"Expected {test_case.expected_total_matches} files with matches, got {discovery_result['total_files']}"
+        
+        # Step 3: Validate file type distribution
+        self._validate_file_type_distribution(discovery_result, test_case)
+        
+        # Step 4: Validate processing approach (should be deterministic for CONFIG_ONLY)
+        processing_approach = self._determine_processing_approach(discovery_result, test_case)
+        assert processing_approach == test_case.expected_processing_approach, \
+            f"Expected {test_case.expected_processing_approach} approach, got {processing_approach}"
+        
+        # Step 5: Test actual file classification on sample files
+        self._test_file_classification_on_real_content(discovery_result, test_case)
+        
+        print(f"✅ {test_case.database_name} analysis complete - all validations passed")
+    
+    @pytest.mark.e2e
+    def test_pagila_complete_analysis(self):
+        """
+        Complete analysis test for pagila database.
+        
+        Tests MIXED scenario with MEDIUM criticality:
+        1. Real pattern discovery using Repomix content
+        2. File classification on real content  
+        3. Hybrid processing approach validation
+        4. Expected results validation for DVD rental store
+        """
+        test_case = REPOSITORY_TEST_CASES["pagila"]
+        
+        print(f"\n🧪 Testing {test_case.database_name} - {test_case.description}")
+        print(f"Expected: {test_case.expected_total_matches} files with matches, {test_case.scenario_type} scenario")
+        
+        # Step 1: Simulate pattern discovery with real repository content
+        discovery_result = self._run_real_pattern_discovery(
+            test_case.database_name,
+            "bprzybys-nc", 
+            "postgres-sample-dbs"
+        )
+        
+        # Step 2: Validate total matches
+        assert discovery_result["total_files"] == test_case.expected_total_matches, \
+            f"Expected {test_case.expected_total_matches} files with matches, got {discovery_result['total_files']}"
+        
+        # Step 3: Validate file type distribution
+        self._validate_file_type_distribution(discovery_result, test_case)
+        
+        # Step 4: Validate processing approach (should be hybrid for MIXED)
+        processing_approach = self._determine_processing_approach(discovery_result, test_case)
+        assert processing_approach == test_case.expected_processing_approach, \
+            f"Expected {test_case.expected_processing_approach} approach, got {processing_approach}"
+        
+        # Step 5: Test actual file classification on sample files
+        self._test_file_classification_on_real_content(discovery_result, test_case)
+        
+        print(f"✅ {test_case.database_name} analysis complete - all validations passed")
+    
+    @pytest.mark.e2e
+    def test_netflix_complete_analysis(self):
+        """
+        Complete analysis test for netflix database.
+        
+        Tests MIXED scenario with MEDIUM criticality:
+        1. Real pattern discovery using Repomix content
+        2. File classification on real content  
+        3. Hybrid processing approach validation
+        4. Expected results validation for content catalog
+        """
+        test_case = REPOSITORY_TEST_CASES["netflix"]
+        
+        print(f"\n🧪 Testing {test_case.database_name} - {test_case.description}")
+        print(f"Expected: {test_case.expected_total_matches} files with matches, {test_case.scenario_type} scenario")
+        
+        # Step 1: Simulate pattern discovery with real repository content
+        discovery_result = self._run_real_pattern_discovery(
+            test_case.database_name,
+            "bprzybys-nc", 
+            "postgres-sample-dbs"
+        )
+        
+        # Step 2: Validate total matches
+        assert discovery_result["total_files"] == test_case.expected_total_matches, \
+            f"Expected {test_case.expected_total_matches} files with matches, got {discovery_result['total_files']}"
+        
+        # Step 3: Validate file type distribution
+        self._validate_file_type_distribution(discovery_result, test_case)
+        
+        # Step 4: Validate processing approach (should be hybrid for MIXED)
+        processing_approach = self._determine_processing_approach(discovery_result, test_case)
+        assert processing_approach == test_case.expected_processing_approach, \
+            f"Expected {test_case.expected_processing_approach} approach, got {processing_approach}"
+        
+        # Step 5: Test actual file classification on sample files
+        self._test_file_classification_on_real_content(discovery_result, test_case)
+        
+        print(f"✅ {test_case.database_name} analysis complete - all validations passed")
+    
+    @pytest.mark.e2e
+    def test_lego_complete_analysis(self):
+        """
+        Complete analysis test for lego database.
+        
+        Tests LOGIC_HEAVY scenario with CRITICAL criticality:
+        1. Real pattern discovery using Repomix content
+        2. File classification on real content  
+        3. Agent-based processing approach validation
+        4. Expected results validation for revenue analytics
+        """
+        test_case = REPOSITORY_TEST_CASES["lego"]
+        
+        print(f"\n🧪 Testing {test_case.database_name} - {test_case.description}")
+        print(f"Expected: {test_case.expected_total_matches} files with matches, {test_case.scenario_type} scenario")
+        
+        # Step 1: Simulate pattern discovery with real repository content
+        discovery_result = self._run_real_pattern_discovery(
+            test_case.database_name,
+            "bprzybys-nc", 
+            "postgres-sample-dbs"
+        )
+        
+        # Step 2: Validate total matches
+        assert discovery_result["total_files"] == test_case.expected_total_matches, \
+            f"Expected {test_case.expected_total_matches} files with matches, got {discovery_result['total_files']}"
+        
+        # Step 3: Validate file type distribution
+        self._validate_file_type_distribution(discovery_result, test_case)
+        
+        # Step 4: Validate processing approach (should be agent_based for LOGIC_HEAVY)
         processing_approach = self._determine_processing_approach(discovery_result, test_case)
         assert processing_approach == test_case.expected_processing_approach, \
             f"Expected {test_case.expected_processing_approach} approach, got {processing_approach}"
@@ -509,16 +734,50 @@ def analyze_database_for_test_case(database_name: str, packed_file_path: str) ->
     
     # Look for explicit classification patterns
     logic_heavy_pattern = re.compile(rf'{re.escape(database_name)}.*LOGIC_HEAVY|LOGIC_HEAVY.*{re.escape(database_name)}', re.IGNORECASE)
+    config_only_pattern = re.compile(rf'{re.escape(database_name)}.*CONFIG_ONLY|CONFIG_ONLY.*{re.escape(database_name)}', re.IGNORECASE)
+    mixed_pattern = re.compile(rf'{re.escape(database_name)}.*MIXED|MIXED.*{re.escape(database_name)}', re.IGNORECASE)
+    
     critical_pattern = re.compile(rf'{re.escape(database_name)}.*CRITICAL|CRITICAL.*{re.escape(database_name)}', re.IGNORECASE)
+    high_pattern = re.compile(rf'{re.escape(database_name)}.*HIGH|HIGH.*{re.escape(database_name)}', re.IGNORECASE)
+    medium_pattern = re.compile(rf'{re.escape(database_name)}.*MEDIUM|MEDIUM.*{re.escape(database_name)}', re.IGNORECASE)
+    low_pattern = re.compile(rf'{re.escape(database_name)}.*LOW|LOW.*{re.escape(database_name)}', re.IGNORECASE)
     
     is_explicitly_logic_heavy = bool(logic_heavy_pattern.search(content))
+    is_explicitly_config_only = bool(config_only_pattern.search(content))
+    is_explicitly_mixed = bool(mixed_pattern.search(content))
+    
     is_explicitly_critical = bool(critical_pattern.search(content))
+    is_explicitly_high = bool(high_pattern.search(content))
+    is_explicitly_medium = bool(medium_pattern.search(content))
+    is_explicitly_low = bool(low_pattern.search(content))
     
     # Use explicit classification if found, otherwise infer from file types
     if is_explicitly_logic_heavy:
         suggested_scenario = "LOGIC_HEAVY"
         suggested_criticality = "CRITICAL" if is_explicitly_critical else "HIGH"
         suggested_approach = "agent_based"
+    elif is_explicitly_config_only:
+        suggested_scenario = "CONFIG_ONLY"
+        if is_explicitly_low:
+            suggested_criticality = "LOW"
+        elif is_explicitly_medium:
+            suggested_criticality = "MEDIUM"
+        elif is_explicitly_high:
+            suggested_criticality = "HIGH"
+        elif is_explicitly_critical:
+            suggested_criticality = "CRITICAL"
+        else:
+            suggested_criticality = "LOW"  # Default for CONFIG_ONLY
+        suggested_approach = "deterministic"
+    elif is_explicitly_mixed:
+        suggested_scenario = "MIXED"
+        if is_explicitly_critical:
+            suggested_criticality = "CRITICAL"
+        elif is_explicitly_high:
+            suggested_criticality = "HIGH"
+        else:
+            suggested_criticality = "MEDIUM"  # Default for MIXED
+        suggested_approach = "hybrid"
     else:
         # Fallback to file-based inference
         has_code = any(ftype in file_types for ftype in ["python", "shell", "sql"])

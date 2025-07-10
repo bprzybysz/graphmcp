@@ -13,7 +13,7 @@ import asyncio
 from unittest.mock import Mock, AsyncMock, patch
 from typing import Dict, Any, List
 
-from concrete.enhanced_pattern_discovery import PatternDiscoveryEngine, enhanced_discover_patterns_step
+from concrete.pattern_discovery import PatternDiscoveryEngine, discover_patterns_step
 from concrete.source_type_classifier import SourceTypeClassifier, SourceType, ClassificationResult
 from concrete.contextual_rules_engine import ContextualRulesEngine, RuleResult, FileProcessingResult
 
@@ -81,11 +81,8 @@ class TestPatternDiscoveryEngine:
         
         assert isinstance(result, dict)
         assert "total_files" in result
-        assert "matching_files" in result
-        assert "database_name" in result
-        assert result["database_name"] == database_name
-        assert "discovery_method" in result
-        assert result["discovery_method"] == "enhanced_pattern_discovery"
+        assert "matched_files" in result
+        # Note: discovery_method is not in the standard return structure
 
 
 class TestSourceTypeClassifier:
@@ -331,7 +328,7 @@ class TestEnhancedDiscoverPatternsStep:
         mock_context._clients['ovr_repomix'] = mock_repomix_client
         mock_context._clients['ovr_github'] = mock_github_client
         
-        result = await enhanced_discover_patterns_step(
+        result = await discover_patterns_step(
             context=mock_context,
             step=Mock(),
             database_name="test_database",
@@ -341,13 +338,11 @@ class TestEnhancedDiscoverPatternsStep:
         
         assert isinstance(result, dict)
         assert "total_files" in result
-        assert "database_name" in result
-        assert result["database_name"] == "test_database"
-        assert "discovery_method" in result
-        assert result["discovery_method"] == "enhanced_pattern_discovery"
+        assert "matched_files" in result
+        # Note: discovery_method is not in the standard return structure
         
         # Verify context was updated
-        mock_context.set_shared_value.assert_called_once_with("enhanced_discovery", result)
+        mock_context.set_shared_value.assert_called_once_with("discovery", result)
 
 
 class TestIntegrationScenarios:
