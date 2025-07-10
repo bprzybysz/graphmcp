@@ -135,8 +135,8 @@ Create `secrets.json`:
 
 ```json
 {
-  "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_token_here",
-  "SLACK_BOT_TOKEN": "xoxb-your-slack-token",
+      "GITHUB_PERSONAL_ACCESS_TOKEN": "your_github_token",
+    "SLACK_BOT_TOKEN": "your_slack_token",
   "OPENAI_API_KEY": "sk-your-openai-key"
 }
 ```

@@ -129,8 +129,8 @@ Create `/etc/graphmcp/secrets.json`:
 
 ```json
 {
-  "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_your_github_token_here",
-  "SLACK_BOT_TOKEN": "xoxb-your-slack-bot-token",
+      "GITHUB_PERSONAL_ACCESS_TOKEN": "your_github_token_here",
+    "SLACK_BOT_TOKEN": "your_slack_bot_token",
   "OPENAI_API_KEY": "sk-your-openai-api-key",
   "ALERT_WEBHOOK_URL": "https://your-alerting-webhook.com",
   "SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"

@@ -140,7 +140,7 @@ tools = await client.list_available_tools()
     "github": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github@2025.4.8"],
-      "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_xxx"}
+              "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "your_github_token"}
     },
     "context7": {
       "command": "npx", 

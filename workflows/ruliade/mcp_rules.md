@@ -54,14 +54,14 @@
 - **Use consistent environment variable patterns**
   ```bash
   # GitHub Integration
-  GITHUB_PERSONAL_ACCESS_TOKEN=ghp_xxxxx
+  GITHUB_PERSONAL_ACCESS_TOKEN=your_github_token
   
   # Context7 (Upstash Redis)
   UPSTASH_REDIS_REST_URL=https://xxxxx.upstash.io
   UPSTASH_REDIS_REST_TOKEN=AxxxX
   
   # Slack Integration
-  SLACK_BOT_TOKEN=xoxb-xxxxx
+  SLACK_BOT_TOKEN=your_slack_token
   SLACK_TEAM_ID=T123456789
   
   # Browser/Search

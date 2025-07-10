@@ -32,10 +32,10 @@ The e2e test suite covers all tools used in `workflows/db_decommission.py` that 
 
 ```bash
 # Required for GitHub operations
-export GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export GITHUB_TOKEN="your_github_token_here"
 
 # Required for Slack operations  
-export SLACK_BOT_TOKEN="xoxb-xxxxxxxx-xxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxx"
+export SLACK_BOT_TOKEN="your_slack_bot_token_here"
 export SLACK_TEST_CHANNEL="C01234567"  # Your test channel ID
 
 # Optional: GitHub CLI for enhanced fork operations
