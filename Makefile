@@ -553,4 +553,40 @@ ui = StreamlitWorkflowUI(); \
 print('✅ StreamlitWorkflowUI initializes successfully'); \
 print('🎉 All UI functionality tests passed!'); \
 print('💡 Run make preview-streamlit to see the new interface');"
-	@echo "$(GREEN)✓ UI functionality tests completed$(NC)" 
+	@echo "$(GREEN)✓ UI functionality tests completed$(NC)"
+
+db-decommission-ui: check-deps ## Start Database Decommissioning Streamlit UI
+	@echo "$(YELLOW)Starting Database Decommissioning UI...$(NC)"
+	@echo "$(CYAN)Features:$(NC)"
+	@echo "  🗄️ Database decommissioning workflow visualization"
+	@echo "  📊 File reference tables with discovered database references"
+	@echo "  🌞 Repository structure sunburst charts"
+	@echo "  🔍 Context data preview for debugging workflow state"
+	@echo "  ⚙️ Configurable database name and target repositories"
+	@echo ""
+	@echo "$(CYAN)Open http://localhost:8502 and configure your database decommissioning$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/streamlit run concrete/db_decommission_ui.py \
+		--server.port 8502 \
+		--server.address 0.0.0.0
+	@echo "$(GREEN)✓ Database Decommissioning UI started$(NC)"
+
+db-decommission-test: check-deps ## Test database decommissioning workflow functionality
+	@echo "$(YELLOW)Testing Database Decommissioning Workflow...$(NC)"
+	@echo "$(CYAN)Testing workflow components...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
+import asyncio; \
+from concrete.db_decommission import create_optimized_db_decommission_workflow; \
+from concrete.db_decommission_ui import DatabaseDecommissionUI; \
+print('Testing database decommissioning workflow creation...'); \
+workflow = create_optimized_db_decommission_workflow( \
+	database_name='test_db', \
+	target_repos=['https://github.com/test/repo'], \
+	slack_channel='C12345' \
+); \
+print('✅ Workflow created successfully'); \
+print('Testing UI initialization...'); \
+ui = DatabaseDecommissionUI(); \
+print('✅ DatabaseDecommissionUI initializes successfully'); \
+print('🎉 All database decommissioning tests passed!'); \
+print('💡 Run make db-decommission-ui to start the interface');"
+	@echo "$(GREEN)✓ Database decommissioning tests completed$(NC)" 
