@@ -56,9 +56,9 @@ class TestGitHubMCPClientUnitTests:
     def mock_mcp_response_branch_success(self):
         """Mock successful create branch response in MCP format."""
         branch_data = {
-            "ref": "refs/heads/decommission-periodic_table-1642678800",
+            "ref": "refs/heads/decommission-example_database-1642678800",
             "node_id": "MDM6UmVmMTE3MDg4ODpyZWZzL2hlYWRzL3Rlc3Q=",
-            "url": "https://api.github.com/repos/testuser/postgres-sample-dbs/git/refs/heads/decommission-periodic_table-1642678800",
+            "url": "https://api.github.com/repos/testuser/postgres-sample-dbs/git/refs/heads/decommission-example_database-1642678800",
             "object": {
                 "sha": "abc123def456",
                 "type": "commit",
@@ -168,22 +168,22 @@ class TestGitHubMCPClientUnitTests:
             result = await github_client.create_branch(
                 "testuser", 
                 "postgres-sample-dbs", 
-                "decommission-periodic_table-1642678800"
+                "decommission-example_database-1642678800"
             )
             
             # Verify the tool was called with correct parameters
             mock_call.assert_called_once_with("create_branch", {
                 "owner": "testuser",
                 "repo": "postgres-sample-dbs",
-                "branch": "decommission-periodic_table-1642678800"
+                "branch": "decommission-example_database-1642678800"
             })
             
             # Verify the result structure
             assert result["success"] is True
-            assert result["ref"] == "refs/heads/decommission-periodic_table-1642678800"
+            assert result["ref"] == "refs/heads/decommission-example_database-1642678800"
             assert result["owner"] == "testuser"
             assert result["repo"] == "postgres-sample-dbs"
-            assert result["branch"] == "decommission-periodic_table-1642678800"
+            assert result["branch"] == "decommission-example_database-1642678800"
             assert "object" in result
             assert result["object"]["sha"] == "abc123def456"
 
@@ -296,7 +296,7 @@ class TestWorkflowStepFunctions:
         })
         mock_github_client.create_branch = AsyncMock(return_value={
             "success": True,
-            "ref": "refs/heads/decommission-periodic_table-1642678800",
+            "ref": "refs/heads/decommission-example_database-1642678800",
             "node_id": "test-node-id",
             "url": "https://api.github.com/test"
         })
@@ -308,7 +308,7 @@ class TestWorkflowStepFunctions:
             result = await create_feature_branch_step(
                 mock_context, 
                 mock_step, 
-                database_name="periodic_table",
+                database_name="example_database",
                 repo_owner="testuser",
                 repo_name="postgres-sample-dbs"
             )
@@ -318,13 +318,13 @@ class TestWorkflowStepFunctions:
         mock_github_client.create_branch.assert_called_once_with(
             owner="testuser",
             repo="postgres-sample-dbs",
-            branch="decommission-periodic_table-1642678800",
+            branch="decommission-example_database-1642678800",
             from_branch="main"
         )
         
         # Verify the result
         assert result["success"] is True
-        assert result["feature_branch"] == "decommission-periodic_table-1642678800"
+        assert result["feature_branch"] == "decommission-example_database-1642678800"
         assert result["default_branch"] == "main"
         assert result["repo_owner"] == "testuser"
         assert result["repo_name"] == "postgres-sample-dbs"
@@ -344,7 +344,7 @@ class TestWorkflowStepFunctions:
         result = await create_feature_branch_step(
             mock_context, 
             mock_step, 
-            database_name="periodic_table",
+            database_name="example_database",
             repo_owner="nonexistent",
             repo_name="repo"
         )
@@ -369,7 +369,7 @@ class TestWorkflowStepFunctions:
         mock_context.get_shared_value.side_effect = lambda key, default=None: {
             "branch_info": {
                 "success": True,
-                "feature_branch": "decommission-periodic_table-1642678800",
+                "feature_branch": "decommission-example_database-1642678800",
                 "default_branch": "main"
             },
             "processing_result": {
@@ -387,7 +387,7 @@ class TestWorkflowStepFunctions:
             result = await create_pull_request_step(
                 mock_context, 
                 mock_step, 
-                database_name="periodic_table",
+                database_name="example_database",
                 repo_owner="testuser",
                 repo_name="postgres-sample-dbs"
             )
@@ -398,10 +398,10 @@ class TestWorkflowStepFunctions:
         
         assert call_args["owner"] == "testuser"
         assert call_args["repo"] == "postgres-sample-dbs"
-        assert call_args["title"] == "🗄️ Decommission periodic_table database references"
-        assert call_args["head"] == "decommission-periodic_table-1642678800"
+        assert call_args["title"] == "🗄️ Decommission example_database database references"
+        assert call_args["head"] == "decommission-example_database-1642678800"
         assert call_args["base"] == "main"
-        assert "periodic_table" in call_args["body"]
+        assert "example_database" in call_args["body"]
         assert "chart1.yaml" in call_args["body"]
         assert "chart2.yaml" in call_args["body"]
         
@@ -409,7 +409,7 @@ class TestWorkflowStepFunctions:
         assert result["success"] is True
         assert result["pr_number"] == 42
         assert result["pr_url"] == "https://github.com/testuser/postgres-sample-dbs/pull/42"
-        assert result["feature_branch"] == "decommission-periodic_table-1642678800"
+        assert result["feature_branch"] == "decommission-example_database-1642678800"
         assert result["files_modified"] == 2
 
     @pytest.mark.asyncio
@@ -423,7 +423,7 @@ class TestWorkflowStepFunctions:
         result = await create_pull_request_step(
             mock_context, 
             mock_step, 
-            database_name="periodic_table",
+            database_name="example_database",
             repo_owner="testuser",
             repo_name="postgres-sample-dbs"
         )
@@ -457,7 +457,7 @@ class TestWorkflowStepFunctions:
             result = await create_pull_request_step(
                 mock_context, 
                 mock_step, 
-                database_name="periodic_table",
+                database_name="example_database",
                 repo_owner="testuser",
                 repo_name="postgres-sample-dbs"
             )

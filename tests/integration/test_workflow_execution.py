@@ -234,7 +234,7 @@ class TestWorkflowIntegration:
         
         # Use the actual workflow with mocked clients
         workflow = create_optimized_db_decommission_workflow(
-            database_name="periodic_table",
+            database_name="example_database",
             target_repos=["https://github.com/bprzybys-nc/postgres-sample-dbs"],
             slack_channel="C01234567",
             config_path=real_config_path

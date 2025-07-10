@@ -110,7 +110,7 @@ class DatabaseDecommissionUI:
             
         # Database decommissioning specific state
         if 'database_name' not in st.session_state:
-            st.session_state.database_name = "periodic_table"
+            st.session_state.database_name = "example_database"
             
         if 'target_repos' not in st.session_state:
             st.session_state.target_repos = ["https://github.com/bprzybys-nc/postgres-sample-dbs"]

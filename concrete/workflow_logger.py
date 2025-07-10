@@ -1,0 +1,371 @@
+"""
+Enhanced Logging System for Database Decommissioning Workflow.
+
+This module provides comprehensive logging functionality to track all aspects
+of the database decommissioning process with proper formatting and context.
+"""
+
+import logging
+import time
+import json
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass, asdict
+from datetime import datetime
+from pathlib import Path
+import asyncio
+
+@dataclass
+class WorkflowMetrics:
+    """Metrics tracking for workflow execution."""
+    start_time: float
+    end_time: Optional[float] = None
+    repositories_processed: int = 0
+    files_discovered: int = 0
+    files_processed: int = 0
+    files_modified: int = 0
+    errors_encountered: int = 0
+    warnings_generated: int = 0
+    database_name: str = ""
+    
+    @property
+    def duration(self) -> float:
+        """Calculate workflow duration."""
+        end = self.end_time or time.time()
+        return end - self.start_time
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert metrics to dictionary."""
+        return asdict(self)
+
+class DatabaseWorkflowLogger:
+    """Enhanced logger for database decommissioning workflows."""
+    
+    def __init__(self, database_name: str, log_level: str = "INFO"):
+        self.database_name = database_name
+        self.metrics = WorkflowMetrics(
+            start_time=time.time(),
+            database_name=database_name
+        )
+        
+        # Set up logger
+        self.logger = logging.getLogger(f"db_decommission.{database_name}")
+        self.logger.setLevel(getattr(logging, log_level.upper()))
+        
+        # Create formatter
+        formatter = logging.Formatter(
+            fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        # Add console handler if not already present
+        if not self.logger.handlers:
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            self.logger.addHandler(console_handler)
+        
+        # Track workflow state
+        self.current_step = ""
+        self.current_repository = ""
+        self.step_metrics = {}
+        
+    def log_workflow_start(self, target_repos: List[str], config: Dict[str, Any]):
+        """Log workflow initialization."""
+        self.logger.info("=" * 80)
+        self.logger.info(f"DATABASE DECOMMISSIONING WORKFLOW STARTED")
+        self.logger.info(f"Database: {self.database_name}")
+        self.logger.info(f"Target Repositories: {len(target_repos)}")
+        self.logger.info(f"Workflow Configuration: {json.dumps(config, indent=2)}")
+        self.logger.info("=" * 80)
+        
+        for i, repo in enumerate(target_repos, 1):
+            self.logger.info(f"Repository {i}: {repo}")
+    
+    def log_workflow_end(self, success: bool = True):
+        """Log workflow completion."""
+        self.metrics.end_time = time.time()
+        
+        self.logger.info("=" * 80)
+        if success:
+            self.logger.info(f"DATABASE DECOMMISSIONING WORKFLOW COMPLETED SUCCESSFULLY")
+        else:
+            self.logger.error(f"DATABASE DECOMMISSIONING WORKFLOW FAILED")
+        
+        self.logger.info(f"Total Duration: {self.metrics.duration:.2f} seconds")
+        self.logger.info(f"Repositories Processed: {self.metrics.repositories_processed}")
+        self.logger.info(f"Files Discovered: {self.metrics.files_discovered}")
+        self.logger.info(f"Files Processed: {self.metrics.files_processed}")
+        self.logger.info(f"Files Modified: {self.metrics.files_modified}")
+        self.logger.info(f"Errors Encountered: {self.metrics.errors_encountered}")
+        self.logger.info(f"Warnings Generated: {self.metrics.warnings_generated}")
+        self.logger.info("=" * 80)
+        
+    def log_step_start(self, step_name: str, step_description: str, parameters: Dict[str, Any] = None):
+        """Log the start of a workflow step."""
+        self.current_step = step_name
+        self.step_metrics[step_name] = {
+            "start_time": time.time(),
+            "description": step_description,
+            "parameters": parameters or {}
+        }
+        
+        self.logger.info(f"🚀 STEP START: {step_name}")
+        self.logger.info(f"   Description: {step_description}")
+        if parameters:
+            self.logger.info(f"   Parameters: {json.dumps(parameters, indent=4)}")
+    
+    def log_step_end(self, step_name: str, result: Dict[str, Any], success: bool = True):
+        """Log the end of a workflow step."""
+        if step_name in self.step_metrics:
+            self.step_metrics[step_name]["end_time"] = time.time()
+            self.step_metrics[step_name]["duration"] = (
+                self.step_metrics[step_name]["end_time"] - 
+                self.step_metrics[step_name]["start_time"]
+            )
+            self.step_metrics[step_name]["success"] = success
+            self.step_metrics[step_name]["result"] = result
+        
+        status_icon = "✅" if success else "❌"
+        duration = self.step_metrics.get(step_name, {}).get("duration", 0)
+        
+        self.logger.info(f"{status_icon} STEP END: {step_name} (Duration: {duration:.2f}s)")
+        
+        if not success and "error" in result:
+            self.logger.error(f"   Error: {result['error']}")
+            self.metrics.errors_encountered += 1
+        elif result:
+            # Log key result metrics
+            if "total_files" in result:
+                self.logger.info(f"   Files Found: {result['total_files']}")
+            if "files_processed" in result:
+                self.logger.info(f"   Files Processed: {result['files_processed']}")
+            if "files_modified" in result:
+                self.logger.info(f"   Files Modified: {result['files_modified']}")
+    
+    def log_repository_start(self, repo_url: str, repo_owner: str, repo_name: str):
+        """Log the start of repository processing."""
+        self.current_repository = f"{repo_owner}/{repo_name}"
+        self.logger.info(f"📦 REPOSITORY START: {self.current_repository}")
+        self.logger.info(f"   URL: {repo_url}")
+        
+    def log_repository_end(self, repo_owner: str, repo_name: str, result: Dict[str, Any]):
+        """Log the end of repository processing."""
+        repo_name_full = f"{repo_owner}/{repo_name}"
+        files_processed = result.get("files_processed", 0)
+        success = result.get("success", True)
+        
+        status_icon = "✅" if success else "❌"
+        self.logger.info(f"{status_icon} REPOSITORY END: {repo_name_full}")
+        self.logger.info(f"   Files Processed: {files_processed}")
+        
+        if success:
+            self.metrics.repositories_processed += 1
+            self.metrics.files_processed += files_processed
+        else:
+            self.logger.error(f"   Error: {result.get('error', 'Unknown error')}")
+    
+    def log_pattern_discovery(self, discovery_result: Dict[str, Any]):
+        """Log pattern discovery results."""
+        total_files = discovery_result.get("total_files", 0)
+        high_confidence = discovery_result.get("high_confidence_files", 0)
+        matches_by_type = discovery_result.get("matches_by_type", {})
+        
+        self.logger.info(f"🔍 PATTERN DISCOVERY RESULTS:")
+        self.logger.info(f"   Total Files Found: {total_files}")
+        self.logger.info(f"   High Confidence Files: {high_confidence}")
+        
+        self.metrics.files_discovered += total_files
+        
+        if matches_by_type:
+            self.logger.info(f"   Files by Source Type:")
+            for source_type, files in matches_by_type.items():
+                self.logger.info(f"     {source_type}: {len(files)} files")
+                
+        frameworks = discovery_result.get("frameworks_detected", [])
+        if frameworks:
+            self.logger.info(f"   Detected Frameworks: {', '.join(frameworks)}")
+    
+    def log_file_processing(self, file_path: str, operation: str, result: str, 
+                          source_type: str = "", changes_made: int = 0):
+        """Log individual file processing."""
+        status_icons = {
+            "success": "✅",
+            "modified": "🔧", 
+            "skipped": "⏭️",
+            "error": "❌",
+            "warning": "⚠️"
+        }
+        
+        icon = status_icons.get(result, "ℹ️")
+        
+        self.logger.info(f"  {icon} File: {file_path}")
+        self.logger.info(f"     Operation: {operation}")
+        self.logger.info(f"     Result: {result}")
+        
+        if source_type:
+            self.logger.info(f"     Source Type: {source_type}")
+        
+        if changes_made > 0:
+            self.logger.info(f"     Changes Made: {changes_made}")
+            self.metrics.files_modified += 1
+        
+        if result == "error":
+            self.metrics.errors_encountered += 1
+        elif result == "warning":
+            self.metrics.warnings_generated += 1
+    
+    def log_batch_processing(self, batch_number: int, total_batches: int, 
+                           files_in_batch: int, batch_result: Dict[str, Any]):
+        """Log batch processing results."""
+        self.logger.info(f"📁 BATCH {batch_number}/{total_batches} PROCESSING:")
+        self.logger.info(f"   Files in Batch: {files_in_batch}")
+        
+        if "files_processed" in batch_result:
+            self.logger.info(f"   Files Processed: {batch_result['files_processed']}")
+        
+        if "files_modified" in batch_result:
+            self.logger.info(f"   Files Modified: {batch_result['files_modified']}")
+        
+        if "errors" in batch_result and batch_result["errors"]:
+            self.logger.warning(f"   Errors in Batch: {len(batch_result['errors'])}")
+            for error in batch_result["errors"]:
+                self.logger.error(f"     - {error}")
+    
+    def log_mcp_operation(self, client_name: str, operation: str, 
+                         parameters: Dict[str, Any], result: Any, 
+                         duration: float, success: bool = True):
+        """Log MCP client operations."""
+        status_icon = "✅" if success else "❌"
+        
+        self.logger.debug(f"🔌 MCP OPERATION: {client_name}.{operation}")
+        self.logger.debug(f"   Parameters: {json.dumps(parameters, indent=4)}")
+        self.logger.debug(f"   Duration: {duration:.3f}s")
+        self.logger.debug(f"   Status: {status_icon}")
+        
+        if not success:
+            self.logger.error(f"   Error: {result}")
+            self.metrics.errors_encountered += 1
+    
+    def log_rule_application(self, rule_file: str, rules_applied: List[str], 
+                           file_path: str, changes_made: int):
+        """Log application of decommissioning rules."""
+        self.logger.info(f"📋 RULES APPLIED:")
+        self.logger.info(f"   Rule File: {rule_file}")
+        self.logger.info(f"   Target File: {file_path}")
+        self.logger.info(f"   Rules Applied: {len(rules_applied)}")
+        self.logger.info(f"   Changes Made: {changes_made}")
+        
+        for rule in rules_applied:
+            self.logger.debug(f"     - {rule}")
+    
+    def log_quality_check(self, check_name: str, result: str, details: Dict[str, Any]):
+        """Log quality assurance checks."""
+        status_icons = {
+            "pass": "✅",
+            "fail": "❌", 
+            "warning": "⚠️",
+            "skip": "⏭️"
+        }
+        
+        icon = status_icons.get(result, "ℹ️")
+        
+        self.logger.info(f"🔍 QUALITY CHECK: {check_name}")
+        self.logger.info(f"   Result: {icon} {result.upper()}")
+        
+        if details:
+            for key, value in details.items():
+                self.logger.info(f"   {key}: {value}")
+        
+        if result == "fail":
+            self.metrics.errors_encountered += 1
+        elif result == "warning":
+            self.metrics.warnings_generated += 1
+    
+    def log_slack_notification(self, channel: str, message: str, success: bool = True):
+        """Log Slack notifications."""
+        status_icon = "✅" if success else "❌"
+        
+        self.logger.info(f"💬 SLACK NOTIFICATION: {status_icon}")
+        self.logger.info(f"   Channel: {channel}")
+        self.logger.info(f"   Message Preview: {message[:100]}...")
+        
+        if not success:
+            self.metrics.errors_encountered += 1
+    
+    def log_pull_request_creation(self, pr_title: str, pr_url: str, success: bool = True):
+        """Log pull request creation."""
+        status_icon = "✅" if success else "❌"
+        
+        self.logger.info(f"🔀 PULL REQUEST CREATION: {status_icon}")
+        self.logger.info(f"   Title: {pr_title}")
+        
+        if success:
+            self.logger.info(f"   URL: {pr_url}")
+        else:
+            self.metrics.errors_encountered += 1
+    
+    def log_warning(self, message: str, context: Dict[str, Any] = None):
+        """Log a warning message."""
+        self.logger.warning(f"⚠️ WARNING: {message}")
+        if context:
+            self.logger.warning(f"   Context: {json.dumps(context, indent=4)}")
+        self.metrics.warnings_generated += 1
+    
+    def log_error(self, message: str, exception: Exception = None, context: Dict[str, Any] = None):
+        """Log an error message."""
+        self.logger.error(f"❌ ERROR: {message}")
+        
+        if exception:
+            self.logger.error(f"   Exception: {type(exception).__name__}: {str(exception)}")
+        
+        if context:
+            self.logger.error(f"   Context: {json.dumps(context, indent=4)}")
+        
+        self.metrics.errors_encountered += 1
+    
+    def get_metrics_summary(self) -> Dict[str, Any]:
+        """Get comprehensive workflow metrics."""
+        return {
+            "workflow_metrics": self.metrics.to_dict(),
+            "step_metrics": self.step_metrics,
+            "performance_summary": {
+                "total_duration": self.metrics.duration,
+                "avg_time_per_repo": (
+                    self.metrics.duration / max(self.metrics.repositories_processed, 1)
+                ),
+                "files_per_second": (
+                    self.metrics.files_processed / max(self.metrics.duration, 1)
+                ),
+                "success_rate": (
+                    1 - (self.metrics.errors_encountered / 
+                         max(self.metrics.files_processed, 1))
+                ) if self.metrics.files_processed > 0 else 0
+            }
+        }
+    
+    def export_logs(self, output_path: str):
+        """Export workflow logs and metrics to file."""
+        try:
+            output_file = Path(output_path)
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            export_data = {
+                "workflow_info": {
+                    "database_name": self.database_name,
+                    "timestamp": datetime.now().isoformat(),
+                    "current_step": self.current_step,
+                    "current_repository": self.current_repository
+                },
+                "metrics": self.get_metrics_summary()
+            }
+            
+            with open(output_file, 'w') as f:
+                json.dump(export_data, f, indent=2)
+            
+            self.logger.info(f"📄 Workflow logs exported to: {output_path}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to export logs: {e}")
+
+def create_workflow_logger(database_name: str, log_level: str = "INFO") -> DatabaseWorkflowLogger:
+    """Factory function to create a configured workflow logger."""
+    return DatabaseWorkflowLogger(database_name, log_level) 

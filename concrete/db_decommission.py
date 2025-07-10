@@ -516,7 +516,7 @@ async def create_pull_request_step(context, step, database_name: str,
         return {"error": f"Pull request creation failed: {e}"}
 
 def create_optimized_db_decommission_workflow(
-    database_name: str = "periodic_table",
+    database_name: str = "example_database",
     target_repos: List[str] = None,
     slack_channel: str = "C01234567",
     config_path: str = "mcp_config.json"
@@ -525,7 +525,7 @@ def create_optimized_db_decommission_workflow(
     Create optimized database decommissioning workflow using GraphMCP.
     
     Args:
-        database_name: Name of the database to decommission (default: "periodic_table")
+        database_name: Name of the database to decommission (default: "example_database")
         target_repos: List of repository URLs to process (default: postgres-sample-dbs)
         slack_channel: Slack channel ID for notifications
         config_path: Path to MCP configuration file
@@ -617,7 +617,7 @@ def create_optimized_db_decommission_workflow(
 # Usage Examples
 
 async def run_optimized_decommission(
-    database_name: str = "periodic_table",
+    database_name: str = "example_database",
     target_repos: List[str] = None,
     slack_channel: str = "C01234567"
 ):
