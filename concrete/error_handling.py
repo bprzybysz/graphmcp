@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from enum import Enum
 import json
+import uuid # Add this import
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +177,7 @@ class ErrorHandler:
         
         # Create error context
         error_context = ErrorContext(
-            error_id=f"err_{int(time.time())}_{id(exception)}",
+            error_id=f"err_{uuid.uuid4().hex}", # Use uuid for robust unique IDs
             timestamp=datetime.utcnow(),
             severity=severity,
             category=category,
@@ -286,7 +287,10 @@ class ErrorHandler:
                 "total_errors": 0,
                 "error_by_severity": {},
                 "error_by_category": {},
-                "recent_errors": []
+                "recent_errors": [],
+                "circuit_breaker_states": {
+                    name: breaker.state for name, breaker in self.circuit_breakers.items()
+                }
             }
         
         recent_errors = self.error_history[-10:]  # Last 10 errors
