@@ -78,10 +78,21 @@ class PatternDiscoveryEngine:
                 repomix_client, github_client, repo_url, repo_owner, repo_name, database_name
             )
             
-            # Step 3: Validate and categorize matches
-            validated_matches = await self._validate_pattern_matches(
-                github_client, repo_owner, repo_name, pattern_matches, database_name
-            )
+            # Step 3: Validate and categorize matches (using Repomix output_id)
+            output_id = repo_structure.get("pack_result", {}).get("output_id")
+            if output_id:
+                validated_matches = await self._validate_pattern_matches_repomix(
+                    repomix_client, output_id, pattern_matches, database_name
+                )
+            else:
+                # Fallback: basic validation without file content access
+                validated_matches = []
+                seen_files = set()
+                for source_type, matches in pattern_matches.items():
+                    for match in matches:
+                        if match['path'] not in seen_files:
+                            seen_files.add(match['path'])
+                            validated_matches.append(match)
             
             # Step 4: Generate discovery result
             discovery_result = self._compile_discovery_result(
@@ -109,24 +120,29 @@ class PatternDiscoveryEngine:
         repo_owner: str, 
         repo_name: str
     ) -> Dict[str, Any]:
-        """Analyze repository structure using repomix and GitHub APIs."""
+        """Analyze repository structure using repomix (minimal GitHub API usage)."""
         try:
-            # Pack repository for analysis
+            # Pack repository for analysis - this is the main operation
             pack_result = await repomix_client.pack_remote_repository(repo_url)
             
-            # Get repository structure from GitHub
-            repo_info = await github_client.analyze_repo_structure(repo_url)
+            # Get basic repository info from GitHub (single API call, not search)
+            try:
+                repo_info = await github_client.analyze_repo_structure(repo_url)
+            except Exception as e:
+                logger.debug(f"GitHub repo structure call failed: {e}")
+                repo_info = {"error": "github_api_failed"}
             
             return {
                 "pack_result": pack_result,
                 "repo_info": repo_info,
                 "languages": repo_info.get("languages", {}),
-                "file_count": repo_info.get("file_count", 0)
+                "file_count": repo_info.get("file_count", 0),
+                "repomix_success": pack_result is not None
             }
             
         except Exception as e:
             logger.warning(f"Repository structure analysis failed: {e}")
-            return {"error": str(e)}
+            return {"error": str(e), "repomix_success": False}
     
     async def _search_database_patterns(
         self, 
@@ -137,48 +153,68 @@ class PatternDiscoveryEngine:
         repo_name: str, 
         database_name: str
     ) -> Dict[SourceType, List[Dict[str, Any]]]:
-        """Search for database patterns using multiple search strategies."""
+        """Search for database patterns using Repomix only - NO GitHub API calls."""
         pattern_matches = {source_type: [] for source_type in SourceType}
         
-        # Strategy 1: Direct database name search
-        await self._search_direct_database_references(
-            repomix_client, repo_url, database_name, pattern_matches
+        # Step 1: Pack the repository once using Repomix
+        logger.info(f"🚀 Packing repository {repo_url} with Repomix...")
+        try:
+            pack_result = await repomix_client.pack_remote_repository(repo_url)
+            output_id = pack_result.get('output_id') if pack_result else None
+            
+            if not output_id:
+                logger.error("Failed to pack repository with Repomix")
+                return pattern_matches
+                
+            logger.info(f"✅ Repository packed successfully: {output_id}")
+            
+        except Exception as e:
+            logger.error(f"Repomix packing failed: {e}")
+            return pattern_matches
+        
+        # Step 2: Search patterns in packed content using grep
+        await self._search_direct_database_references_repomix(
+            repomix_client, output_id, database_name, pattern_matches
         )
         
-        # Strategy 2: File-type specific searches
-        await self._search_by_file_types(
-            github_client, repo_owner, repo_name, database_name, pattern_matches
+        # Step 3: Search file-type specific patterns using grep on packed content
+        await self._search_by_file_types_repomix(
+            repomix_client, output_id, database_name, pattern_matches
         )
         
-        # Strategy 3: Content-based pattern matching
-        await self._search_content_patterns(
-            repomix_client, repo_url, database_name, pattern_matches
+        # Step 4: Search content-based patterns using grep
+        await self._search_content_patterns_repomix(
+            repomix_client, output_id, database_name, pattern_matches
         )
         
+        logger.info(f"🔍 Pattern search completed using Repomix only")
         return pattern_matches
     
-    async def _search_direct_database_references(
+    async def _search_direct_database_references_repomix(
         self, 
         repomix_client, 
-        repo_url: str, 
+        output_id: str, 
         database_name: str, 
         pattern_matches: Dict[SourceType, List[Dict[str, Any]]]
     ):
-        """Search for direct database name references."""
+        """Search for direct database name references using Repomix grep."""
         try:
-            # Search for exact database name
+            # Search for exact database name with context
             search_patterns = [
                 database_name,
-                database_name.upper(),
-                database_name.lower(),
                 f'"{database_name}"',
                 f"'{database_name}'",
+                f":{database_name}",
+                f"={database_name}",
             ]
             
             for pattern in search_patterns:
                 try:
                     result = await repomix_client.grep_repomix_output(
-                        repo_url, pattern, context_lines=2, ignore_case=True
+                        output_id=output_id,
+                        pattern=re.escape(pattern),
+                        context_lines=2,
+                        ignore_case=True
                     )
                     
                     if result and result.get('matches'):
@@ -194,139 +230,173 @@ class PatternDiscoveryEngine:
                                 "pattern": pattern,
                                 "line_number": match.get('line_number', 0),
                                 "context": match.get('context', ''),
-                                "confidence": classification.confidence
+                                "confidence": classification.confidence,
+                                "search_method": "repomix_direct"
                             }
                             
                             pattern_matches[classification.source_type].append(match_info)
                             
                 except Exception as e:
-                    logger.debug(f"Pattern search failed for '{pattern}': {e}")
+                    logger.debug(f"Direct pattern search failed for '{pattern}': {e}")
                     continue
                     
         except Exception as e:
             logger.warning(f"Direct database reference search failed: {e}")
-    
-    async def _search_by_file_types(
-        self, 
-        github_client, 
-        repo_owner: str, 
-        repo_name: str, 
-        database_name: str, 
-        pattern_matches: Dict[SourceType, List[Dict[str, Any]]]
-    ):
-        """Search for database references by specific file types."""
-        file_type_searches = {
-            SourceType.INFRASTRUCTURE: [
-                f"filename:*.tf {database_name}",
-                f"filename:values.yaml {database_name}",
-                f"filename:Chart.yaml {database_name}",
-                f"filename:docker-compose.yml {database_name}",
-            ],
-            SourceType.CONFIG: [
-                f"filename:*.yaml {database_name}",
-                f"filename:*.json {database_name}",
-                f"filename:.env {database_name}",
-                f"filename:config.* {database_name}",
-            ],
-            SourceType.SQL: [
-                f"filename:*.sql {database_name}",
-                f"path:migrations {database_name}",
-                f"path:schemas {database_name}",
-            ],
-            SourceType.PYTHON: [
-                f"filename:*.py {database_name}",
-                f"filename:models.py {database_name}",
-                f"filename:settings.py {database_name}",
-            ]
-        }
-        
-        for source_type, queries in file_type_searches.items():
-            for query in queries:
-                try:
-                    search_query = f"repo:{repo_owner}/{repo_name} {query}"
-                    result = await github_client.search_code(search_query, per_page=50)
-                    
-                    if result and result.get('items'):
-                        for item in result['items']:
-                            match_info = {
-                                "path": item.get('path', ''),
-                                "type": source_type.value,
-                                "pattern": query,
-                                "score": item.get('score', 0),
-                                "url": item.get('html_url', ''),
-                                "confidence": 0.8  # High confidence for GitHub search results
-                            }
-                            
-                            pattern_matches[source_type].append(match_info)
-                            
-                except Exception as e:
-                    logger.debug(f"GitHub file type search failed for '{query}': {e}")
-                    continue
-    
-    async def _search_content_patterns(
+
+    async def _search_by_file_types_repomix(
         self, 
         repomix_client, 
-        repo_url: str, 
+        output_id: str, 
         database_name: str, 
         pattern_matches: Dict[SourceType, List[Dict[str, Any]]]
     ):
-        """Search for content-specific patterns."""
-        content_patterns = {
+        """Search for database references by specific file types using Repomix grep."""
+        
+        # Define file extension patterns for different source types
+        file_type_patterns = {
             SourceType.INFRASTRUCTURE: [
-                rf'resource\s+\"[^\"]*{database_name}[^\"]*\"',
-                rf'name:\s*[\'\"]{database_name}[\'\"]',
-                rf'database:\s*[\'\"]{database_name}[\'\"]',
+                (r"\.tf$", "Terraform files"),
+                (r"values\.ya?ml$", "Helm values"),
+                (r"Chart\.ya?ml$", "Helm charts"),
+                (r"docker-compose\.ya?ml$", "Docker compose"),
+                (r"Dockerfile", "Docker files"),
             ],
             SourceType.CONFIG: [
-                rf'{database_name}[_-]?(host|port|url|connection)',
-                rf'(host|port|url|connection)[_-]?{database_name}',
-                rf'{database_name}_DATABASE_URL',
+                (r"\.ya?ml$", "YAML config"),
+                (r"\.json$", "JSON config"),
+                (r"\.env", "Environment files"),
+                (r"config\.", "Config files"),
+                (r"\.ini$", "INI files"),
+                (r"\.toml$", "TOML files"),
             ],
             SourceType.SQL: [
-                rf'CREATE\s+DATABASE\s+{database_name}',
-                rf'USE\s+{database_name}',
-                rf'FROM\s+{database_name}\.',
+                (r"\.sql$", "SQL files"),
+                (r"migration", "Migration files"),
+                (r"schema", "Schema files"),
             ],
             SourceType.PYTHON: [
-                rf'class\s+\w*{database_name}\w*\(',
-                rf'{database_name}[_-]?(model|connection|engine)',
-                rf'DATABASES\s*=.*{database_name}',
+                (r"\.py$", "Python files"),
+                (r"models\.py$", "Django/Flask models"),
+                (r"settings\.py$", "Django settings"),
+                (r"requirements\.txt$", "Python deps"),
+            ],
+            SourceType.JAVASCRIPT: [
+                (r"\.js$", "JavaScript files"),
+                (r"\.ts$", "TypeScript files"),
+                (r"package\.json$", "NPM package"),
+                (r"\.vue$", "Vue components"),
+                (r"\.jsx?$", "React components"),
             ]
         }
         
-        for source_type, patterns in content_patterns.items():
-            for pattern in patterns:
+        for source_type, file_patterns in file_type_patterns.items():
+            for file_regex, description in file_patterns:
                 try:
+                    # Use grep to find database name in files matching the pattern
+                    # Combine file path filtering with content search
+                    grep_pattern = f"({re.escape(database_name)})"
+                    
                     result = await repomix_client.grep_repomix_output(
-                        repo_url, pattern, context_lines=1, ignore_case=True
+                        output_id=output_id,
+                        pattern=grep_pattern,
+                        context_lines=1,
+                        ignore_case=True
                     )
                     
                     if result and result.get('matches'):
                         for match in result['matches']:
+                            file_path = match.get('file', '')
+                            
+                            # Filter by file type using regex
+                            if re.search(file_regex, file_path, re.IGNORECASE):
+                                match_info = {
+                                    "path": file_path,
+                                    "type": source_type.value,
+                                    "pattern": f"{description}: {grep_pattern}",
+                                    "line_number": match.get('line_number', 0),
+                                    "context": match.get('context', ''),
+                                    "confidence": 0.8,  # High confidence for file type + content match
+                                    "search_method": "repomix_filetype"
+                                }
+                                
+                                pattern_matches[source_type].append(match_info)
+                            
+                except Exception as e:
+                    logger.debug(f"File type search failed for '{file_regex}': {e}")
+                    continue
+
+    async def _search_content_patterns_repomix(
+        self, 
+        repomix_client, 
+        output_id: str, 
+        database_name: str, 
+        pattern_matches: Dict[SourceType, List[Dict[str, Any]]]
+    ):
+        """Search for content-specific patterns using Repomix grep."""
+        content_patterns = {
+            SourceType.INFRASTRUCTURE: [
+                (rf'resource\s+["\'][^"\']*{re.escape(database_name)}[^"\']*["\']', "Terraform resource"),
+                (rf'name:\s*[\'\"]{re.escape(database_name)}[\'\"]', "YAML name field"),
+                (rf'database:\s*[\'\"]{re.escape(database_name)}[\'\"]', "Database config"),
+            ],
+            SourceType.CONFIG: [
+                (rf'{re.escape(database_name)}[_-]?(host|port|url|connection)', "DB connection config"),
+                (rf'(host|port|url|connection)[_-]?{re.escape(database_name)}', "Connection prefix"),
+                (rf'{re.escape(database_name)}_DATABASE_URL', "Database URL env var"),
+            ],
+            SourceType.SQL: [
+                (rf'CREATE\s+DATABASE\s+{re.escape(database_name)}', "CREATE DATABASE"),
+                (rf'USE\s+{re.escape(database_name)}', "USE statement"),
+                (rf'FROM\s+{re.escape(database_name)}\.', "FROM table"),
+            ],
+            SourceType.PYTHON: [
+                (rf'class\s+\w*{re.escape(database_name)}\w*\(', "Python class"),
+                (rf'{re.escape(database_name)}[_-]?(model|connection|engine)', "DB model/connection"),
+                (rf'DATABASES\s*=.*{re.escape(database_name)}', "Django DATABASES"),
+            ]
+        }
+        
+        for source_type, patterns in content_patterns.items():
+            for pattern, description in patterns:
+                try:
+                    result = await repomix_client.grep_repomix_output(
+                        output_id=output_id,
+                        pattern=pattern,
+                        context_lines=1,
+                        ignore_case=True
+                    )
+                    
+                    if result and result.get('matches'):
+                        for match in result['matches']:
+                            file_path = match.get('file', '')
+                            
+                            # Re-classify file for accuracy
+                            classification = self.classifier.classify_file(file_path)
+                            
                             match_info = {
-                                "path": match.get('file', ''),
-                                "type": source_type.value,
-                                "pattern": pattern,
+                                "path": file_path,
+                                "type": classification.source_type.value,
+                                "pattern": f"{description}: {pattern}",
                                 "line_number": match.get('line_number', 0),
                                 "context": match.get('context', ''),
-                                "confidence": 0.7  # Medium confidence for regex patterns
+                                "confidence": 0.7,  # Medium confidence for regex patterns
+                                "search_method": "repomix_content"
                             }
                             
-                            pattern_matches[source_type].append(match_info)
+                            pattern_matches[classification.source_type].append(match_info)
                             
                 except Exception as e:
                     logger.debug(f"Content pattern search failed for '{pattern}': {e}")
                     continue
     
-    async def _validate_pattern_matches(
+    async def _validate_pattern_matches_repomix(
         self, 
-        github_client, 
-        repo_owner: str, 
-        repo_name: str, 
+        repomix_client,
+        output_id: str,
         pattern_matches: Dict[SourceType, List[Dict[str, Any]]], 
         database_name: str
     ) -> List[Dict[str, Any]]:
-        """Validate pattern matches by examining file content."""
+        """Validate and deduplicate pattern matches from Repomix results."""
         validated_matches = []
         seen_files = set()
         
@@ -334,42 +404,29 @@ class PatternDiscoveryEngine:
             for match in matches:
                 file_path = match['path']
                 
-                # Skip duplicates
+                # Skip duplicates (same file found by multiple search methods)
                 if file_path in seen_files:
                     continue
                 seen_files.add(file_path)
                 
-                try:
-                    # Get file content for validation
-                    file_content = await github_client.get_file_contents(
-                        repo_owner, repo_name, file_path
-                    )
-                    
-                    # Validate that database name actually appears in content
-                    if self._validate_database_reference(file_content, database_name):
-                        # Re-classify file with content for better accuracy
-                        classification = self.classifier.classify_file(file_path, file_content)
-                        
-                        validated_match = {
-                            "path": file_path,
-                            "type": classification.source_type.value,
-                            "frameworks": classification.detected_frameworks,
-                            "confidence": classification.confidence,
-                            "rule_files": classification.rule_files,
-                            "patterns_matched": match.get('pattern', ''),
-                            "line_number": match.get('line_number', 0),
-                            "validation": "confirmed"
-                        }
-                        
-                        validated_matches.append(validated_match)
-                        
-                except Exception as e:
-                    logger.debug(f"File validation failed for {file_path}: {e}")
-                    # Include unvalidated match with lower confidence
-                    unvalidated_match = match.copy()
-                    unvalidated_match['confidence'] = 0.3
-                    unvalidated_match['validation'] = "unvalidated"
-                    validated_matches.append(unvalidated_match)
+                # Since we found it via grep, we know the database name appears in the file
+                # Just re-classify for better accuracy and add validation info
+                classification = self.classifier.classify_file(file_path)
+                
+                validated_match = {
+                    "path": file_path,
+                    "type": classification.source_type.value,
+                    "frameworks": classification.detected_frameworks,
+                    "confidence": max(classification.confidence, match.get('confidence', 0.5)),
+                    "rule_files": classification.rule_files,
+                    "patterns_matched": match.get('pattern', ''),
+                    "line_number": match.get('line_number', 0),
+                    "context": match.get('context', ''),
+                    "search_method": match.get('search_method', 'repomix'),
+                    "validation": "repomix_confirmed"  # Found via content search, so confirmed
+                }
+                
+                validated_matches.append(validated_match)
         
         return validated_matches
     

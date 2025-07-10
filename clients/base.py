@@ -62,6 +62,11 @@ class BaseMCPClient(ABC):
             # Load environment variables from .env file first
             load_dotenv()
 
+            # DEBUG: Print initial environment values for GitHub token
+            if self.server_name == "ovr_github":
+                initial_token = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN", "NOT_SET")
+                logger.warning(f"🔍 Initial env GITHUB_PERSONAL_ACCESS_TOKEN: '{initial_token}' (length: {len(initial_token)})")
+
             # Overwrite with secrets.json if it exists
             secrets_path = Path("secrets.json")
             if secrets_path.exists():
@@ -71,6 +76,11 @@ class BaseMCPClient(ABC):
                 for key, value in secrets.items():
                     os.environ[key] = str(value)
                     logger.debug(f"Loaded secret: {key}")
+                
+                # DEBUG: Print environment value after loading secrets.json
+                if self.server_name == "ovr_github":
+                    after_secrets_token = os.getenv("GITHUB_PERSONAL_ACCESS_TOKEN", "NOT_SET")
+                    logger.warning(f"🔍 After secrets.json GITHUB_PERSONAL_ACCESS_TOKEN: '{after_secrets_token}' (length: {len(after_secrets_token)})")
 
             if not self.config_path.exists():
                 raise MCPConnectionError(f"MCP config file not found: {self.config_path}")
@@ -104,8 +114,14 @@ class BaseMCPClient(ABC):
             if isinstance(value, str) and value.startswith("$"):
                 # Substitute environment variable (remove the $ prefix)
                 env_var_name = value[1:]
-                env[key] = os.getenv(env_var_name, "")
-                logger.debug(f"Substituted env var {key}=${env_var_name} -> {key}={env[key][:4]}...{env[key][-4:] if len(env[key]) > 8 else '***'}")
+                substituted_value = os.getenv(env_var_name, "")
+                env[key] = substituted_value
+                logger.debug(f"Substituted env var {key}=${env_var_name} -> {key}={substituted_value[:4]}...{substituted_value[-4:] if len(substituted_value) > 8 else '***'}")
+                
+                # TEMPORARY DEBUG: Print GitHub token substitution details
+                if self.server_name == "ovr_github" and "GITHUB" in key.upper():
+                    logger.warning(f"🔍 SUBSTITUTION: {key}=${env_var_name} -> '{substituted_value}' (length: {len(substituted_value)})")
+                    logger.warning(f"🔍 os.getenv('{env_var_name}') = '{os.getenv(env_var_name, 'NOT_FOUND')}' (length: {len(os.getenv(env_var_name, ''))})")
             else:
                 env[key] = str(value)
         
@@ -117,6 +133,10 @@ class BaseMCPClient(ABC):
             if "TOKEN" in key.upper() or "PASSWORD" in key.upper(): # Heuristic for sensitive vars
                 log_value = f"{value[:4]}...{value[-4:]}" if len(value) > 8 else "******"
                 logger.debug(f"Sensitive ENV var for '{self.server_name}': {key}={log_value}")
+                
+                # TEMPORARY DEBUG: Print full GitHub token for debugging authentication issues
+                if self.server_name == "ovr_github" and "GITHUB" in key.upper():
+                    logger.warning(f"🔍 DEBUG GitHub token for '{self.server_name}': {key}='{value}' (length: {len(value)})")
             else:
                 logger.debug(f"ENV var for '{self.server_name}': {key}={value}")
 

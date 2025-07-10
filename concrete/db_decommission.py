@@ -631,14 +631,14 @@ async def run_optimized_decommission(
                 "command": "npx",
                 "args": ["@modelcontextprotocol/server-github"],
                 "env": {
-                    "GITHUB_PERSONAL_ACCESS_TOKEN": "your-token-here"
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_PERSONAL_ACCESS_TOKEN"
                 }
             },
             "ovr_slack": {
                 "command": "npx", 
                 "args": ["@modelcontextprotocol/server-slack"],
                 "env": {
-                    "SLACK_BOT_TOKEN": "your-token-here"
+                    "SLACK_BOT_TOKEN": "$SLACK_BOT_TOKEN"
                 }
             },
             "ovr_repomix": {

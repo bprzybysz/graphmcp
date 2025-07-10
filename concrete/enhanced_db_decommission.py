@@ -268,17 +268,22 @@ async def enhanced_validate_environment_step(
     step, 
     database_name: str = "example_database"
 ) -> Dict[str, Any]:
-    """Enhanced environment validation with comprehensive logging."""
+    """Enhanced environment validation with comprehensive logging and centralized parameter service."""
     
     workflow_logger = create_workflow_logger(database_name)
     workflow_logger.log_step_start(
         "enhanced_validate_environment",
-        "Validate environment setup and initialize enhanced components",
+        "Validate environment setup and initialize enhanced components with centralized secrets",
         {"database_name": database_name}
     )
     
     try:
         validations = []
+        
+        # Initialize centralized parameter service first
+        logger.info("🔐 Initializing centralized parameter service...")
+        param_service = initialize_environment_with_centralized_secrets()
+        validations.append({"component": "parameter_service", "status": "initialized", "issues": len(param_service.validation_issues)})
         
         # Initialize enhanced components
         logger.info("Initializing enhanced pattern discovery engine...")
@@ -307,6 +312,7 @@ async def enhanced_validate_environment_step(
         })
         
         # Store components in context for reuse
+        context.set_shared_value("parameter_service", param_service)
         context.set_shared_value("enhanced_discovery_engine", discovery_engine)
         context.set_shared_value("enhanced_classifier", classifier)
         context.set_shared_value("enhanced_rules_engine", rules_engine)
@@ -316,7 +322,10 @@ async def enhanced_validate_environment_step(
             "database_name": database_name,
             "enhanced_components": validations,
             "environment_ready": True,
+            "centralized_secrets_loaded": True,
+            "parameter_validation_issues": len(param_service.validation_issues),
             "enhancement_features": [
+                "centralized_parameter_management",
                 "intelligent_pattern_discovery",
                 "source_type_classification", 
                 "contextual_rules_application",
@@ -807,14 +816,14 @@ async def run_enhanced_decommission(
                 "command": "npx",
                 "args": ["@modelcontextprotocol/server-github"],
                 "env": {
-                    "GITHUB_PERSONAL_ACCESS_TOKEN": "your-token-here"
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_PERSONAL_ACCESS_TOKEN"
                 }
             },
             "ovr_slack": {
                 "command": "npx", 
                 "args": ["@modelcontextprotocol/server-slack"],
                 "env": {
-                    "SLACK_BOT_TOKEN": "your-token-here"
+                    "SLACK_BOT_TOKEN": "$SLACK_BOT_TOKEN"
                 }
             },
             "ovr_repomix": {

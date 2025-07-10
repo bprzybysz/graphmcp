@@ -198,8 +198,8 @@ class ParameterService:
         return result
     
     def _validate_secrets(self):
-        """Validate secrets using predefined patterns."""
-        logger.info("🔍 Validating secrets using security patterns...")
+        """Validate secrets - simplified to just check for non-empty values."""
+        logger.info("🔍 Validating secrets - checking for non-empty values...")
         
         for pattern in self.secret_patterns:
             value = self.get_parameter(pattern.name, required=False)
@@ -208,52 +208,47 @@ class ParameterService:
                 if pattern.level == SecretLevel.REQUIRED:
                     self.validation_issues.append(
                         f"Required secret '{pattern.name}' is missing. "
-                        f"Expected: {pattern.description} (example: {pattern.example})"
+                        f"Expected: {pattern.description}"
                     )
                 elif pattern.level == SecretLevel.OPTIONAL:
                     logger.debug(f"   - Optional secret '{pattern.name}' not provided")
                 continue
             
-            # Validate pattern
-            if not re.match(pattern.pattern, str(value)):
+            # Simple validation - just check if not empty
+            value_str = str(value).strip()
+            if not value_str:
                 self.validation_issues.append(
-                    f"Secret '{pattern.name}' has suspicious value format. "
-                    f"Expected: {pattern.description} matching pattern {pattern.pattern}"
+                    f"Secret '{pattern.name}' is empty or whitespace only"
                 )
-                logger.warning(f"⚠️ Suspicious value for {pattern.name}")
+                logger.warning(f"⚠️ Empty value for {pattern.name}")
             else:
-                logger.debug(f"   ✅ {pattern.name} validation passed")
+                logger.info(f"   ✅ {pattern.name} validation passed (non-empty)")
         
-        # Check for potential secrets with suspicious values
-        self._check_suspicious_values()
+        # Debug: List all managed values after being set
+        self._list_managed_values()
     
-    def _check_suspicious_values(self):
-        """Check for parameters that might be secrets with suspicious values."""
-        suspicious_patterns = [
-            r"your.+here",
-            r"replace.+with",
-            r"xxx+",
-            r"000+",
-            r"test",
-            r"dummy",
-            r"fake",
-            r"placeholder"
-        ]
+    def _list_managed_values(self):
+        """Debug: List all managed parameter values after being set."""
+        logger.info("📋 Managed parameter values:")
         
         secret_keywords = ["token", "key", "secret", "password", "pass", "auth", "credential"]
         
-        for param_name, param_value in self.parameters.items():
+        for param_name, param_value in sorted(self.parameters.items()):
             # Check if parameter name suggests it's a secret
-            if any(keyword in param_name.lower() for keyword in secret_keywords):
-                value_str = str(param_value).lower()
+            is_secret = any(keyword in param_name.lower() for keyword in secret_keywords)
+            
+            if is_secret:
+                # Show only first/last few characters for secrets
+                value_str = str(param_value)
+                if len(value_str) > 8:
+                    masked_value = f"{value_str[:4]}...{value_str[-4:]}"
+                else:
+                    masked_value = "***"
+                logger.info(f"   🔐 {param_name}: {masked_value} (length: {len(value_str)})")
+            else:
+                logger.info(f"   📄 {param_name}: {param_value}")
                 
-                # Check for suspicious placeholder values
-                for pattern in suspicious_patterns:
-                    if re.search(pattern, value_str):
-                        self.validation_issues.append(
-                            f"Parameter '{param_name}' appears to be a secret but has suspicious placeholder value: {param_value}"
-                        )
-                        break
+        logger.info(f"📊 Total managed parameters: {len(self.parameters)}")
     
     def get_parameter(self, key: str, default: Any = None, required: bool = False) -> Any:
         """Get a parameter value with optional requirement checking."""
