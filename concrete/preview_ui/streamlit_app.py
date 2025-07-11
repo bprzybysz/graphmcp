@@ -89,7 +89,7 @@ class StreamlitWorkflowUI:
             
         if 'auto_refresh' not in st.session_state:
             st.session_state.auto_refresh = True
-            
+        
         if 'real_workflow' not in st.session_state:
             st.session_state.real_workflow = False
         
@@ -308,9 +308,9 @@ class StreamlitWorkflowUI:
                     self.run_real_workflow_step(step)
                 else:
                     # Fallback to simulation
-                    time.sleep(1)
-                    step.status = WorkflowStatus.COMPLETED
-                    step.output_data = {"status": "completed", "timestamp": datetime.now().isoformat()}
+                time.sleep(1)
+                step.status = WorkflowStatus.COMPLETED
+                step.output_data = {"status": "completed", "timestamp": datetime.now().isoformat()}
                     log_info(st.session_state.workflow_id, f"✅ **Completed:** {step.name}")
                 
                 break
