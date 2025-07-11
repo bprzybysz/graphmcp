@@ -11,7 +11,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 import logging
 
-from concrete.source_type_classifier import SourceTypeClassifier, SourceType, get_database_search_patterns
+from .source_type_classifier import SourceTypeClassifier, SourceType, get_database_search_patterns
 
 logger = logging.getLogger(__name__)
 
@@ -115,10 +115,43 @@ class PatternDiscoveryEngine:
                 else:
                     logger.warning(f"Test data file not found: {test_data_file}")
             
-            # Fallback: try to pack repository using Repomix (original logic)
-            logger.info(f"📥 Fallback: Downloading repository content via Repomix: {repo_owner}/{repo_name}")
+            # HACK/TODO: Unmock repopack - using test data instead of real packing for demo
+            logger.info(f"🎭 MOCK: Using test data instead of repomix for {repo_owner}/{repo_name}")
             
-            pack_result = await repomix_client.pack_remote_repository(repo_url)
+            # Mock pack result using test data file
+            test_data_file = Path("tests/data/postgres_sample_dbs_packed.xml")
+            if test_data_file.exists():
+                logger.info(f"📦 MOCK: Loading test data from {test_data_file}")
+                with open(test_data_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                pack_result = {
+                    'success': True,
+                    'output_id': 'mock_test_data',
+                    'content': content
+                }
+            else:
+                logger.warning(f"📦 MOCK: Test data file not found: {test_data_file}, using mock data instead")
+                # HACK/TODO: Comment out real repo pack call for demo performance
+                # Fallback: try to pack repository using Repomix (original logic)
+                # logger.info(f"📥 Fallback: Downloading repository content via Repomix: {repo_owner}/{repo_name}")
+                # pack_result = await repomix_client.pack_remote_repository(repo_url)
+                
+                # For demo, always use mock data instead of real packing
+                logger.info(f"📦 Using mock data for demo performance")
+                files = self._get_mock_repository_data()
+                return {
+                    "files": files,
+                    "structure": {
+                        "total_files": len(files),
+                        "file_types": self._analyze_file_types(files),
+                        "directory_structure": self._analyze_directory_structure(files),
+                        "estimated_size": sum(len(f.get('content', '')) for f in files)
+                    },
+                    "total_size": sum(len(f.get('content', '')) for f in files)
+                }
+                
+                # Original code below would execute the pack_result logic:
+                pack_result = None
             
             logger.info(f"🔍 Pack result: {pack_result}")
             

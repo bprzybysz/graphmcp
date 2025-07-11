@@ -12,7 +12,7 @@ from pathlib import Path
 from dataclasses import dataclass
 import logging
 
-from concrete.source_type_classifier import SourceType, ClassificationResult
+from .source_type_classifier import SourceType, ClassificationResult
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ class ContextualRulesEngine:
             SourceType.CONFIG: self._process_config_rules,
             SourceType.SQL: self._process_sql_rules,
             SourceType.PYTHON: self._process_python_rules,
+            SourceType.SHELL: self._process_shell_rules,
             SourceType.DOCUMENTATION: self._process_documentation_rules,
         }
         
@@ -58,6 +59,7 @@ class ContextualRulesEngine:
             SourceType.CONFIG: self._load_config_rules(),
             SourceType.SQL: self._load_sql_rules(),
             SourceType.PYTHON: self._load_python_rules(),
+            SourceType.SHELL: self._load_shell_rules(),
             SourceType.DOCUMENTATION: self._load_documentation_rules(),
         }
         return rules
@@ -144,6 +146,17 @@ class ContextualRulesEngine:
                     r'^(\s*)host:\s*{{TARGET_DB}}[-_].*',
                 ],
                 "action": "comment_out"
+            },
+            "helm_values_deprecation": {
+                "id": "R-CONFIG-3.1",
+                "description": "Mark Helm values and YAML examples as deprecated",
+                "patterns": [
+                    r'name:\s*[\'"]{{TARGET_DB}}[\'"]',
+                    r'# {{TARGET_DB}}',
+                    r'{{TARGET_DB}}[-_].*:',
+                    r'# .*{{TARGET_DB}}.*',
+                ],
+                "action": "add_deprecation_notice"
             }
         }
     
@@ -227,6 +240,57 @@ class ContextualRulesEngine:
                     r'mysql://.*{{TARGET_DB}}.*',
                 ],
                 "action": "comment_out"
+            },
+            "test_data_deprecation": {
+                "id": "R-PYTHON-5.1",
+                "description": "Mark test data and examples as deprecated",
+                "patterns": [
+                    r'\(\s*"{{TARGET_DB}}"\s*,.*\)',
+                    r'"{{TARGET_DB}}":\s*\(',
+                    r'"{{TARGET_DB}}":\s*ScenarioDefinition',
+                    r'"{{TARGET_DB}}"[,\s]*$',
+                ],
+                "action": "add_deprecation_notice"
+            }
+        }
+    
+    def _load_shell_rules(self) -> Dict[str, Any]:
+        """Load shell script-specific rules."""
+        return {
+            "database_variable_removal": {
+                "id": "R-SHELL-1.1",
+                "description": "Remove database variable assignments",
+                "patterns": [
+                    r'^(\s*){{TARGET_DB}}_[A-Z_]*=.*$',
+                    r'^(\s*)export\s+{{TARGET_DB}}_[A-Z_]*=.*$',
+                    r'^(\s*)DB_NAME=[\'"]{{TARGET_DB}}[\'"].*$',
+                    r'^(\s*)DATABASE=[\'"]{{TARGET_DB}}[\'"].*$',
+                ],
+                "action": "comment_out"
+            },
+            "database_command_removal": {
+                "id": "R-SHELL-1.2",
+                "description": "Remove database-related commands",
+                "patterns": [
+                    r'psql.*{{TARGET_DB}}.*',
+                    r'mysql.*{{TARGET_DB}}.*',
+                    r'createdb\s+{{TARGET_DB}}',
+                    r'dropdb\s+{{TARGET_DB}}',
+                    r'pg_dump.*{{TARGET_DB}}.*',
+                    r'mysqldump.*{{TARGET_DB}}.*',
+                ],
+                "action": "comment_out"
+            },
+            "deployment_script_cleanup": {
+                "id": "R-SHELL-2.1",
+                "description": "Remove deployment steps for database",
+                "patterns": [
+                    r'deploy.*{{TARGET_DB}}.*',
+                    r'install.*{{TARGET_DB}}.*',
+                    r'setup.*{{TARGET_DB}}.*',
+                    r'configure.*{{TARGET_DB}}.*',
+                ],
+                "action": "comment_out"
             }
         }
     
@@ -235,11 +299,12 @@ class ContextualRulesEngine:
         return {
             "markdown_references_update": {
                 "id": "R-DOC-1.1",
-                "description": "Update markdown database references",
+                "description": "Update markdown database references with deprecation notices",
                 "patterns": [
                     r'#.*{{TARGET_DB}}.*',
                     r'##.*{{TARGET_DB}}.*',
                     r'`{{TARGET_DB}}`',
+                    r'{{TARGET_DB}}',
                 ],
                 "action": "add_deprecation_notice"
             },
@@ -250,6 +315,26 @@ class ContextualRulesEngine:
                     r'```.*{{TARGET_DB}}.*```',
                     r'```sql.*{{TARGET_DB}}.*```',
                     r'```python.*{{TARGET_DB}}.*```',
+                ],
+                "action": "add_deprecation_notice"
+            },
+            "table_references_deprecate": {
+                "id": "R-DOC-1.3",
+                "description": "Mark table entries containing database references as deprecated",
+                "patterns": [
+                    r'\|.*{{TARGET_DB}}.*\|',
+                    r'^\s*\*.*{{TARGET_DB}}.*',
+                    r'^\s*-.*{{TARGET_DB}}.*',
+                ],
+                "action": "add_deprecation_notice"
+            },
+            "example_configuration_deprecate": {
+                "id": "R-DOC-1.4",
+                "description": "Mark example configurations as deprecated",
+                "patterns": [
+                    r'"{{TARGET_DB}}":\s*\{',
+                    r'"{{TARGET_DB}}":\s*\(',
+                    r'"{{TARGET_DB}}"[,\s]*$',
                 ],
                 "action": "add_deprecation_notice"
             }
@@ -437,19 +522,38 @@ class ContextualRulesEngine:
         lines = content.split('\n')
         modified_lines = []
         changes_made = 0
+        deprecation_added = set()  # Track where we've already added notices
         
         for i, line in enumerate(lines):
+            line_matched = False
             for pattern in patterns:
                 if re.search(pattern, line, re.IGNORECASE):
-                    # Add deprecation notice before the line
-                    comment_prefix = self._get_comment_prefix_for_line(line)
-                    deprecation_notice = f"{comment_prefix} DEPRECATED: {database_name} database has been decommissioned"
+                    # Add deprecation notice before the line if not already added
+                    notice_key = f"{i}_{pattern}"
+                    if notice_key not in deprecation_added:
+                        comment_prefix = self._get_comment_prefix_for_line(line)
+                        
+                        # Create context-aware deprecation notices
+                        if any(keyword in line.lower() for keyword in ['test', 'example', 'demo', 'sample']):
+                            deprecation_notice = f"{comment_prefix} DEPRECATED: {database_name} database has been decommissioned - update test/example data"
+                        elif '|' in line and line.count('|') >= 2:  # Table format
+                            deprecation_notice = f"{comment_prefix} DEPRECATED: {database_name} database has been decommissioned"
+                        elif line.strip().startswith(('*', '-', '•')):  # List items
+                            deprecation_notice = f"{comment_prefix} DEPRECATED: {database_name} database has been decommissioned"
+                        elif 'scenario' in line.lower() or 'definition' in line.lower():
+                            deprecation_notice = f"{comment_prefix} DEPRECATED: {database_name} database has been decommissioned - remove from scenarios"
+                        else:
+                            deprecation_notice = f"{comment_prefix} DEPRECATED: {database_name} database has been decommissioned"
+                        
+                        modified_lines.append(deprecation_notice)
+                        deprecation_added.add(notice_key)
+                        changes_made += 1
                     
-                    modified_lines.append(deprecation_notice)
                     modified_lines.append(line)
-                    changes_made += 1
+                    line_matched = True
                     break
-            else:
+            
+            if not line_matched:
                 modified_lines.append(line)
         
         return '\n'.join(modified_lines), changes_made
@@ -551,6 +655,13 @@ class ContextualRulesEngine:
                                    database_name: str) -> List[RuleResult]:
         """Process Python-specific rules."""
         # This method can be extended for Python-specific processing
+        return []
+    
+    async def _process_shell_rules(self, file_path: str, content: str,
+                                   classification: ClassificationResult,
+                                   database_name: str) -> List[RuleResult]:
+        """Process shell script-specific rules."""
+        # This method can be extended for shell-specific processing
         return []
     
     async def _process_documentation_rules(self, file_path: str, content: str,

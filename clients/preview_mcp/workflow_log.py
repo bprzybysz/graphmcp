@@ -24,6 +24,7 @@ class LogEntryType(Enum):
     LOG = "log"
     TABLE = "table"
     SUNBURST = "sunburst"
+    PROGRESS_TABLE = "progress_table"
 
 
 @dataclass
@@ -141,6 +142,19 @@ class WorkflowLog:
         self.entries.append(entry)
         return entry.entry_id
     
+    def add_entry(self, entry: LogEntry) -> str:
+        """
+        Add a log entry directly.
+        
+        Args:
+            entry: LogEntry object to add
+            
+        Returns:
+            Entry ID for the added entry
+        """
+        self.entries.append(entry)
+        return entry.entry_id
+    
     def append_table(self, headers: List[str], rows: List[List[str]], title: Optional[str] = None, 
                     metadata: Optional[Dict[str, Any]] = None) -> str:
         """
@@ -222,6 +236,27 @@ class WorkflowLog:
             if entry.entry_id == entry_id:
                 return entry
         return None
+    
+    def update_log_entry(self, entry_id: str, new_content: str, new_metadata: Optional[Dict[str, Any]] = None) -> bool:
+        """
+        Update an existing log entry with new content.
+        
+        Args:
+            entry_id: ID of the entry to update
+            new_content: New content for the entry
+            new_metadata: Optional new metadata
+            
+        Returns:
+            True if entry was found and updated, False otherwise
+        """
+        entry = self.get_entry_by_id(entry_id)
+        if entry:
+            entry.content = new_content
+            entry.timestamp = datetime.now()  # Update timestamp
+            if new_metadata:
+                entry.metadata.update(new_metadata)
+            return True
+        return False
     
     def clear(self):
         """Clear all log entries."""
@@ -321,4 +356,56 @@ def log_sunburst(workflow_id: str, labels: List[str], parents: List[str], values
                 title: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> str:
     """Log a sunburst chart."""
     log = get_workflow_log(workflow_id)
-    return log.append_sunburst(labels, parents, values, title, metadata) 
+    return log.append_sunburst(labels, parents, values, title, metadata)
+
+
+# Live-updatable logging functions
+def log_step_start(workflow_id: str, step_name: str, step_description: str = None) -> str:
+    """
+    Log a step start with spinner that can be updated later.
+    
+    Args:
+        workflow_id: The workflow ID
+        step_name: Name of the step
+        step_description: Optional description
+        
+    Returns:
+        Entry ID that can be used to update the log later
+    """
+    spinner_message = f"🔄 **Starting step:** {step_name}"
+    if step_description:
+        spinner_message += f"\n- {step_description}"
+    
+    log = get_workflow_log(workflow_id)
+    return log.append_log(spinner_message, level="info", metadata={"step": step_name, "status": "in_progress"})
+
+
+def log_step_complete(workflow_id: str, entry_id: str, step_name: str, success: bool = True, details: str = None) -> bool:
+    """
+    Update a step log entry to show completion.
+    
+    Args:
+        workflow_id: The workflow ID
+        entry_id: Entry ID returned from log_step_start
+        step_name: Name of the step
+        success: Whether the step succeeded
+        details: Optional completion details
+        
+    Returns:
+        True if update was successful
+    """
+    status_icon = "✅" if success else "❌"
+    status_text = "Completed" if success else "Failed"
+    
+    complete_message = f"{status_icon} **{status_text}:** {step_name}"
+    if details:
+        complete_message += f"\n- {details}"
+    
+    log = get_workflow_log(workflow_id)
+    return log.update_log_entry(entry_id, complete_message, {"step": step_name, "status": "completed" if success else "failed"})
+
+
+def update_log_entry(workflow_id: str, entry_id: str, new_content: str, new_metadata: Optional[Dict[str, Any]] = None) -> bool:
+    """Update an existing log entry with new content."""
+    log = get_workflow_log(workflow_id)
+    return log.update_log_entry(entry_id, new_content, new_metadata) 
