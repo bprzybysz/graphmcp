@@ -681,6 +681,313 @@ async def quality_assurance_step(
         raise
 
 
+async def apply_refactoring_step(
+    context, 
+    step, 
+    database_name: str = "example_database", 
+    repo_owner: str = "", 
+    repo_name: str = "",
+    workflow_id: str = None
+) -> Dict[str, Any]:
+    """Apply contextual refactoring rules to discovered files."""
+    
+    start_time = time.time()
+    workflow_logger = create_workflow_logger(database_name)
+    workflow_logger.log_step_start(
+        "apply_refactoring",
+        "Apply contextual refactoring rules to discovered files",
+        {"database_name": database_name, "repository": f"{repo_owner}/{repo_name}"}
+    )
+    
+    if workflow_id:
+        log_info(workflow_id, f"🔄 **Starting Step 4:** Apply Refactoring Rules")
+    
+    try:
+        # Get discovery results from previous step
+        discovery_result = context.get_shared_value("discovery", {})
+        files_to_process = discovery_result.get("files", [])
+        
+        if not files_to_process:
+            workflow_logger.log_warning("No files found to refactor")
+            return {
+                "success": True,
+                "files_processed": 0,
+                "files_modified": 0,
+                "message": "No files found requiring refactoring"
+            }
+        
+        # Initialize refactoring components using our tested systems
+        contextual_rules_engine = create_contextual_rules_engine()
+        source_classifier = SourceTypeClassifier()
+        
+        workflow_logger.log_info(f"🔧 Processing {len(files_to_process)} discovered files with contextual rules")
+        
+        # Track refactoring results
+        refactoring_results = []
+        total_files_processed = 0
+        total_files_modified = 0
+        files_by_type = {}
+        
+        for file_info in files_to_process:
+            file_path = file_info.get("path", "")
+            file_content = file_info.get("content", "")
+            
+            if not file_path or not file_content:
+                continue
+            
+            try:
+                # Classify file type using our tested classifier
+                classification = source_classifier.classify_file(file_path, file_content)
+                
+                # Track by file type
+                source_type_str = classification.source_type.value
+                if source_type_str not in files_by_type:
+                    files_by_type[source_type_str] = []
+                files_by_type[source_type_str].append(file_path)
+                
+                # Apply contextual rules using our tested engine
+                processing_result = await contextual_rules_engine.process_file_with_contextual_rules(
+                    file_path, file_content, classification, database_name,
+                    None, repo_owner, repo_name  # GitHub and Slack clients not needed for processing
+                )
+                
+                total_files_processed += 1
+                
+                if processing_result.success and processing_result.total_changes > 0:
+                    total_files_modified += 1
+                    refactoring_results.append({
+                        "path": file_path,
+                        "source_type": source_type_str,
+                        "changes_made": processing_result.total_changes,
+                        "modified_content": processing_result.modified_content,
+                        "success": True
+                    })
+                    workflow_logger.log_info(f"   ✅ {file_path} ({source_type_str}): {processing_result.total_changes} changes")
+                else:
+                    refactoring_results.append({
+                        "path": file_path,
+                        "source_type": source_type_str,
+                        "changes_made": 0,
+                        "success": True,
+                        "message": "No changes needed"
+                    })
+                    
+            except Exception as e:
+                workflow_logger.log_error(f"Failed to process file {file_path}", e)
+                refactoring_results.append({
+                    "path": file_path,
+                    "success": False,
+                    "error": str(e)
+                })
+        
+        # Log summary by file type (using our tested approach)
+        workflow_logger.log_info("📊 REFACTORING RESULTS BY FILE TYPE:")
+        for source_type, file_paths in files_by_type.items():
+            modified_count = len([r for r in refactoring_results 
+                                if r.get("source_type") == source_type and r.get("changes_made", 0) > 0])
+            workflow_logger.log_info(f"   {source_type.upper()}: {modified_count}/{len(file_paths)} files modified")
+        
+        # Store refactoring results for next step (GitHub operations)
+        refactoring_summary = {
+            "database_name": database_name,
+            "total_files_processed": total_files_processed,
+            "total_files_modified": total_files_modified,
+            "files_by_type": files_by_type,
+            "refactoring_results": refactoring_results,
+            "success": True,
+            "duration": time.time() - start_time
+        }
+        
+        context.set_shared_value("refactoring", refactoring_summary)
+        
+        workflow_logger.log_step_end("apply_refactoring", refactoring_summary, success=True)
+        
+        if workflow_id:
+            log_info(workflow_id, f"✅ **Step 4 Completed:** Applied refactoring to {total_files_modified}/{total_files_processed} files")
+        
+        return refactoring_summary
+        
+    except Exception as e:
+        workflow_logger.log_error("Refactoring step failed", e)
+        if workflow_id:
+            log_info(workflow_id, f"❌ **Step 4 Failed:** Refactoring error - {str(e)}")
+        raise
+
+
+async def create_github_pr_step(
+    context, 
+    step, 
+    database_name: str = "example_database", 
+    repo_owner: str = "", 
+    repo_name: str = "",
+    workflow_id: str = None
+) -> Dict[str, Any]:
+    """Create GitHub fork, branch, apply changes, and create pull request."""
+    
+    start_time = time.time()
+    workflow_logger = create_workflow_logger(database_name)
+    workflow_logger.log_step_start(
+        "create_github_pr",
+        "Create GitHub fork, branch, apply changes, and create pull request",
+        {"database_name": database_name, "repository": f"{repo_owner}/{repo_name}"}
+    )
+    
+    if workflow_id:
+        log_info(workflow_id, f"🔄 **Starting Step 5:** Create GitHub Pull Request")
+    
+    try:
+        # Get refactoring results from previous step
+        refactoring_result = context.get_shared_value("refactoring", {})
+        refactoring_files = refactoring_result.get("refactoring_results", [])
+        
+        if not refactoring_files:
+            workflow_logger.log_warning("No refactoring results found")
+            return {
+                "success": False,
+                "message": "No refactoring results to commit"
+            }
+        
+        # Get modified files only
+        modified_files = [f for f in refactoring_files if f.get("changes_made", 0) > 0]
+        
+        if not modified_files:
+            workflow_logger.log_info("No files were modified, skipping PR creation")
+            return {
+                "success": True,
+                "message": "No changes to commit - database not found or already removed"
+            }
+        
+        # Initialize GitHub client
+        github_client = await _initialize_github_client(context, workflow_logger)
+        if not github_client:
+            raise RuntimeError("Failed to initialize GitHub client")
+        
+        workflow_logger.log_info(f"🍴 Creating fork of {repo_owner}/{repo_name}")
+        
+        # 1. Fork the repository
+        fork_result = await github_client.fork_repository(repo_owner, repo_name)
+        if not fork_result.get("success", False):
+            raise RuntimeError(f"Failed to fork repository: {fork_result.get('error', 'Unknown error')}")
+        
+        fork_owner = fork_result["owner"]["login"]
+        workflow_logger.log_info(f"✅ Forked to {fork_owner}/{repo_name}")
+        
+        # 2. Create feature branch
+        branch_name = f"decommission-{database_name}-{int(time.time())}"
+        workflow_logger.log_info(f"🌿 Creating branch: {branch_name}")
+        
+        # Wait a moment for fork to be ready
+        await asyncio.sleep(3)
+        
+        branch_result = await github_client.create_branch(fork_owner, repo_name, branch_name)
+        if not branch_result.get("success", False):
+            raise RuntimeError(f"Failed to create branch: {branch_result.get('error', 'Unknown error')}")
+        
+        workflow_logger.log_info(f"✅ Created branch: {branch_name}")
+        
+        # 3. Apply file changes to the branch
+        files_committed = 0
+        commit_messages = []
+        
+        for file_result in modified_files:
+            file_path = file_result["path"]
+            modified_content = file_result["modified_content"]
+            changes_count = file_result["changes_made"]
+            source_type = file_result.get("source_type", "unknown")
+            
+            commit_message = f"refactor({source_type}): remove {database_name} references from {file_path} ({changes_count} changes)"
+            
+            # Commit the file changes
+            update_result = await github_client.create_or_update_file(
+                fork_owner, repo_name, file_path, modified_content, 
+                commit_message, branch=branch_name
+            )
+            
+            if update_result.get("success", False):
+                files_committed += 1
+                commit_messages.append(commit_message)
+                workflow_logger.log_info(f"   ✅ Committed: {file_path}")
+            else:
+                workflow_logger.log_warning(f"   ❌ Failed to commit: {file_path} - {update_result.get('error', 'Unknown error')}")
+        
+        if files_committed == 0:
+            raise RuntimeError("No files were successfully committed")
+        
+        # 4. Create pull request
+        pr_title = f"Database Decommission: Remove {database_name} references"
+        pr_body = f"""# Database Decommissioning: {database_name}
+
+This pull request removes all references to the `{database_name}` database as part of the database decommissioning process.
+
+## Summary
+- **Database**: `{database_name}`
+- **Files modified**: {files_committed}
+- **Total changes**: {sum(f.get('changes_made', 0) for f in modified_files)}
+
+## Changes by File Type
+"""
+        
+        # Add summary by file type
+        files_by_type = refactoring_result.get("files_by_type", {})
+        for source_type, file_paths in files_by_type.items():
+            modified_count = len([f for f in modified_files if f.get("source_type") == source_type])
+            if modified_count > 0:
+                pr_body += f"- **{source_type.upper()}**: {modified_count} files modified\n"
+        
+        pr_body += f"""
+## Modified Files
+"""
+        for file_result in modified_files:
+            pr_body += f"- `{file_result['path']}` ({file_result['changes_made']} changes)\n"
+        
+        pr_body += f"""
+---
+*This PR was generated automatically by the GraphMCP Database Decommissioning Workflow*
+"""
+        
+        workflow_logger.log_info(f"📝 Creating pull request: {pr_title}")
+        
+        pr_result = await github_client.create_pull_request(
+            repo_owner, repo_name, pr_title,
+            f"{fork_owner}:{branch_name}", "main", pr_body
+        )
+        
+        if not pr_result.get("success", False):
+            raise RuntimeError(f"Failed to create pull request: {pr_result.get('error', 'Unknown error')}")
+        
+        pr_number = pr_result["number"]
+        pr_url = pr_result["url"]
+        
+        workflow_logger.log_info(f"✅ Created PR #{pr_number}: {pr_url}")
+        
+        # Final result
+        github_result = {
+            "success": True,
+            "fork_owner": fork_owner,
+            "branch_name": branch_name,
+            "files_committed": files_committed,
+            "pr_number": pr_number,
+            "pr_url": pr_url,
+            "pr_title": pr_title,
+            "duration": time.time() - start_time
+        }
+        
+        context.set_shared_value("github_pr", github_result)
+        
+        workflow_logger.log_step_end("create_github_pr", github_result, success=True)
+        
+        if workflow_id:
+            log_info(workflow_id, f"✅ **Step 5 Completed:** Created PR #{pr_number} - {pr_url}")
+        
+        return github_result
+        
+    except Exception as e:
+        workflow_logger.log_error("GitHub PR creation step failed", e)
+        if workflow_id:
+            log_info(workflow_id, f"❌ **Step 5 Failed:** GitHub PR creation error - {str(e)}")
+        raise
+
+
 def _perform_database_reference_check(discovery_result: Dict[str, Any], database_name: str) -> Dict[str, Any]:
     """Check if database references were properly identified and handled."""
     files = discovery_result.get("files", [])
