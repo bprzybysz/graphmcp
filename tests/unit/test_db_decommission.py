@@ -425,6 +425,24 @@ class TestQualityAssurance:
         mock_context = MagicMock()
         mock_step = MagicMock()
         
+        # Mock realistic discovery result data for real QA implementation
+        mock_discovery_result = {
+            "files": [{"path": "test1.py"}, {"path": "test2.yaml"}],
+            "matched_files": 5,
+            "total_files": 20,
+            "confidence_distribution": {
+                "high_confidence": 4,
+                "medium_confidence": 1,
+                "low_confidence": 0
+            },
+            "files_by_type": {
+                "python": [{"path": "test1.py"}],
+                "yaml": [{"path": "test2.yaml"}],
+                "shell": [{"path": "deploy.sh"}]
+            }
+        }
+        mock_context.get_shared_value.return_value = mock_discovery_result
+        
         mock_logger = MagicMock()
         mock_create_logger.return_value = mock_logger
         
@@ -436,9 +454,23 @@ class TestQualityAssurance:
             repo_name="repo"
         )
         
-        # Verify
+        # Verify structure and real QA logic
         assert isinstance(result, dict)
-        assert result.get("all_checks_passed") is True  # Function returns "all_checks_passed", not "quality_check_passed"
+        assert "all_checks_passed" in result
+        assert "quality_score" in result
+        assert "qa_checks" in result
+        assert len(result["qa_checks"]) == 3  # Three checks: reference, compliance, integrity
+        
+        # Verify realistic quality score (should be high with good test data)
+        assert result["quality_score"] >= 60  # Should pass most checks
+        
+        # Verify each QA check has proper structure
+        for check in result["qa_checks"]:
+            assert "check" in check
+            assert "status" in check
+            assert "confidence" in check
+            assert "description" in check
+            
         mock_logger.log_step_start.assert_called()
         mock_logger.log_step_end.assert_called()
 

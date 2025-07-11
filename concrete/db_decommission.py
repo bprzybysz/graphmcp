@@ -573,7 +573,7 @@ async def quality_assurance_step(
 ) -> Dict[str, Any]:
     """Quality assurance checks for database decommissioning."""
     
-    start_time = time.time()  # Track step duration
+    start_time = time.time()
     workflow_logger = create_workflow_logger(database_name)
     workflow_logger.log_step_start(
         "quality_assurance",
@@ -581,47 +581,52 @@ async def quality_assurance_step(
         {"database_name": database_name, "repository": f"{repo_owner}/{repo_name}"}
     )
     
-    # Visual logging: Step start
     if workflow_id:
         log_info(workflow_id, f"🔄 **Starting Step 3:** Quality Assurance & Validation")
     
     try:
         qa_checks = []
         
-        # Check 1: Verify no hardcoded database references remain
+        # Get discovery results from previous step
+        discovery_result = context.get_shared_value("discovery", {})
+        
+        # Check 1: Verify database references have been properly identified
+        reference_check = _perform_database_reference_check(discovery_result, database_name)
         workflow_logger.log_quality_check(
             "database_reference_removal",
-            "pass",
-            {"description": "Verified database references have been properly handled"}
+            reference_check["status"],
+            {"description": reference_check["description"], "details": reference_check["details"]}
         )
-        qa_checks.append({"check": "database_reference_removal", "status": "pass"})
+        qa_checks.append({"check": "database_reference_removal", **reference_check})
         
-        # Check 2: Validate file modifications follow rules
+        # Check 2: Validate pattern discovery quality and confidence
+        rule_check = _perform_rule_compliance_check(discovery_result, database_name)
         workflow_logger.log_quality_check(
             "rule_compliance",
-            "pass", 
-            {"description": "File modifications comply with decommissioning rules"}
+            rule_check["status"], 
+            {"description": rule_check["description"], "details": rule_check["details"]}
         )
-        qa_checks.append({"check": "rule_compliance", "status": "pass"})
+        qa_checks.append({"check": "rule_compliance", **rule_check})
         
-        # Check 3: Ensure no critical services are broken
+        # Check 3: Assess service integrity risk based on file types found
+        integrity_check = _perform_service_integrity_check(discovery_result, database_name)
         workflow_logger.log_quality_check(
             "service_integrity",
-            "pass",
-            {"description": "Critical services remain functional after changes"}
+            integrity_check["status"],
+            {"description": integrity_check["description"], "details": integrity_check["details"]}
         )
-        qa_checks.append({"check": "service_integrity", "status": "pass"})
+        qa_checks.append({"check": "service_integrity", **integrity_check})
+        
+        # Calculate overall quality score
+        passed_checks = sum(1 for check in qa_checks if check["status"] == "pass")
+        quality_score = (passed_checks / len(qa_checks)) * 100
         
         qa_result = {
             "database_name": database_name,
             "qa_checks": qa_checks,
             "all_checks_passed": all(check["status"] == "pass" for check in qa_checks),
-            "quality_score": 100.0,  # Perfect score for demo
-            "recommendations": [
-                "Monitor application logs for any database connection errors",
-                "Verify backup systems are functioning properly",
-                "Update documentation to reflect database decommissioning"
-            ],
+            "quality_score": quality_score,
+            "recommendations": _generate_recommendations(qa_checks, discovery_result),
             "success": True,
             "duration": time.time() - start_time
         }
@@ -633,26 +638,29 @@ async def quality_assurance_step(
 **Database:** `{database_name}`
 **Quality Score:** {qa_result.get('quality_score', 0):.1f}%
 
-**✅ Quality Checks Passed:**
-- ✅ Database reference removal verified
-- ✅ Rule compliance validated  
-- ✅ Service integrity confirmed
-
-**📝 Recommendations:**
-- Monitor application logs for any database connection errors
-- Verify backup systems are functioning properly
-- Update documentation to reflect database decommissioning
-"""
+**Quality Checks:**"""
+            
+            for check in qa_checks:
+                status_icon = "✅" if check["status"] == "pass" else "❌" if check["status"] == "fail" else "⚠️"
+                qa_message += f"\n- {status_icon} {check['description']}"
+            
+            qa_message += f"\n\n**📝 Recommendations:**"
+            for rec in qa_result["recommendations"]:
+                qa_message += f"\n- {rec}"
+                
             log_info(workflow_id, qa_message)
             
-            # QA results table with comprehensive checks
-            qa_rows = [
-                ["Database Reference Removal", "✅ Pass", "100%", "All pattern matches verified"],
-                ["Rule Compliance", "✅ Pass", "95%", "Contextual rules engine validation passed"],
-                ["Service Integrity", "✅ Pass", "90%", "Dependency analysis completed"],
-                ["Source Type Classification", "✅ Pass", "98%", "Multi-language classification accurate"],
-                ["Pattern Discovery Accuracy", "✅ Pass", "94%", "Intelligent algorithms high confidence"]
-            ]
+            # QA results table with real check details
+            qa_rows = []
+            for check in qa_checks:
+                status_icon = "✅ Pass" if check["status"] == "pass" else "❌ Fail" if check["status"] == "fail" else "⚠️ Warning"
+                confidence = f"{check.get('confidence', 0):.0f}%"
+                qa_rows.append([
+                    check["check"].replace("_", " ").title(),
+                    status_icon,
+                    confidence,
+                    check.get("description", "")
+                ])
             
             log_table(
                 workflow_id,
@@ -663,7 +671,6 @@ async def quality_assurance_step(
         
         workflow_logger.log_step_end("quality_assurance", qa_result, success=True)
         
-        # Visual logging: Step completion
         if workflow_id:
             log_info(workflow_id, f"✅ **Step 3 Completed:** Quality Assurance & Validation")
         
@@ -672,6 +679,177 @@ async def quality_assurance_step(
     except Exception as e:
         workflow_logger.log_error("Quality assurance step failed", e)
         raise
+
+
+def _perform_database_reference_check(discovery_result: Dict[str, Any], database_name: str) -> Dict[str, Any]:
+    """Check if database references were properly identified and handled."""
+    files = discovery_result.get("files", [])
+    matched_files = discovery_result.get("matched_files", 0)
+    total_files = discovery_result.get("total_files", 0)
+    
+    if total_files == 0:
+        return {
+            "status": "fail",
+            "confidence": 0,
+            "description": "No files were analyzed - repository may be empty or inaccessible",
+            "details": {"total_files": 0, "matched_files": 0}
+        }
+    
+    if matched_files == 0:
+        return {
+            "status": "warning", 
+            "confidence": 50,
+            "description": f"No {database_name} references found - database may already be removed or not used",
+            "details": {"total_files": total_files, "matched_files": 0}
+        }
+    
+    # Check confidence distribution
+    confidence_dist = discovery_result.get("confidence_distribution", {})
+    high_confidence = confidence_dist.get("high_confidence", 0)
+    total_matches = matched_files
+    
+    if total_matches > 0 and high_confidence / total_matches >= 0.8:
+        return {
+            "status": "pass",
+            "confidence": 95,
+            "description": f"Database references properly identified with high confidence ({high_confidence}/{total_matches} files)",
+            "details": {"total_files": total_files, "matched_files": matched_files, "high_confidence": high_confidence}
+        }
+    elif total_matches > 0:
+        return {
+            "status": "warning",
+            "confidence": 70,
+            "description": f"Database references found but some have low confidence ({high_confidence}/{total_matches} high confidence)",
+            "details": {"total_files": total_files, "matched_files": matched_files, "high_confidence": high_confidence}
+        }
+    else:
+        return {
+            "status": "pass",
+            "confidence": 85,
+            "description": f"Database references analysis completed ({matched_files} files processed)",
+            "details": {"total_files": total_files, "matched_files": matched_files}
+        }
+
+
+def _perform_rule_compliance_check(discovery_result: Dict[str, Any], database_name: str) -> Dict[str, Any]:
+    """Check if pattern discovery followed proper rules and classification."""
+    files_by_type = discovery_result.get("files_by_type", {})
+    
+    if not files_by_type:
+        return {
+            "status": "warning",
+            "confidence": 40,
+            "description": "No file type classification available for rule compliance validation",
+            "details": {"file_types": 0}
+        }
+    
+    # Check for proper file type diversity (good pattern discovery should find multiple types)
+    file_type_count = len(files_by_type)
+    total_files = sum(len(files) for files in files_by_type.values())
+    
+    if file_type_count >= 3 and total_files >= 5:
+        return {
+            "status": "pass",
+            "confidence": 90,
+            "description": f"Pattern discovery properly classified {file_type_count} file types across {total_files} files",
+            "details": {"file_types": file_type_count, "total_classified": total_files, "types": list(files_by_type.keys())}
+        }
+    elif file_type_count >= 2:
+        return {
+            "status": "pass",
+            "confidence": 75,
+            "description": f"Pattern discovery classified {file_type_count} file types with reasonable coverage",
+            "details": {"file_types": file_type_count, "total_classified": total_files, "types": list(files_by_type.keys())}
+        }
+    else:
+        return {
+            "status": "warning",
+            "confidence": 60,
+            "description": f"Limited file type diversity found ({file_type_count} types) - may indicate narrow scope",
+            "details": {"file_types": file_type_count, "total_classified": total_files, "types": list(files_by_type.keys())}
+        }
+
+
+def _perform_service_integrity_check(discovery_result: Dict[str, Any], database_name: str) -> Dict[str, Any]:
+    """Assess risk to service integrity based on types of files that reference the database."""
+    files_by_type = discovery_result.get("files_by_type", {})
+    
+    if not files_by_type:
+        return {
+            "status": "pass",
+            "confidence": 80,
+            "description": "No classified files found - minimal service integrity risk",
+            "details": {"risk_level": "low", "critical_files": 0}
+        }
+    
+    # Assess risk based on file types
+    critical_types = ["python", "java", "javascript", "typescript"]  # Application code
+    infrastructure_types = ["yaml", "terraform", "shell"]  # Infrastructure
+    config_types = ["json", "ini", "conf"]  # Configuration
+    
+    critical_files = sum(len(files_by_type.get(ftype, [])) for ftype in critical_types)
+    infrastructure_files = sum(len(files_by_type.get(ftype, [])) for ftype in infrastructure_types)
+    config_files = sum(len(files_by_type.get(ftype, [])) for ftype in config_types)
+    
+    total_files = critical_files + infrastructure_files + config_files
+    
+    if critical_files > 5:
+        return {
+            "status": "warning",
+            "confidence": 85,
+            "description": f"High service integrity risk - {critical_files} application code files reference database",
+            "details": {"risk_level": "high", "critical_files": critical_files, "infrastructure_files": infrastructure_files}
+        }
+    elif critical_files > 0:
+        return {
+            "status": "warning",
+            "confidence": 80,
+            "description": f"Moderate service integrity risk - {critical_files} application files affected",
+            "details": {"risk_level": "moderate", "critical_files": critical_files, "infrastructure_files": infrastructure_files}
+        }
+    elif infrastructure_files > 0:
+        return {
+            "status": "pass",
+            "confidence": 90,
+            "description": f"Low service integrity risk - mainly infrastructure/config files ({infrastructure_files + config_files} files)",
+            "details": {"risk_level": "low", "critical_files": 0, "infrastructure_files": infrastructure_files}
+        }
+    else:
+        return {
+            "status": "pass",
+            "confidence": 95,
+            "description": "Minimal service integrity risk - no critical application files affected",
+            "details": {"risk_level": "minimal", "critical_files": 0, "infrastructure_files": 0}
+        }
+
+
+def _generate_recommendations(qa_checks: List[Dict[str, Any]], discovery_result: Dict[str, Any]) -> List[str]:
+    """Generate actionable recommendations based on QA check results."""
+    recommendations = []
+    
+    # Base recommendations
+    recommendations.append("Monitor application logs for any database connection errors")
+    recommendations.append("Update documentation to reflect database decommissioning")
+    
+    # Risk-based recommendations
+    for check in qa_checks:
+        if check["check"] == "service_integrity":
+            risk_level = check.get("details", {}).get("risk_level", "low")
+            if risk_level == "high":
+                recommendations.append("⚠️ HIGH RISK: Thoroughly test application functionality before deploying changes")
+                recommendations.append("Consider phased rollout with rollback plan")
+            elif risk_level == "moderate":
+                recommendations.append("Test affected services in staging environment")
+                
+        elif check["check"] == "database_reference_removal":
+            if check["status"] == "warning":
+                recommendations.append("Review low-confidence matches manually for accuracy")
+                
+        elif check["check"] == "rule_compliance":
+            if check["status"] == "warning":
+                recommendations.append("Consider expanding search patterns for more comprehensive coverage")
+    
+    return recommendations
 
 async def workflow_summary_step(
     context, 
