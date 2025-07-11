@@ -31,7 +31,7 @@ logging.basicConfig(
 )
 
 # Import the database decommissioning workflow
-from workflow.db_decommission import create_decommission_workflow
+from customized.unused_db_decomission.db_decommission import create_decommission_workflow
 
 def print_header():
     """Print demo header with branding."""

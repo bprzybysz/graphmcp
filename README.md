@@ -82,9 +82,10 @@ graphmcp/
 ├── tests/                    # New test suite
 │   ├── unit/
 │   └── integration/
-├── workflow/                # Workflow definitions
-│   ├── builder.py            # WorkflowBuilder for creating workflows
-│   └── db_decommission.py    # Example DB decommissioning workflow
+├── customized/
+│   └── unused_db_decomission/  # Workflow definitions
+│       ├── builder.py            # WorkflowBuilder for creating workflows
+│       └── db_decommission.py    # Example DB decommissioning workflow
 └── demo.py                   # CLI entry point for the new workflow
 ```
 
@@ -95,7 +96,7 @@ If you are working with the legacy codebase, refer to the `MIGRATION_GUIDE.md` f
 
 ### Creating New Workflows and Steps
 The new system is designed for extensibility.
-- **To create a new workflow**: Use the `WorkflowBuilder` as shown in `workflow/db_decommission.py`.
+- **To create a new workflow**: Use the `WorkflowBuilder` as shown in `customized/unused_db_decomission/db_decommission.py`.
 - **To create a new step**: Create a new class in `don-concrete/workflow/steps/` that inherits from `BaseWorkflowStep`. Follow the mock/real implementation pattern seen in other steps.
 
 ## Contributing
