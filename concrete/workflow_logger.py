@@ -169,14 +169,41 @@ class DatabaseWorkflowLogger:
     def log_pattern_discovery(self, discovery_result: Dict[str, Any]):
         """Log pattern discovery results."""
         total_files = discovery_result.get("total_files", 0)
-        high_confidence = discovery_result.get("high_confidence_files", 0)
-        matches_by_type = discovery_result.get("matches_by_type", {})
+        matched_files = discovery_result.get("matched_files", 0)
+        confidence_dist = discovery_result.get("confidence_distribution", {})
+        high_confidence = confidence_dist.get("high_confidence", 0)
+        matches_by_type = discovery_result.get("files_by_type", {})
         
         self.logger.info(f"🔍 PATTERN DISCOVERY RESULTS:")
         self.logger.info(f"   Total Files Found: {total_files}")
+        self.logger.info(f"   Files Matched: {matched_files}")
         self.logger.info(f"   High Confidence Files: {high_confidence}")
         
         self.metrics.files_discovered += total_files
+        
+        # Log detailed files table if files were found (show all files, not just matched ones)
+        matched_files_data = discovery_result.get("files", [])
+        repo_analysis = discovery_result.get("repository_analysis", {})
+        all_files_data = repo_analysis.get("files", [])
+        
+        # If we have matched files, show those with full details
+        if matched_files_data:
+            self.log_files_table(matched_files_data, show_pattern_matches=True)
+        # If we have files but no matches, show all files without pattern match details
+        elif all_files_data:
+            # Convert all files to display format for the table
+            display_files = []
+            for file_info in all_files_data:
+                display_file = {
+                    "path": file_info.get("path", ""),
+                    "source_type": file_info.get("type", "unknown"),
+                    "confidence": 0.0,  # No matches found
+                    "match_count": 0,
+                    "size": file_info.get("size", len(file_info.get("content", ""))),
+                    "content": file_info.get("content", "")
+                }
+                display_files.append(display_file)
+            self.log_files_table(display_files, show_pattern_matches=False)
         
         if matches_by_type:
             self.logger.info(f"   Files by Source Type:")
@@ -186,6 +213,82 @@ class DatabaseWorkflowLogger:
         frameworks = discovery_result.get("frameworks_detected", [])
         if frameworks:
             self.logger.info(f"   Detected Frameworks: {', '.join(frameworks)}")
+    
+    def log_files_table(self, files_data: List[Dict[str, Any]], show_pattern_matches: bool = True):
+        """Log files found in a nicely formatted table."""
+        if not files_data:
+            return
+            
+        self.logger.info(f"")
+        self.logger.info(f"📁 FILES DISCOVERED:")
+        self.logger.info(f"{'='*120}")
+        
+        # Table header
+        header = f"{'#':<3} {'File Path':<50} {'Type':<15} {'Matches':<8} {'Confidence':<12} {'Size':<8}"
+        self.logger.info(header)
+        self.logger.info(f"{'-'*120}")
+        
+        # Sort files by confidence score (descending), then by file path for consistent display
+        sorted_files = sorted(files_data, key=lambda f: (f.get('confidence', 0), f.get('path', '')), reverse=True)
+        
+        for idx, file_info in enumerate(sorted_files, 1):
+            file_path = file_info.get('path', 'Unknown')
+            source_type = file_info.get('source_type', 'unknown')
+            confidence = file_info.get('confidence', 0.0)
+            match_count = file_info.get('match_count', 0)
+            
+            # Truncate long file paths for display
+            display_path = file_path if len(file_path) <= 47 else f"...{file_path[-44:]}"
+            
+            # Get file size if available
+            file_size = file_info.get('size', len(file_info.get('content', '')))
+            size_str = self._format_file_size(file_size)
+            
+            # Format confidence with color indicators
+            confidence_str = f"{confidence:.2f}"
+            if confidence >= 0.8:
+                confidence_indicator = "🟢"
+            elif confidence >= 0.5:
+                confidence_indicator = "🟡"
+            elif confidence > 0.0:
+                confidence_indicator = "🔴"
+            else:
+                confidence_indicator = "⚪"  # No matches found
+            
+            row = f"{idx:<3} {display_path:<50} {source_type:<15} {match_count:<8} {confidence_indicator} {confidence_str:<9} {size_str:<8}"
+            self.logger.info(row)
+        
+        self.logger.info(f"{'='*120}")
+        self.logger.info(f"")
+        
+        # Log pattern matches summary for high-confidence files (only if requested)
+        if show_pattern_matches:
+            high_conf_files = [f for f in files_data if f.get('confidence', 0) >= 0.8]
+            if high_conf_files:
+                self.logger.info(f"🎯 HIGH CONFIDENCE PATTERN MATCHES:")
+                for file_info in high_conf_files[:5]:  # Show top 5
+                    file_path = file_info.get('path', 'Unknown')
+                    matches = file_info.get('pattern_matches', [])
+                    if matches:
+                        self.logger.info(f"   📄 {file_path}:")
+                        for match in matches[:3]:  # Show top 3 matches per file
+                            pattern = match.get('pattern', 'unknown')
+                            context = match.get('context', '')[:100]  # First 100 chars
+                            self.logger.info(f"      • Pattern: '{pattern}' → {context}...")
+                self.logger.info(f"")
+        else:
+            # Show a note about no pattern matches
+            self.logger.info(f"📝 NOTE: Files discovered but no database pattern matches found for the specified database name.")
+            self.logger.info(f"")
+    
+    def _format_file_size(self, size_bytes: int) -> str:
+        """Format file size in human-readable format."""
+        if size_bytes < 1024:
+            return f"{size_bytes}B"
+        elif size_bytes < 1024 * 1024:
+            return f"{size_bytes/1024:.1f}KB"
+        else:
+            return f"{size_bytes/(1024*1024):.1f}MB"
     
     def log_file_processing(self, file_path: str, operation: str, result: str, 
                           source_type: str = "", changes_made: int = 0):

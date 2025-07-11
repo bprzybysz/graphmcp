@@ -273,8 +273,11 @@ INSERT INTO postgres_air_flights VALUES
 -- Some configuration that references postgres-air database
 -- Database: postgres-air
 -- Connection: postgresql://user:pass@host:5432/postgres-air
+-- Legacy mock-test-db references:
+-- Database: mock-test-db
+-- Connection: postgresql://user:pass@host:5432/mock-test-db
 """,
-                "size": 1200,
+                "size": 1400,
                 "type": "sql"
             },
             {
@@ -289,6 +292,7 @@ This repository contains various PostgreSQL sample databases for testing and dev
 - **Netflix**: Streaming content database  
 - **Pagila**: DVD rental store (PostgreSQL version of Sakila)
 - **Postgres-Air**: Airline management system
+- **Mock-Test-DB**: Testing database for demo purposes
 
 ## Connection Examples
 
@@ -301,10 +305,20 @@ psql -h localhost -U postgres -d postgres-air
 postgresql://postgres:password@localhost:5432/postgres-air
 ```
 
+### Mock-Test-DB Database
+```bash
+# Connect to mock-test-db database
+psql -h localhost -U postgres -d mock-test-db
+
+# Or using connection string  
+postgresql://postgres:password@localhost:5432/mock-test-db
+```
+
 ### Configuration
 The postgres-air database is used for airline flight tracking and management.
+The mock-test-db database is used for testing and demo purposes.
 """,
-                "size": 800,
+                "size": 1200,
                 "type": "markdown"
             },
             {
@@ -333,15 +347,24 @@ test:
   password: postgres
   host: localhost
   port: 5432
+
+# Legacy configurations for mock-test-db
+mock_testing:
+  adapter: postgresql
+  database: mock-test-db
+  username: postgres
+  password: postgres
+  host: localhost
+  port: 5432
 """,
-                "size": 500,
+                "size": 700,
                 "type": "yaml"
             },
             {
                 "path": "scripts/migrate.py",
                 "content": """#!/usr/bin/env python3
 \"\"\"
-Migration script for postgres-air database.
+Migration script for postgres-air and mock-test-db databases.
 \"\"\"
 
 import os
@@ -349,10 +372,16 @@ import psycopg2
 from sqlalchemy import create_engine
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/postgres-air')
+MOCK_DATABASE_URL = os.getenv('MOCK_DATABASE_URL', 'postgresql://postgres:password@localhost:5432/mock-test-db')
 
 def connect_to_postgres_air():
     \"\"\"Connect to the postgres-air database.\"\"\"
     engine = create_engine(DATABASE_URL)
+    return engine
+
+def connect_to_mock_test_db():
+    \"\"\"Connect to the mock-test-db database.\"\"\"
+    engine = create_engine(MOCK_DATABASE_URL)
     return engine
 
 def migrate_postgres_air_schema():
@@ -372,10 +401,27 @@ def migrate_postgres_air_schema():
     
     print("postgres-air database migration completed")
 
+def migrate_mock_test_db_schema():
+    \"\"\"Migrate the mock-test-db database schema.\"\"\"
+    conn = connect_to_mock_test_db()
+    
+    # Run migrations for mock-test-db
+    with conn.connect() as connection:
+        connection.execute(\"\"\"
+            CREATE TABLE IF NOT EXISTS test_data (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+        \"\"\")
+    
+    print("mock-test-db database migration completed")
+
 if __name__ == '__main__':
     migrate_postgres_air_schema()
+    migrate_mock_test_db_schema()
 """,
-                "size": 1000,
+                "size": 1600,
                 "type": "python"
             }
         ]
