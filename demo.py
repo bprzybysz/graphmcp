@@ -18,6 +18,7 @@ import argparse
 import time
 import sys
 import logging
+import os
 from typing import Dict, Any
 
 # Configure logging for demo
