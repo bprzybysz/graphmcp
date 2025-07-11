@@ -1,166 +1,111 @@
 # GraphMCP Framework
 
-A comprehensive framework for orchestrating multiple Model Context Protocol (MCP) servers to build sophisticated workflows for code analysis, repository management, and automated processes.
+An enhanced framework for orchestrating complex code analysis and repository management workflows, featuring a rebuilt, modern UI and a modular, testable workflow engine.
 
 ## Overview
 
-GraphMCP provides a unified interface for managing and coordinating multiple MCP servers, enabling complex workflows that can analyze repositories, interact with GitHub, send Slack notifications, and perform file system operations.
+GraphMCP provides a powerful and flexible system for building, executing, and monitoring sophisticated workflows. The refactored architecture focuses on clean design, modularity, and a great developer experience, enabling rapid development of new capabilities.
 
-## Features
+## Key Features
 
-- **Multi-Client Architecture**: Coordinate multiple MCP servers (GitHub, Slack, Repomix, Filesystem, Preview)
-- **Workflow Orchestration**: Build complex workflows with step-by-step execution
-- **Live Streaming**: Real-time workflow visualization with Streamlit UI
-- **Async Support**: Full asynchronous operation for high performance
-- **Error Handling**: Comprehensive error handling and retry mechanisms
-- **Testing Framework**: Extensive unit, integration, and E2E testing
-
-## MCP Clients
-
-### Core Clients
-- **GitHub Client**: Repository analysis, PR creation, issue management
-- **Slack Client**: Team notifications and communication
-- **Repomix Client**: Repository packaging and analysis
-- **Filesystem Client**: File operations and directory management
-
-### Preview MCP Integration
-- **Preview MCP Client**: Live workflow streaming and visualization
-- **Streamlit UI**: Real-time workflow monitoring at `http://localhost:8501`
-- **Workflow Context**: Step-by-step execution tracking
-- **Live Console Output**: Stream workflow progress to browser
+- **Modern Streamlit UI**: A completely rebuilt, responsive user interface for real-time workflow monitoring.
+- **Modular Workflow Engine**: Build complex workflows from reusable, independent steps.
+- **Mock/Real Execution**: Seamlessly switch between mock and real implementations for development and testing.
+- **Async-First Architecture**: High-performance, asynchronous operations for all workflow steps.
+- **Centralized State Management**: Predictable and reliable state handling for the UI.
+- **Comprehensive Testing**: Full suite of unit, integration, and E2E tests for the new architecture.
 
 ## Quick Start
 
-### Setup
+### 1. Setup
+First, set up your development environment and install all dependencies.
+
 ```bash
-make setup           # Install dependencies and setup environment
+make setup
 source .venv/bin/activate
 ```
 
-### Basic Usage
-```python
-from clients import GitHubMCPClient, SlackMCPClient, PreviewMCPClient
+### 2. Run the UI
+To launch the new Streamlit user interface:
 
-# Initialize clients
-github = GitHubMCPClient("mcp_config.json")
-slack = SlackMCPClient("mcp_config.json") 
-preview = PreviewMCPClient("mcp_config.json")
-
-# Create workflow
-async with preview:
-    result = await preview.run_workflow_end_to_end(
-        "Repository Analysis",
-        [
-            {"name": "analyze_repo", "input_data": {"repo": "owner/repo"}},
-            {"name": "generate_report", "input_data": {"format": "markdown"}}
-        ]
-    )
-```
-
-### Preview Demo (Live Streaming)
 ```bash
-# Start complete demo with MCP server + Streamlit UI
-make preview-demo
+streamlit run concrete/ui/app.py
+```
+Navigate to `http://localhost:8501` to view the application.
 
-# Or run components separately:
-make preview-mcp-server    # Start MCP server
-make preview-streamlit     # Start Streamlit UI
+### 3. Run a Workflow (CLI)
+To run the database decommissioning workflow from the command line:
+
+```bash
+# Run in mock mode (default)
+python demo.py --database my_test_db
+
+# Run with real implementations (requires configuration)
+USE_MOCK_PACK="false" USE_MOCK_DISCOVERY="false" python demo.py --database my_test_db
 ```
 
 ## Testing
 
+The project includes a comprehensive test suite.
+
 ```bash
-make test-all              # Run all tests
-make preview-test          # Test preview MCP integration
-make graphmcp-test-unit    # Unit tests only
-make graphmcp-test-integration  # Integration tests
+# Run all unit and integration tests
+.venv/bin/pytest
+
+# Run a specific test suite (e.g., integration)
+.venv/bin/pytest tests/integration/
 ```
 
 ## Configuration
 
-Edit `mcp_config.json` to configure MCP servers:
+The primary configuration for the new workflow system is `enhanced_mcp_config.json`. The legacy `mcp_config.json` may still be used by older components but should be migrated.
 
-```json
-{
-  "mcpServers": {
-    "ovr_github": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-github"],
-      "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "your-token"}
-    },
-    "preview-mcp": {
-      "command": "python",
-      "args": ["-m", "clients.preview_mcp.server"],
-      "env": {"PYTHONPATH": ".", "LOG_LEVEL": "INFO"}
-    }
-  }
-}
-```
+For workflow-specific configuration, such as mock data paths, refer to the individual workflow step implementations in `concrete/workflow/steps/`.
 
-## Architecture
+## New Architecture
+
+The refactored codebase follows a clean, modular structure:
 
 ```
-GraphMCP Framework
-├── clients/                 # MCP client implementations
-│   ├── base.py             # Base MCP client class
-│   ├── github.py           # GitHub integration
-│   ├── slack.py            # Slack integration
-│   ├── repomix.py          # Repository packaging
-│   ├── filesystem.py       # File operations
-│   └── preview_mcp/        # Live workflow streaming
-│       ├── client.py       # Preview MCP client
-│       ├── server.py       # Workflow server
-│       ├── context.py      # Workflow context management
-│       └── logging.py      # Structured logging
-├── concrete/               # Concrete implementations
-│   ├── preview_ui/         # Streamlit UI for live streaming
-│   └── demo.sh            # Demo script
-├── workflows/              # Workflow definitions
-├── tests/                  # Test suites
-└── utils/                  # Utilities and helpers
+graphmcp/
+├── concrete/
+│   ├── ui/                   # New Streamlit UI
+│   │   ├── app.py            # Main UI entry point
+│   │   ├── components/       # Reusable UI components
+│   │   ├── state/            # UI state management
+│   │   └── layouts/          # UI layout definitions
+│   └── workflow/             # New workflow engine
+│       ├── manager.py        # Core workflow manager
+│       ├── steps/            # Modular workflow steps
+│       └── mock/             # Mock implementations
+├── legacy/                   # Old implementation (for reference)
+├── tests/                    # New test suite
+│   ├── unit/
+│   └── integration/
+├── workflows/                # Workflow definitions
+│   ├── builder.py            # WorkflowBuilder for creating workflows
+│   └── db_decommission.py    # Example DB decommissioning workflow
+└── demo.py                   # CLI entry point for the new workflow
 ```
 
 ## Development
 
-### Environment Setup
-```bash
-make dev                   # Full development setup
-make install-pre-commit    # Install git hooks
-make lint                  # Code linting
-make format               # Code formatting
-```
+### Migrating to the New System
+If you are working with the legacy codebase, refer to the `MIGRATION_GUIDE.md` for detailed instructions on how to adapt your code to the new architecture.
 
-### Adding New MCP Clients
-1. Extend `BaseMCPClient` in `clients/`
-2. Implement required methods: `list_available_tools()`, `health_check()`
-3. Add server configuration to `mcp_config.json`
-4. Create tests in `tests/unit/`
-
-## Live Workflow Streaming
-
-The Preview MCP integration provides real-time workflow visualization:
-
-1. **Start the demo**: `make preview-demo`
-2. **Open browser**: Navigate to `http://localhost:8501`
-3. **Create workflows**: Use the Streamlit interface to create and monitor workflows
-4. **Live updates**: See step-by-step execution in real-time
-5. **Workflow history**: Track all workflow executions and results
-
-### Workflow Features
-- ✅ Real-time step execution tracking
-- ✅ Live markdown rendering
-- ✅ Session state management
-- ✅ Error handling and retry logic
-- ✅ Structured logging with context
-- ✅ WebSocket-ready for future enhancements
+### Creating New Workflows and Steps
+The new system is designed for extensibility.
+- **To create a new workflow**: Use the `WorkflowBuilder` as shown in `workflows/db_decommission.py`.
+- **To create a new step**: Create a new class in `concrete/workflow/steps/` that inherits from `BaseWorkflowStep`. Follow the mock/real implementation pattern seen in other steps.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make changes with tests
-4. Run `make test-all` to verify
-5. Submit a pull request
+1. Fork the repository.
+2. Create a feature branch for your changes.
+3. Ensure your code follows the new architecture patterns.
+4. Add comprehensive tests for any new functionality.
+5. Run `.venv/bin/pytest` to ensure all tests pass.
+6. Submit a pull request.
 
 ## License
 
