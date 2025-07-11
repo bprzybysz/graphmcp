@@ -181,17 +181,14 @@ async def process_repositories_step(
             )
             
             try:
-                # Use cached pattern discovery for better performance
-                cache_key = f"pattern_discovery:{database_name}:{repo_owner}:{repo_name}"
-                discovery_result = await performance_manager.cached_api_call(
-                    cache_key,
-                    discover_patterns_step,
+                # Temporarily disable cache to force fresh pattern discovery for debugging
+                logger.info(f"🔄 Running fresh pattern discovery for {database_name} in {repo_owner}/{repo_name}")
+                discovery_result = await discover_patterns_step(
                     context,
                     step,
                     database_name=database_name,
                     repo_owner=repo_owner,
-                    repo_name=repo_name,
-                    ttl=3600  # Cache for 1 hour
+                    repo_name=repo_name
                 )
                 
                 files_found = discovery_result.get("total_files", 0)
