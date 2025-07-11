@@ -1,4 +1,4 @@
-# concrete/ui/config/ui_config.py
+# don_concrete/ui/config/ui_config.py
 
 # This file holds configuration constants for the UI.
 

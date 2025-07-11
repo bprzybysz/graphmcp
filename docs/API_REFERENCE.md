@@ -1,4 +1,4 @@
-# GraphMCP Database Decommissioning - API Reference
+# GraphMCP API Builder Reference
 
 ## Overview
 
@@ -25,7 +25,7 @@ pip install graphmcp-db-decommission
 ### Basic Usage
 
 ```python
-from concrete.db_decommission import create_db_decommission_workflow
+from don_concrete.db_decommission import create_db_decommission_workflow
 import asyncio
 
 async def main():
@@ -104,7 +104,7 @@ error_summary = result.get_error_summary()
 Centralized logging system for workflow execution.
 
 ```python
-from concrete.workflow_logger import create_workflow_logger
+from don_concrete.workflow_logger import create_workflow_logger
 
 # Create logger for specific database
 logger = create_workflow_logger("my_database")
@@ -136,7 +136,7 @@ logger.export_logs("path/to/export.json")
 Production monitoring and health checks.
 
 ```python
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 
 # Get monitoring instance
 monitoring = get_monitoring_system()
@@ -164,7 +164,7 @@ dashboard = monitoring.get_monitoring_dashboard()
 Comprehensive error handling and recovery.
 
 ```python
-from concrete.error_handling import get_error_handler, ErrorCategory, ErrorSeverity
+from don_concrete.error_handling import get_error_handler, ErrorCategory, ErrorSeverity
 
 # Get error handler
 error_handler = get_error_handler()
@@ -352,7 +352,7 @@ async def check_log_files() -> HealthCheckResult:
 ### Metrics Collection
 
 ```python
-from concrete.monitoring import SystemMetrics
+from don_concrete.monitoring import SystemMetrics
 
 # Collect system metrics
 metrics = monitoring.collect_system_metrics()
@@ -366,7 +366,7 @@ print(f"Network connections: {metrics.network_connections}")
 ### Alert System
 
 ```python
-from concrete.monitoring import AlertSeverity
+from don_concrete.monitoring import AlertSeverity
 
 # Send different severity alerts
 await monitoring.send_alert(
@@ -402,7 +402,7 @@ await monitoring.send_alert(
 ### Error Categories
 
 ```python
-from concrete.error_handling import ErrorCategory
+from don_concrete.error_handling import ErrorCategory
 
 ErrorCategory.NETWORK          # Network connectivity issues
 ErrorCategory.AUTHENTICATION   # API authentication failures
@@ -417,7 +417,7 @@ ErrorCategory.SYSTEM          # General system errors
 ### Error Severity Levels
 
 ```python
-from concrete.error_handling import ErrorSeverity
+from don_concrete.error_handling import ErrorSeverity
 
 ErrorSeverity.LOW      # Informational errors
 ErrorSeverity.MEDIUM   # Standard errors
@@ -428,7 +428,7 @@ ErrorSeverity.CRITICAL # Critical errors affecting workflow
 ### Recovery Strategies
 
 ```python
-from concrete.error_handling import ErrorRecoveryStrategy
+from don_concrete.error_handling import ErrorRecoveryStrategy
 
 # Create custom recovery strategy
 strategy = ErrorRecoveryStrategy(
@@ -446,7 +446,7 @@ result = await strategy.execute_with_recovery(
 ### Circuit Breaker
 
 ```python
-from concrete.error_handling import CircuitBreaker
+from don_concrete.error_handling import CircuitBreaker
 
 # Create circuit breaker for external service
 breaker = CircuitBreaker(
@@ -464,7 +464,7 @@ result = await breaker.call(api_call_function, url, params)
 ### Parameter Service
 
 ```python
-from concrete.parameter_service import get_parameter_service
+from don_concrete.parameter_service import get_parameter_service
 
 # Get parameter service
 param_service = get_parameter_service()
@@ -501,9 +501,9 @@ param_service.set_secret("CUSTOM_API_KEY", "your-key")
 
 ```python
 import asyncio
-from concrete.db_decommission import create_db_decommission_workflow
-from concrete.monitoring import get_monitoring_system
-from concrete.error_handling import get_error_handler
+from don_concrete.db_decommission import create_db_decommission_workflow
+from don_concrete.monitoring import get_monitoring_system
+from don_concrete.error_handling import get_error_handler
 
 async def run_complete_workflow():
     # Initialize monitoring
@@ -553,7 +553,8 @@ print(f"Workflow completed: {result.success}")
 ### Custom Health Check Integration
 
 ```python
-from concrete.monitoring import get_monitoring_system, HealthCheckResult, HealthStatus
+import asyncio
+from don_concrete.monitoring import get_monitoring_system, HealthCheckResult, HealthStatus
 
 async def custom_database_health_check():
     """Custom health check for database connectivity."""
@@ -588,7 +589,8 @@ monitoring.add_health_check("database_connectivity", custom_database_health_chec
 ### Programmatic Configuration
 
 ```python
-from concrete.parameter_service import get_parameter_service
+import os
+from don_concrete.parameter_service import get_parameter_service
 
 def setup_production_config():
     """Configure for production environment."""
@@ -608,6 +610,32 @@ def setup_production_config():
 
 # Use in application startup
 param_service = setup_production_config()
+```
+
+### Parameter Access Example
+
+```python
+import os
+from don_concrete.parameter_service import get_parameter_service
+
+def check_parameters():
+    param_service = get_parameter_service()
+    
+    if param_service.validation_issues:
+        print(f"Config validation errors: {param_service.validation_issues}")
+        return
+
+    print(f"Log Level: {param_service.get_parameter('LOG_LEVEL', 'INFO')}")
+```
+
+### Full REST API Example
+
+```python
+import requests
+import time
+
+# Start workflow
+# ...
 ```
 
 ## Best Practices

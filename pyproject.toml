@@ -30,7 +30,7 @@ addopts = [
     "--strict-config", 
     "--verbose",
     "--tb=short",
-    "--cov=concrete",
+    "--cov=don-concrete",
     "--cov=clients",
     "--cov=lib",
     "--cov=utils",
@@ -57,7 +57,7 @@ filterwarnings = [
 where = ["."]
 
 [tool.coverage.run]
-source = ["concrete", "clients", "lib", "utils"]
+source = ["don-concrete", "clients", "lib", "utils"]
 omit = [
     "*/tests/*",
     "*/venv/*", 

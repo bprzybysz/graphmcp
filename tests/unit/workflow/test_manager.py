@@ -1,6 +1,6 @@
 import pytest
-from concrete.workflow.manager import WorkflowManager
-from concrete.workflow.models import WorkflowPhase
+from don_concrete.workflow.manager import WorkflowManager
+from don_concrete.workflow.models import WorkflowPhase
 
 @pytest.fixture
 def manager():

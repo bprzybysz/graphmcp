@@ -2,8 +2,8 @@ import pytest
 from unittest.mock import AsyncMock, patch
 import unittest.mock
 
-from concrete.workflow.manager import WorkflowManager
-from concrete.workflow.compat import WorkflowManagerCompat
+from don_concrete.workflow.manager import WorkflowManager
+from don_concrete.workflow.compat import WorkflowManagerCompat
 
 @pytest.mark.asyncio
 async def test_compatibility_layer_forwards_calls():
@@ -48,14 +48,14 @@ async def test_workflow_step_mock_switching(
     else:
         monkeypatch.delenv("USE_MOCK_PACK", raising=False)
 
-    from concrete.workflow.steps.repository_processing import RepositoryProcessingStep
+    from don_concrete.workflow.steps.repository_processing import RepositoryProcessingStep
 
     # Patch the actual implementation methods
     with patch(
-        'concrete.workflow.steps.repository_processing.RepositoryProcessingStep._execute_mock',
+        'don_concrete.workflow.steps.repository_processing.RepositoryProcessingStep._execute_mock',
         new_callable=AsyncMock
     ) as mock_execute_mock, patch(
-        'concrete.workflow.steps.repository_processing.RepositoryProcessingStep._execute_real',
+        'don_concrete.workflow.steps.repository_processing.RepositoryProcessingStep._execute_real',
         new_callable=AsyncMock
     ) as mock_execute_real:
 

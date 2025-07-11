@@ -485,7 +485,7 @@ import asyncio; \
 import sys; \
 import os; \
 sys.path.append('.'); \
-from concrete.db_decommission import run_decommission; \
+from don-concrete.db_decommission import run_decommission; \
 \
 database_name = os.environ.get('DB', 'postgres_air'); \
 repo_url = os.environ.get('REPO', 'https://github.com/bprzybys-nc/postgres-sample-dbs'); \
@@ -588,7 +588,7 @@ preview-streamlit: check-deps ## Start Streamlit UI with new workflow visualizat
 	@echo "  ✅ Auto-refresh and demo workflow simulation"
 	@echo ""
 	@echo "$(CYAN)Open http://localhost:8501 and click 'Start Demo' to see the new interface$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/streamlit run concrete/preview_ui/streamlit_app.py \
+	PYTHONPATH=. $(VENV_PATH)/bin/streamlit run don-concrete/preview_ui/streamlit_app.py \
 		--server.port 8501 \
 		--server.address 0.0.0.0
 	@echo "$(GREEN)✓ Enhanced Streamlit UI started$(NC)"
@@ -596,8 +596,8 @@ preview-streamlit: check-deps ## Start Streamlit UI with new workflow visualizat
 preview-demo: check-deps ## Run complete preview demo (MCP server + Streamlit UI)
 	@echo "$(YELLOW)Starting GraphMCP Preview Demo...$(NC)"
 	@echo "$(CYAN)This will start MCP server and Streamlit UI$(NC)"
-	@chmod +x concrete/demo.sh
-	@./concrete/demo.sh
+	@chmod +x don-concrete/demo.sh
+	@./don-concrete/demo.sh
 
 preview-test: check-deps ## Test preview-mcp client integration
 	@echo "$(YELLOW)Testing Preview MCP Client...$(NC)"
@@ -626,7 +626,7 @@ preview-test-ui: check-deps ## Test new UI functionality with workflow log syste
 	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
 import sys; \
 from clients.preview_mcp.workflow_log import get_workflow_log, log_info, log_table, log_sunburst; \
-from concrete.preview_ui.streamlit_app import StreamlitWorkflowUI; \
+from don-concrete.preview_ui.streamlit_app import StreamlitWorkflowUI; \
 print('Testing workflow log system...'); \
 log = get_workflow_log('test-ui'); \
 log_info('test-ui', '🚀 **UI Test Started**\n\n- Testing log system\n- Multiple entry types'); \
@@ -650,7 +650,7 @@ db-decommission-ui: check-deps ## Start Database Decommissioning Streamlit UI
 	@echo "  ⚙️ Configurable database name and target repositories"
 	@echo ""
 	@echo "$(CYAN)Open http://localhost:8502 and configure your database decommissioning$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/streamlit run concrete/db_decommission_ui.py \
+	PYTHONPATH=. $(VENV_PATH)/bin/streamlit run don-concrete/db_decommission_ui.py \
 		--server.port 8502 \
 		--server.address 0.0.0.0
 	@echo "$(GREEN)✓ Database Decommissioning UI started$(NC)"
@@ -660,7 +660,7 @@ db-decommission-test: check-deps ## Test database decommissioning workflow funct
 	@echo "$(CYAN)Testing workflow components...$(NC)"
 	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
 import asyncio; \
-from concrete.db_decommission import create_db_decommission_workflow; \
+from don-concrete.db_decommission import create_db_decommission_workflow; \
 print('Testing database decommissioning workflow creation...'); \
 workflow = create_db_decommission_workflow( \
 	database_name='test_db', \
@@ -685,7 +685,7 @@ kill-all: ## Kill all running GraphMCP processes (enhanced workflow, streamlit, 
 	@pkill -f "streamlit" || echo "$(BLUE)  No streamlit processes$(NC)"
 	@pkill -f "preview_mcp" || echo "$(BLUE)  No preview MCP processes$(NC)"
 	@pkill -f "demo.sh" || echo "$(BLUE)  No demo script processes$(NC)"
-	@pkill -f "python.*concrete" || echo "$(BLUE)  No concrete module processes$(NC)"
+	@pkill -f "python.*don-concrete" || echo "$(BLUE)  No don-concrete module processes$(NC)"
 	@echo "$(GREEN)✓ All GraphMCP processes terminated$(NC)"
 
 kill-port-8501: ## Kill any process using port 8501 (primary Streamlit port)
@@ -711,7 +711,7 @@ start-ui-8501: kill-port-8501 ## Start enhanced database decommission UI on port
 	@echo ""
 	@echo "$(GREEN)Port 8501 cleared - starting UI...$(NC)"
 	@echo "$(CYAN)Open http://localhost:8501 to access the enhanced interface$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/python db_decommission_demo.py \
+	PYTHONPATH=. $(VENV_PATH)/bin/python don-concrete/db_decommission_demo.py \
 		--mode ui \
 		--port 8501 \
 		--database example_database \
@@ -727,7 +727,7 @@ start-demo-8501: kill-port-8501 ## Start E2E demo on port 8501 with browser (kil
 	@echo ""
 	@echo "$(GREEN)Port 8501 cleared - starting demo...$(NC)"
 	@echo "$(CYAN)Browser will open automatically to http://localhost:8501$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/python db_decommission_demo.py \
+	PYTHONPATH=. $(VENV_PATH)/bin/python don-concrete/db_decommission_demo.py \
 		--mode e2e \
 		--port 8501 \
 		--database chinook \

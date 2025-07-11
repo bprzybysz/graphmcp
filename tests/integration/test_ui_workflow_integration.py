@@ -1,18 +1,18 @@
 import unittest
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from concrete.ui.app import main as run_app
-from concrete.ui.state.workflow_state import WorkflowState, LogEntry
-from concrete.workflow.manager import WorkflowManager
+from don_concrete.ui.app import main as run_app
+from don_concrete.ui.state.workflow_state import WorkflowState, LogEntry
+from don_concrete.workflow.manager import WorkflowManager
 from datetime import datetime
 
 class TestUIWorkflowIntegration(unittest.TestCase):
 
-    @patch('concrete.ui.app.st')
-    @patch('concrete.ui.app.SessionManager')
-    @patch('concrete.ui.layouts.three_pane_layout.render_workflow_controls')
-    @patch('concrete.ui.layouts.three_pane_layout.render_log_stream')
-    @patch('concrete.ui.layouts.three_pane_layout.render_progress_tables')
+    @patch('don_concrete.ui.app.st')
+    @patch('don_concrete.ui.app.SessionManager')
+    @patch('don_concrete.ui.layouts.three_pane_layout.render_workflow_controls')
+    @patch('don_concrete.ui.layouts.three_pane_layout.render_log_stream')
+    @patch('don_concrete.ui.layouts.three_pane_layout.render_progress_tables')
     def test_app_renders_main_layout_and_components(
         self, 
         mock_render_progress, 
@@ -46,8 +46,8 @@ class TestUIWorkflowIntegration(unittest.TestCase):
         mock_render_logs.assert_called_once()
         mock_render_progress.assert_called_once()
 
-    @patch('concrete.ui.components.workflow_controls.st')
-    @patch('concrete.ui.components.workflow_controls.SessionManager')
+    @patch('don_concrete.ui.components.workflow_controls.st')
+    @patch('don_concrete.ui.components.workflow_controls.SessionManager')
     def test_start_button_triggers_workflow_state_change(
         self,
         mock_session_manager,
@@ -64,7 +64,7 @@ class TestUIWorkflowIntegration(unittest.TestCase):
         mock_st.columns.return_value = (MagicMock(), MagicMock())
 
         # Act
-        from concrete.ui.components.workflow_controls import render_workflow_controls
+        from don_concrete.ui.components.workflow_controls import render_workflow_controls
         render_workflow_controls()
 
         # Assert

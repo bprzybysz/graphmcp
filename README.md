@@ -29,7 +29,7 @@ source .venv/bin/activate
 To launch the new Streamlit user interface:
 
 ```bash
-streamlit run concrete/ui/app.py
+streamlit run don-concrete/ui/app.py
 ```
 Navigate to `http://localhost:8501` to view the application.
 
@@ -60,7 +60,7 @@ The project includes a comprehensive test suite.
 
 The primary configuration for the new workflow system is `enhanced_mcp_config.json`. The legacy `mcp_config.json` may still be used by older components but should be migrated.
 
-For workflow-specific configuration, such as mock data paths, refer to the individual workflow step implementations in `concrete/workflow/steps/`.
+For workflow-specific configuration, such as mock data paths, refer to the individual workflow step implementations in `don-concrete/workflow/steps/`.
 
 ## New Architecture
 
@@ -68,7 +68,7 @@ The refactored codebase follows a clean, modular structure:
 
 ```
 graphmcp/
-├── concrete/
+├── don-concrete/
 │   ├── ui/                   # New Streamlit UI
 │   │   ├── app.py            # Main UI entry point
 │   │   ├── components/       # Reusable UI components
@@ -82,7 +82,7 @@ graphmcp/
 ├── tests/                    # New test suite
 │   ├── unit/
 │   └── integration/
-├── workflows/                # Workflow definitions
+├── workflow/                # Workflow definitions
 │   ├── builder.py            # WorkflowBuilder for creating workflows
 │   └── db_decommission.py    # Example DB decommissioning workflow
 └── demo.py                   # CLI entry point for the new workflow
@@ -95,8 +95,8 @@ If you are working with the legacy codebase, refer to the `MIGRATION_GUIDE.md` f
 
 ### Creating New Workflows and Steps
 The new system is designed for extensibility.
-- **To create a new workflow**: Use the `WorkflowBuilder` as shown in `workflows/db_decommission.py`.
-- **To create a new step**: Create a new class in `concrete/workflow/steps/` that inherits from `BaseWorkflowStep`. Follow the mock/real implementation pattern seen in other steps.
+- **To create a new workflow**: Use the `WorkflowBuilder` as shown in `workflow/db_decommission.py`.
+- **To create a new step**: Create a new class in `don-concrete/workflow/steps/` that inherits from `BaseWorkflowStep`. Follow the mock/real implementation pattern seen in other steps.
 
 ## Contributing
 

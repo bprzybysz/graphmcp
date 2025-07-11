@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from concrete.ui.state.workflow_state import WorkflowState
-from concrete.ui.state.session_manager import SessionManager
+from don_concrete.ui.state.workflow_state import WorkflowState
+from don_concrete.ui.state.session_manager import SessionManager
 
 # Mocking streamlit's session_state for unit testing
 class MockSessionState(dict):

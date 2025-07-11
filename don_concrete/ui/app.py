@@ -1,7 +1,7 @@
 import streamlit as st
 
-from concrete.ui.layouts.three_pane_layout import create_three_pane_layout
-from concrete.ui.state.session_manager import SessionManager
+from don_concrete.ui.layouts.three_pane_layout import create_three_pane_layout
+from don_concrete.ui.state.session_manager import SessionManager
 
 def main():
     """

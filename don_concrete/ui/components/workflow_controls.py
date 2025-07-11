@@ -1,5 +1,5 @@
 import streamlit as st
-from concrete.ui.state.session_manager import SessionManager
+from don_concrete.ui.state.session_manager import SessionManager
 
 def render_workflow_controls():
     """

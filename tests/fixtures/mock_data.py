@@ -1,5 +1,5 @@
 import pytest
-from concrete.ui.state.workflow_state import WorkflowState, LogEntry
+from don_concrete.ui.state.workflow_state import WorkflowState, LogEntry
 from datetime import datetime
 
 @pytest.fixture

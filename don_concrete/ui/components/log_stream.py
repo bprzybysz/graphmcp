@@ -1,6 +1,6 @@
 import streamlit as st
-from concrete.ui.state.session_manager import SessionManager
-from concrete.ui.state.workflow_state import LogEntry
+from don_concrete.ui.state.session_manager import SessionManager
+from don_concrete.ui.state.workflow_state import LogEntry
 
 def render_log_stream():
     """

@@ -190,7 +190,7 @@ Type=simple
 User=graphmcp
 Group=graphmcp
 WorkingDirectory=/opt/graphmcp
-ExecStart=/opt/graphmcp/venv/bin/python -m concrete.db_decommission
+ExecStart=/opt/graphmcp/venv/bin/python -m don_concrete.db_decommission
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 KillSignal=SIGINT
@@ -285,7 +285,7 @@ pip install -r requirements.txt
 echo "Running pre-deployment health checks..."
 python -c "
 import asyncio
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 
 async def main():
     monitoring = get_monitoring_system()
@@ -317,7 +317,7 @@ if sudo systemctl is-active --quiet $SERVICE_NAME; then
     # Send success notification
     python -c "
 import asyncio
-from concrete.monitoring import get_monitoring_system, AlertSeverity
+from don_concrete.monitoring import get_monitoring_system, AlertSeverity
 
 async def main():
     monitoring = get_monitoring_system()
@@ -353,7 +353,7 @@ The application exposes health checks via the monitoring system:
 ```python
 # Health check script
 import asyncio
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 
 async def health_check():
     monitoring = get_monitoring_system()
@@ -380,7 +380,7 @@ crontab -e
 # Export metrics every hour
 0 * * * * /opt/graphmcp/venv/bin/python -c "
 import asyncio
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 from datetime import datetime
 
 async def export_metrics():
@@ -417,7 +417,7 @@ The system includes comprehensive health checks:
 # Run comprehensive health check
 python -c "
 import asyncio
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 
 async def main():
     monitoring = get_monitoring_system()
@@ -516,7 +516,7 @@ echo "Recovery completed"
    journalctl -u graphmcp -f
    
    # Check configuration
-   python -c "from concrete.parameter_service import get_parameter_service; print('Config OK')"
+   python -c "from don_concrete.parameter_service import get_parameter_service; print('Config OK')"
    ```
 
 2. **High Resource Usage**
@@ -524,7 +524,7 @@ echo "Recovery completed"
    # Check system resources
    python -c "
    import asyncio
-   from concrete.monitoring import get_monitoring_system
+   from don_concrete.monitoring import get_monitoring_system
    
    async def check():
        monitoring = get_monitoring_system()
@@ -541,7 +541,7 @@ echo "Recovery completed"
    # Test network connectivity
    python -c "
    import asyncio
-   from concrete.monitoring import get_monitoring_system
+   from don_concrete.monitoring import get_monitoring_system
    
    async def check():
        monitoring = get_monitoring_system()
@@ -612,7 +612,7 @@ export PYTHONHASHSEED=random
 ```python
 # Performance monitoring
 import asyncio
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 
 async def performance_check():
     monitoring = get_monitoring_system()
@@ -636,7 +636,7 @@ asyncio.run(performance_check())
 Access the monitoring dashboard programmatically:
 
 ```python
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 
 monitoring = get_monitoring_system()
 dashboard = monitoring.get_monitoring_dashboard()

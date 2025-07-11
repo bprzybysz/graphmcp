@@ -100,7 +100,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
-CMD ["python", "-m", "concrete.db_decommission"]
+CMD ["python", "-m", "don_concrete.db_decommission"]
 ```
 
 ## Configuration
@@ -176,8 +176,8 @@ Create `mcp_config.json`:
 ### Python SDK Integration
 
 ```python
-from concrete.db_decommission import create_db_decommission_workflow
-from concrete.parameter_service import get_parameter_service
+from don_concrete.db_decommission import create_db_decommission_workflow
+from don_concrete.parameter_service import get_parameter_service
 
 # Initialize workflow
 workflow = create_db_decommission_workflow()
@@ -216,7 +216,7 @@ print(status.json())
 
 ```python
 from flask import Flask, request
-from concrete.db_decommission import create_db_decommission_workflow
+from don_concrete.db_decommission import create_db_decommission_workflow
 
 app = Flask(__name__)
 
@@ -460,7 +460,7 @@ start_http_server(8000)
 ### Custom Health Checks
 
 ```python
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 
 # Add custom health check
 monitoring = get_monitoring_system()
@@ -497,7 +497,7 @@ curl -X POST -H 'Authorization: Bearer your_slack_token' \
 
 ```python
 # Monitor memory usage
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 
 monitoring = get_monitoring_system()
 health = await monitoring.perform_health_check("memory_usage")
@@ -535,7 +535,7 @@ grep -i error logs/*.log
 
 # Monitor system resources
 python -c "
-from concrete.monitoring import get_monitoring_system
+from don_concrete.monitoring import get_monitoring_system
 import asyncio
 
 async def main():

@@ -1,15 +1,15 @@
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from concrete.ui.app import main as run_app
-from concrete.workflow.mock.mock_manager import MockWorkflowManager
-from concrete.ui.state.session_manager import SessionManager
-from concrete.ui.state.workflow_state import WorkflowState
+from don_concrete.ui.app import main as run_app
+from don_concrete.workflow.mock.mock_manager import MockWorkflowManager
+from don_concrete.ui.state.session_manager import SessionManager
+from don_concrete.ui.state.workflow_state import WorkflowState
 
 @pytest.mark.asyncio
-@patch('concrete.ui.app.st')
-@patch('concrete.ui.app.SessionManager', autospec=True)
-@patch('concrete.ui.app.create_three_pane_layout')
+@patch('don_concrete.ui.app.st')
+@patch('don_concrete.ui.app.SessionManager', autospec=True)
+@patch('don_concrete.ui.app.create_three_pane_layout')
 async def test_e2e_mock_workflow_run_placeholder(
     mock_create_layout,
     mock_session_manager,

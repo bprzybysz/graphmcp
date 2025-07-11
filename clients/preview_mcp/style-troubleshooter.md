@@ -4,7 +4,7 @@ Looking at your Streamlit workflow UI, I can see the layout issues you're experi
 
 ## Current Layout Problems
 
-Based on your code in `concrete/preview_ui/streamlit_app.py`, the main issues are:
+Based on your code in `don_concrete/preview_ui/streamlit_app.py`, the main issues are:
 
 1. **Incorrect column layout** - Using `st.columns([1][2])` creates top/bottom instead of left/right
 2. **Missing CSS styling** - No proper layout constraints

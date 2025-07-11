@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from concrete.ui.state.session_manager import SessionManager
+from don_concrete.ui.state.session_manager import SessionManager
 
 def render_progress_tables():
     """

@@ -5,8 +5,8 @@ This will help us understand why only 4/18 files are being modified.
 """
 
 import asyncio
-from concrete.contextual_rules_engine import create_contextual_rules_engine
-from concrete.source_type_classifier import SourceTypeClassifier, SourceType
+from don_concrete.contextual_rules_engine import create_contextual_rules_engine
+from don_concrete.source_type_classifier import SourceTypeClassifier, SourceType
 
 async def debug_rule_application():
     print('🔍 DEBUGGING RULE APPLICATION FOR POSTGRES_AIR')
