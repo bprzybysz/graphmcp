@@ -10,10 +10,14 @@ import re
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 import logging
+from datetime import datetime
 
 from .source_type_classifier import SourceTypeClassifier, SourceType, get_database_search_patterns
 
 logger = logging.getLogger(__name__)
+
+# Mock configuration - controls whether to use captured real context or run actual discovery
+USE_MOCK_DISCOVERY = True  # HACK: Set back to True to use captured real context for mock
 
 class PatternDiscoveryEngine:
     """Pattern discovery engine for database references."""
@@ -78,102 +82,96 @@ class PatternDiscoveryEngine:
     ) -> Dict[str, Any]:
         """Analyze repository structure using Repomix."""
         try:
-            logger.info(f"📥 Using test approach: reading local packed repository for {repo_owner}/{repo_name}")
-            
-            # For the demo repo, use the existing test data
+            # Check if we have local packed data for this specific repository
             if repo_owner == "bprzybys-nc" and repo_name == "postgres-sample-dbs":
                 from pathlib import Path
-                test_data_file = Path("tests/data/postgres_sample_dbs_packed.xml")
+                packed_file = Path("tests/data/postgres_sample_dbs_packed.xml")
                 
-                if test_data_file.exists():
-                    logger.info(f"📄 Reading from local test data: {test_data_file}")
-                    with open(test_data_file, 'r', encoding='utf-8') as f:
-                        full_content = f.read()
+                if packed_file.exists():
+                    logger.info(f"📦 USING REAL PACKED DATA: {packed_file}")
                     
-                    logger.info(f"🔍 Read {len(full_content)} characters from local file")
+                    # Read and parse the real packed XML content
+                    with open(packed_file, 'r', encoding='utf-8') as f:
+                        packed_content = f.read()
                     
-                    # Parse repository content using the same method as tests
-                    files = self._parse_repomix_content(full_content)
-                    
-                    logger.info(f"🔍 Parsed {len(files)} files from local packed repository")
+                    files = self._parse_repomix_content(packed_content)
                     
                     structure_analysis = {
                         "total_files": len(files),
                         "file_types": self._analyze_file_types(files),
                         "directory_structure": self._analyze_directory_structure(files),
-                        "estimated_size": len(full_content)
+                        "estimated_size": sum(len(f.get('content', '')) for f in files)
                     }
                     
-                    logger.info(f"✅ Repository analysis complete: {len(files)} files found")
+                    logger.info(f"✅ REAL DATA: Repository analysis complete: {len(files)} files found")
                     
                     return {
                         "files": files,
                         "structure": structure_analysis,
-                        "total_size": len(full_content),
-                        "source": "local_test_data"
+                        "total_size": sum(len(f.get('content', '')) for f in files),
+                        "source": "real_packed_xml_data"
                     }
-                else:
-                    logger.warning(f"Test data file not found: {test_data_file}")
-            
-            # HACK/TODO: Unmock repopack - using test data instead of real packing for demo
-            logger.info(f"🎭 MOCK: Using test data instead of repomix for {repo_owner}/{repo_name}")
-            
-            # Mock pack result using test data file
-            test_data_file = Path("tests/data/postgres_sample_dbs_packed.xml")
-            if test_data_file.exists():
-                logger.info(f"📦 MOCK: Loading test data from {test_data_file}")
-                with open(test_data_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                pack_result = {
-                    'success': True,
-                    'output_id': 'mock_test_data',
-                    'content': content
-                }
-            else:
-                logger.warning(f"📦 MOCK: Test data file not found: {test_data_file}, using mock data instead")
-                # HACK/TODO: Comment out real repo pack call for demo performance
-                # Fallback: try to pack repository using Repomix (original logic)
-                # logger.info(f"📥 Fallback: Downloading repository content via Repomix: {repo_owner}/{repo_name}")
-                # pack_result = await repomix_client.pack_remote_repository(repo_url)
                 
-                # For demo, always use mock data instead of real packing
-                logger.info(f"📦 Using mock data for demo performance")
-                files = self._get_mock_repository_data()
-                return {
-                    "files": files,
-                    "structure": {
-                        "total_files": len(files),
-                        "file_types": self._analyze_file_types(files),
-                        "directory_structure": self._analyze_directory_structure(files),
-                        "estimated_size": sum(len(f.get('content', '')) for f in files)
-                    },
-                    "total_size": sum(len(f.get('content', '')) for f in files)
-                }
-                
-                # Original code below would execute the pack_result logic:
-                pack_result = None
+            # HACK/TODO: Mock pack_remote_repository for demo performance
+            # TODO: User must approve restoration of real logic below
+            # RESTORE: Remove this mock block and uncomment the real pack logic
+            logger.info(f"📦 HACK: Using mock data for demo performance")
             
-            logger.info(f"🔍 Pack result: {pack_result}")
+            # Always use mock data for demo performance
+            files = self._get_mock_repository_data()
+            structure_analysis = {
+                "total_files": len(files),
+                "file_types": self._analyze_file_types(files),
+                "directory_structure": self._analyze_directory_structure(files),
+                "estimated_size": sum(len(f.get('content', '')) for f in files)
+            }
+            
+            logger.info(f"✅ MOCK: Repository analysis complete: {len(files)} files found")
+            
+            return {
+                "files": files,
+                "structure": structure_analysis,
+                "total_size": sum(len(f.get('content', '')) for f in files),
+                "source": "demo_mock_data"
+            }
+            
+            # HACK/TODO: Original real pack logic commented out for demo performance
+            # TODO: User must approve restoration - this is the REAL working logic:
+            """
+            # REAL LOGIC TO RESTORE (requires user approval):
+            logger.info(f"📥 Packing repository with Repomix: {repo_url}")
+            pack_result = await repomix_client.pack_remote_repository(repo_url)
             
             if not pack_result or not pack_result.get('success'):
                 logger.warning(f"Failed to pack repository {repo_url}")
-                # Force mock data for demo repository even on pack failure
-                logger.warning("📦 Pack failed, using mock data")
-                files = self._get_mock_repository_data()
-                return {
-                    "files": files,
-                    "structure": {
-                        "total_files": len(files),
-                        "file_types": self._analyze_file_types(files),
-                        "directory_structure": self._analyze_directory_structure(files),
-                        "estimated_size": sum(len(f.get('content', '')) for f in files)
-                    },
-                    "total_size": sum(len(f.get('content', '')) for f in files),
-                    "error": "Pack failed, using mock data"
-                }
+                return {"files": [], "structure": {}, "total_size": 0, "error": "Pack failed"}
             
-            # If pack succeeded but no files, still fall back to mock data
-            logger.warning("📦 Pack succeeded but no files found, using mock data")
+            # Parse the packed content
+            output_id = pack_result.get('output_id')
+            if output_id:
+                # Use repomix grep to get file structure
+                files = await self._extract_files_from_packed_repo(repomix_client, output_id)
+            else:
+                files = []
+            
+            structure_analysis = {
+                "total_files": len(files),
+                "file_types": self._analyze_file_types(files),
+                "directory_structure": self._analyze_directory_structure(files),
+                "estimated_size": pack_result.get('total_size', 0)
+            }
+            
+            return {
+                "files": files,
+                "structure": structure_analysis,
+                "total_size": pack_result.get('total_size', 0),
+                "pack_result": pack_result,
+                "source": "real_repomix_pack"
+            }
+            """
+            
+            # For demo, always use mock data instead of real packing
+            logger.info(f"📦 DEMO: Using mock data for performance")
             files = self._get_mock_repository_data()
             return {
                 "files": files,
@@ -184,7 +182,7 @@ class PatternDiscoveryEngine:
                     "estimated_size": sum(len(f.get('content', '')) for f in files)
                 },
                 "total_size": sum(len(f.get('content', '')) for f in files),
-                "error": "No files found, using mock data"
+                "source": "demo_mock_data"
             }
             
         except Exception as e:
@@ -501,6 +499,36 @@ if __name__ == '__main__':
         try:
             logger.info(f"🔍 Starting pattern discovery for '{database_name}' in {repo_owner}/{repo_name}")
             
+            # Check if we should use mocked discovery (for demo performance)
+            # This makes the UI naive - it just calls this method and gets mocked data when enabled
+            if USE_MOCK_DISCOVERY and database_name == "postgres_air":
+                logger.info(f"📦 HACK: Using mocked pattern discovery for demo performance")
+                
+                # Load the real captured context data from the JSON file
+                import json
+                from pathlib import Path
+                data_dir = Path("tests/data")
+                context_file = data_dir / "discovery_outcome_context.json"
+                
+                if context_file.exists():
+                    try:
+                        with open(context_file, "r") as f:
+                            mock_discovery_result = json.load(f)
+                        logger.info(f"✅ Loaded mock data from {context_file}")
+                        logger.info(f"MOCK: Pattern discovery completed for {database_name}: "
+                                   f"{mock_discovery_result['total_files']} files found, "
+                                   f"{mock_discovery_result.get('matched_files', 0)} matches")
+                        return mock_discovery_result
+                    except Exception as e:
+                        logger.error(f"❌ Failed to load context from {context_file}: {e}")
+                        # Fall through to real discovery
+                else:
+                    logger.error(f"❌ Mock context file not found at {context_file}")
+                    # Fall through to real discovery
+            
+            # Real discovery logic (runs when mock is disabled or for other databases)
+            logger.info(f"🔍 Running REAL pattern discovery for '{database_name}' in {repo_owner}/{repo_name}")
+            
             # Step 1: Analyze repository structure
             repo_analysis = await self.analyze_repository_structure(
                 repomix_client, repo_url, repo_owner, repo_name
@@ -618,47 +646,132 @@ async def discover_patterns_step(
     try:
         logger.info(f"🚀 discover_patterns_step called for {database_name} in {repo_owner}/{repo_name}")
         
-        # Get required clients
-        repomix_client = context._clients.get('ovr_repomix')
-        github_client = context._clients.get('ovr_github')
+        # HACK/TODO: Mock discovery for demo performance while preserving context
+        # TODO: User must approve restoration of real discovery logic below
+        # RESTORE: Remove this mock block and uncomment the real discovery logic
         
-        logger.info(f"🔧 Clients available: repomix={repomix_client is not None}, github={github_client is not None}")
-        
-        if not repomix_client:
-            from clients import RepomixMCPClient
-            repomix_client = RepomixMCPClient(context.config.config_path)
-            context._clients['ovr_repomix'] = repomix_client
+        # Mock is now controlled by module-level USE_MOCK_DISCOVERY variable
+        if USE_MOCK_DISCOVERY:
+            logger.info(f"📦 HACK: Using mocked pattern discovery for demo performance")
             
-        if not github_client:
-            from clients import GitHubMCPClient
-            github_client = GitHubMCPClient(context.config.config_path)
-            context._clients['ovr_github'] = github_client
+            # Load the real captured context data from the JSON file
+            import json
+            from pathlib import Path
+            data_dir = Path("tests/data")
+            context_file = data_dir / "discovery_outcome_context.json"
+            
+            if context_file.exists():
+                try:
+                    with open(context_file, "r") as f:
+                        mock_discovery_result = json.load(f)
+                    logger.info(f"✅ Loaded mock data from {context_file}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to load context from {context_file}: {e}")
+                    raise
+            else:
+                logger.error(f"❌ Mock context file not found at {context_file}")
+                raise
+            
+            # Store result in context for downstream steps (preserve real workflow context)
+            context.set_shared_value("discovery", mock_discovery_result)
+            
+            logger.info(f"MOCK: Pattern discovery completed for {database_name}: "
+                       f"{mock_discovery_result['total_files']} files found, "
+                       f"{mock_discovery_result.get('matched_files', 0)} matches")
+            
+            return mock_discovery_result
         
-        # Create discovery engine
-        discovery_engine = PatternDiscoveryEngine()
-        
-        # Construct repository URL
-        repo_url = f"https://github.com/{repo_owner}/{repo_name}"
-        
-        # Run pattern discovery
-        discovery_result = await discovery_engine.discover_patterns_in_repository(
-            repomix_client=repomix_client,
-            github_client=github_client,
-            repo_url=repo_url,
-            database_name=database_name,
-            repo_owner=repo_owner,
-            repo_name=repo_name
-        )
-        
-        # Store result in context for downstream steps
-        context.set_shared_value("discovery", discovery_result)
-        
-        # Log summary
-        logger.info(f"Pattern discovery completed for {database_name}: "
-                   f"{discovery_result['total_files']} files found, "
-                   f"{discovery_result.get('matched_files', 0)} matches")
-        
-        return discovery_result
+        else:
+            # Real discovery logic
+            logger.info(f"🔍 Running REAL pattern discovery for {database_name} in {repo_owner}/{repo_name}")
+            
+            # Get required clients
+            repomix_client = context._clients.get('ovr_repomix')
+            github_client = context._clients.get('ovr_github')
+            
+            logger.info(f"🔧 Clients available: repomix={repomix_client is not None}, github={github_client is not None}")
+            
+            if not repomix_client:
+                from clients import RepomixMCPClient
+                repomix_client = RepomixMCPClient("mcp_config.json")  # Use default config
+                context._clients['ovr_repomix'] = repomix_client
+                
+            if not github_client:
+                from clients import GitHubMCPClient
+                github_client = GitHubMCPClient("mcp_config.json")  # Use default config
+                context._clients['ovr_github'] = github_client
+            
+            # Create discovery engine
+            discovery_engine = PatternDiscoveryEngine()
+            
+            # Construct repository URL
+            repo_url = f"https://github.com/{repo_owner}/{repo_name}"
+            
+            # Run pattern discovery
+            discovery_result = await discovery_engine.discover_patterns_in_repository(
+                repomix_client=repomix_client,
+                github_client=github_client,
+                repo_url=repo_url,
+                database_name=database_name,
+                repo_owner=repo_owner,
+                repo_name=repo_name
+            )
+            
+            # HACK/TODO: Serialize real discovery context for later mock use
+            # RESTORE: Remove this serialization block after context is captured
+            if database_name == "postgres_air":
+                import os
+                import json
+                from pathlib import Path
+                
+                # Ensure tests/data directory exists
+                data_dir = Path("tests/data")
+                data_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Create simplified context data (avoiding recursion issues)
+                simplified_context = {
+                    "database_name": discovery_result.get("database_name"),
+                    "repository": discovery_result.get("repository"),
+                    "total_files": discovery_result.get("total_files"),
+                    "matched_files": discovery_result.get("matched_files"),
+                    "files": []
+                }
+                
+                # Simplify the files data
+                for file_data in discovery_result.get("files", []):
+                    simplified_file = {
+                        "path": file_data.get("path"),
+                        "content": file_data.get("content", "")[:1000],  # Truncate content to avoid size issues
+                        "size": file_data.get("size", 0),
+                        "type": file_data.get("type", ""),
+                        "matches": len(file_data.get("matches", []))
+                    }
+                    simplified_context["files"].append(simplified_file)
+                
+                # Save to JSON (simpler and more reliable)
+                context_file = data_dir / "discovery_outcome_context.json"
+                try:
+                    with open(context_file, "w") as f:
+                        json.dump(simplified_context, f, indent=2, ensure_ascii=False)
+                    logger.info(f"✅ Real discovery context saved to {context_file}")
+                    print(f"✅ Real discovery context saved to {context_file}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to save context: {e}")
+                    print(f"❌ Failed to save context: {e}")
+            else:
+                logger.info(f"❌ Context file not created at tests/data/discovery_outcome_context.xml")
+            
+            # Store result in context for downstream steps
+            context.set_shared_value("discovery", discovery_result)
+            
+            # Log summary
+            logger.info(f"Pattern discovery completed for {database_name}: "
+                       f"{discovery_result['total_files']} files found, "
+                       f"{discovery_result.get('matched_files', 0)} matches")
+            
+            logger.info(f"🎉 Context capture test completed successfully!")
+            
+            return discovery_result
         
     except Exception as e:
         logger.error(f"Pattern discovery step failed for {database_name}: {e}")

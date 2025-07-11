@@ -53,7 +53,3 @@ logs/
 test-output.txt
 
 
-tests/data/postgres_sample_dbs_packed.xml
-repomix.tar.gz
-tests/data/postgres_sample_dbs_packed_old.xml
-tests/data/postgres_sample_dbs_packed.xml

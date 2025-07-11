@@ -287,11 +287,17 @@ class StreamlitWorkflowUI:
             st.markdown("### 📊 Progress Tables")
             self.render_progress_table_pane()
         
-        # Auto-refresh for demo mode
+        # Auto-refresh for demo mode with throttling
         if st.session_state.demo_mode and st.session_state.auto_refresh:
-            time.sleep(2)  # Wait 2 seconds between steps
-            self.simulate_demo_progress()
-            st.rerun()
+            # Use session state to throttle refreshes (non-blocking)
+            import time
+            current_time = time.time()
+            last_refresh = getattr(st.session_state, 'last_refresh_time', 0)
+            
+            if current_time - last_refresh >= 1:  # Throttle to 1 second intervals
+                st.session_state.last_refresh_time = current_time
+                self.simulate_demo_progress()
+                st.rerun()
 
     def render_progress_pane(self):
         """Render the left progress pane with workflow controls and step tracking."""
@@ -385,7 +391,7 @@ class StreamlitWorkflowUI:
         
         # Render all log entries - progress tables are handled in right pane
         for entry in entries:
-            self.render_log_entry(entry)
+                self.render_log_entry(entry)
     
     def render_progress_table_pane(self):
         """Render the dedicated right pane for progress tables with modern web design."""
@@ -603,8 +609,9 @@ class StreamlitWorkflowUI:
                         step.status = WorkflowStatus.FAILED
                         log_step_complete(st.session_state.workflow_id, step_entry_id, step.name, success=False, details=str(e))
                 else:
-                    # Fallback to simulation
-                    time.sleep(1)
+                    # Fallback to simulation with minimal delay
+                    import time
+                    time.sleep(0.5)  # Very brief delay for demo realism
                     step.status = WorkflowStatus.COMPLETED
                     step.output_data = {"status": "completed", "timestamp": datetime.now().isoformat()}
                     log_step_complete(st.session_state.workflow_id, step_entry_id, step.name, success=True)
@@ -767,20 +774,15 @@ class StreamlitWorkflowUI:
                 def run_pattern_discovery_sync():
                     """Wrapper to run async pattern discovery in sync context"""
                     try:
-                        # Create new event loop for this thread
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        
-                        # Run the async function
-                        result = loop.run_until_complete(run_pattern_discovery())
-                        
-                        loop.close()
+                        # Use asyncio.run for cleaner async handling
+                        import asyncio
+                        result = asyncio.run(run_pattern_discovery())
                         return result
                     except Exception as e:
                         print(f"❌ Pattern discovery failed: {e}")
                         return {"total_files": 0, "files": []}
                 
-                discovery_result = run_pattern_discovery_sync()
+                discovery_result = run_pattern_discovery_sync() 
                 
                 files_found = discovery_result.get('total_files', 0)
                 log_info(st.session_state.workflow_id, 

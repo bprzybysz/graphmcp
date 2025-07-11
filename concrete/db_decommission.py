@@ -406,6 +406,16 @@ async def process_repositories_step(
                     repo_name=repo_name
                 )
                 
+                # HACK/TODO: Temporarily save discovery_result for agent refactoring mock
+                # RESTORE: Remove this block after context is captured
+                import json
+                temp_discovery_path = "/tmp/real_discovery_context.json"
+                with open(temp_discovery_path, "w") as f:
+                    json.dump(discovery_result, f, indent=2)
+                logger.info(f"💾 Saved real discovery context to {temp_discovery_path}")
+                print(f"💾 Saved real discovery context to {temp_discovery_path}")
+                # END HACK/TODO
+                
                 files_found = discovery_result.get("total_files", 0)
                 high_confidence_matches = discovery_result.get("files", [])
                 
@@ -1642,51 +1652,36 @@ async def run_decommission(
     )
     
     try:
-        result = await workflow.execute()
-    finally:
-        logger.info("Stopping workflow and cleaning up MCP servers...")
-        await workflow.stop()
-    
-    logger.info(f"\n🎉 Workflow Execution Complete!")
-    logger.info(f"Status: {result.status}")
-    logger.info(f"Success Rate: {result.success_rate:.1f}%")
-    logger.info(f"Duration: {result.duration_seconds:.1f}s")
-    
-    repo_result = result.get_step_result('process_repositories', {})
-    if repo_result:
-        logger.info(f"Database: {repo_result.get('database_name')}")
-        logger.info(f"Repositories Processed: {repo_result.get('repositories_processed', 0)}")
-        logger.info(f"Files Discovered: {repo_result.get('total_files_processed', 0)}")
-        logger.info(f"Files Modified: {repo_result.get('total_files_modified', 0)}")
-    
-    return result
-
-if __name__ == "__main__":
-    import logging
-    import asyncio
-    import sys
-    
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
-    
-    logger.info("🚀 Running Database Decommissioning Workflow")
-    logger.info("=" * 50)
-    exit_code = 1
-    
-    try:
-        # Run the workflow
-        result = asyncio.run(run_decommission())
+        # Store result in context for next stage
+        context.set_shared_value("workflow_result", result)
         
-        # Determine exit code based on workflow success
-        if result and hasattr(result, 'status'):
-            exit_code = 0 if result.status == "success" else 1
-            logger.info(f"Workflow completed with status: {result.status}")
-        else:
-            logger.error("Workflow completed but status unknown")
-            exit_code = 1
+        logger.info("🚀 Running Database Decommissioning Workflow")
+        logger.info("=" * 50)
+        
+        try:
+            # Execute the workflow
+            result = await workflow.execute()
             
-    except KeyboardInterrupt:
-        logger.info("Workflow interrupted by user")
-        exit_code = 130
+            logger.info("Stopping workflow and cleaning up MCP servers...")
+            # HACK/TODO: Handle workflow cleanup gracefully
+            # TODO: Add proper workflow.stop() method to Workflow class
+            try:
+                await workflow.stop()
+            except AttributeError:
+                # Workflow doesn't have stop method yet, cleanup manually
+                logger.info("Manual cleanup of workflow (stop method not implemented)")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Workflow execution failed: {e}")
+            # Try cleanup anyway
+            try:
+                await workflow.stop()
+            except (AttributeError, Exception):
+                logger.info("Cleanup failed or not needed")
+            raise
+        
     except Exception as e:
         logger.error(f"Workflow failed: {e}")
         exit_code = 1

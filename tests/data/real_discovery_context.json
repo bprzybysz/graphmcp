@@ -1,0 +1,11 @@
+{
+  "database_name": "postgres_air",
+  "repository": "bprzybys-nc/postgres-sample-dbs",
+  "total_files": 4,
+  "matched_files": 4,
+  "files": [
+    {
+      "path": "chinook.sql",
+      "content": "-- Chinook Database SQL Script\n-- This database contains data about a digital music store.\n\nCREATE DATABASE chinook;\nUSE chinook;\n\n-- Artists table\nCREATE TABLE artists (\n    artist_id INTEGER PRIMARY KEY,\n    name VARCHAR(120)\n);\n\n-- Albums table  \nCREATE TABLE albums (\n    album_id INTEGER PRIMARY KEY,\n    title VARCHAR(160),\n    artist_id INTEGER,\n    FOREIGN KEY (artist_id) REFERENCES artists(artist_id)\n);\n\n-- Create the postgres_air table for demo\nCREATE TABLE postgres_air_flights (\n    flight_id INTEGER PRIMARY KEY,\n    flight_number VARCHAR(10),\n    departure_airport VARCHAR(3),\n    arrival_airport VARCHAR(3),\n    departure_time TIMESTAMP,\n    arrival_time TIMESTAMP\n);\n\nINSERT INTO postgres_air_flights VALUES \n(1, 'PA100', 'LAX', 'JFK', '2024-01-01 08:00:00', '2024-01-01 16:30:00'),\n(2, 'PA101', 'JFK', 'LAX', '2024-01-01 18:00:00', '2024-01-02 02:30:00');\n\n-- Some configuration that references postgres_air database\n-- Database: postgres_air\n-- Connection: postgresql://user:pass@host:5432/postgres_air\n-- Legacy mock-test-db references:\n-- Database: mock-test-db\n-- Connection: postgresql://user:pass@host:5432/mock-test-db\n",
+      "source_type": "sql",
+      "classification": 

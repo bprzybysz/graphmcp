@@ -234,7 +234,7 @@ def update_file_status(workflow_id: str, file_path: str,
             for entry in progress_table.entries:
                 if entry.file_path == file_path:
                     entry.error_message = error_message
-                    break
+                    break 
 
 
 def get_source_type_from_path(file_path: str) -> str:
