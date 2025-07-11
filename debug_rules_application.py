@@ -21,7 +21,7 @@ async def debug_rule_application():
     test_files = [
         {
             'path': 'README.md',
-            'content': '''| [Postgres air](#postgres-air-database) | 10 | 67228600 | 1.2 GB |
+            'content': '''| [Postgres air](#postgres_air-database) | 10 | 67228600 | 1.2 GB |
             
 CREATE DATABASE postgres_air;
             
@@ -39,7 +39,7 @@ query: max(last_30m):max:postgresql.connections.active{database:postgres_air} by
             'content': '''# Create Terraform for postgres_air
 postgres_air_config = """
 resource "azurerm_postgresql_flexible_server" "postgres_air" {
-  name = "psql-postgres-air-prod"
+  name = "psql-postgres_air-prod"
 }"""
 print("Contains: employees, lego, postgres_air databases")'''
         },
@@ -48,13 +48,13 @@ print("Contains: employees, lego, postgres_air databases")'''
             'content': '''#!/bin/bash
 for db in periodic_table world_happiness titanic pagila chinook netflix employees lego postgres_air; do
     echo "Processing database: $db"
-    helm upgrade --install postgres-air helm-charts/postgres_air/
+    helm upgrade --install postgres_air helm-charts/postgres_air/
 done'''
         },
         {
             'path': 'terraform_prod_critical_databases.tf',
             'content': '''resource "azurerm_postgresql_flexible_server" "postgres_air" {
-  name = "psql-postgres-air-prod"
+  name = "psql-postgres_air-prod"
   database = "postgres_air"
 }
 output "postgres_air_connection_string" {
@@ -139,7 +139,7 @@ output "postgres_air_connection_string" {
         # Test pattern matching manually
         print()
         print('🔍 MANUAL PATTERN MATCHING TEST:')
-        test_content = '| [Postgres air](#postgres-air-database) | 10 | 67228600 | 1.2 GB |'
+        test_content = '| [Postgres air](#postgres_air-database) | 10 | 67228600 | 1.2 GB |'
         test_pattern = r'#.*postgres_air.*'
         import re
         if re.search(test_pattern, test_content, re.IGNORECASE):

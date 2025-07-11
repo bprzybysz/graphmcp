@@ -283,7 +283,7 @@ CREATE TABLE albums (
     FOREIGN KEY (artist_id) REFERENCES artists(artist_id)
 );
 
--- Create the postgres-air table for demo
+-- Create the postgres_air table for demo
 CREATE TABLE postgres_air_flights (
     flight_id INTEGER PRIMARY KEY,
     flight_number VARCHAR(10),
@@ -297,9 +297,9 @@ INSERT INTO postgres_air_flights VALUES
 (1, 'PA100', 'LAX', 'JFK', '2024-01-01 08:00:00', '2024-01-01 16:30:00'),
 (2, 'PA101', 'JFK', 'LAX', '2024-01-01 18:00:00', '2024-01-02 02:30:00');
 
--- Some configuration that references postgres-air database
--- Database: postgres-air
--- Connection: postgresql://user:pass@host:5432/postgres-air
+-- Some configuration that references postgres_air database
+-- Database: postgres_air
+-- Connection: postgresql://user:pass@host:5432/postgres_air
 -- Legacy mock-test-db references:
 -- Database: mock-test-db
 -- Connection: postgresql://user:pass@host:5432/mock-test-db
@@ -318,18 +318,18 @@ This repository contains various PostgreSQL sample databases for testing and dev
 - **Chinook**: Digital music store database
 - **Netflix**: Streaming content database  
 - **Pagila**: DVD rental store (PostgreSQL version of Sakila)
-- **Postgres-Air**: Airline management system
+- **postgres_air**: Airline management system
 - **Mock-Test-DB**: Testing database for demo purposes
 
 ## Connection Examples
 
-### Postgres-Air Database
+### postgres_air Database
 ```bash
-# Connect to postgres-air database
-psql -h localhost -U postgres -d postgres-air
+# Connect to postgres_air database
+psql -h localhost -U postgres -d postgres_air
 
 # Or using connection string
-postgresql://postgres:password@localhost:5432/postgres-air
+postgresql://postgres:password@localhost:5432/postgres_air
 ```
 
 ### Mock-Test-DB Database
@@ -342,7 +342,7 @@ postgresql://postgres:password@localhost:5432/mock-test-db
 ```
 
 ### Configuration
-The postgres-air database is used for airline flight tracking and management.
+The postgres_air database is used for airline flight tracking and management.
 The mock-test-db database is used for testing and demo purposes.
 """,
                 "size": 1200,
@@ -353,7 +353,7 @@ The mock-test-db database is used for testing and demo purposes.
                 "content": """# Database configuration
 production:
   adapter: postgresql
-  database: postgres-air
+  database: postgres_air
   username: <%= ENV['DB_USER'] %>
   password: <%= ENV['DB_PASSWORD'] %>
   host: <%= ENV['DB_HOST'] %>
@@ -391,18 +391,18 @@ mock_testing:
                 "path": "scripts/migrate.py",
                 "content": """#!/usr/bin/env python3
 \"\"\"
-Migration script for postgres-air and mock-test-db databases.
+Migration script for postgres_air and mock-test-db databases.
 \"\"\"
 
 import os
 import psycopg2
 from sqlalchemy import create_engine
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/postgres-air')
+DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/postgres_air')
 MOCK_DATABASE_URL = os.getenv('MOCK_DATABASE_URL', 'postgresql://postgres:password@localhost:5432/mock-test-db')
 
 def connect_to_postgres_air():
-    \"\"\"Connect to the postgres-air database.\"\"\"
+    \"\"\"Connect to the postgres_air database.\"\"\"
     engine = create_engine(DATABASE_URL)
     return engine
 
@@ -412,10 +412,10 @@ def connect_to_mock_test_db():
     return engine
 
 def migrate_postgres_air_schema():
-    \"\"\"Migrate the postgres-air database schema.\"\"\"
+    \"\"\"Migrate the postgres_air database schema.\"\"\"
     conn = connect_to_postgres_air()
     
-    # Run migrations for postgres-air
+    # Run migrations for postgres_air
     with conn.connect() as connection:
         connection.execute(\"\"\"
             CREATE TABLE IF NOT EXISTS flights (
@@ -426,7 +426,7 @@ def migrate_postgres_air_schema():
             );
         \"\"\")
     
-    print("postgres-air database migration completed")
+    print("postgres_air database migration completed")
 
 def migrate_mock_test_db_schema():
     \"\"\"Migrate the mock-test-db database schema.\"\"\"

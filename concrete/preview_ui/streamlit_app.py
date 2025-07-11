@@ -266,9 +266,9 @@ class StreamlitWorkflowUI:
         
         # Create actual database decommissioning steps
         steps = [
-            ("Environment Validation", {"database_name": "postgres-air"}),
+            ("Environment Validation", {"database_name": "postgres_air"}),
             ("Repository Processing", {"target_repos": ["https://github.com/bprzybys-nc/postgres-sample-dbs"]}),
-            ("Pattern Discovery", {"database_name": "postgres-air"}),
+            ("Pattern Discovery", {"database_name": "postgres_air"}),
             ("Quality Assurance", {"validation_rules": "decommission_rules"}),
             ("Workflow Summary", {"generate_metrics": True})
         ]
@@ -283,7 +283,7 @@ class StreamlitWorkflowUI:
         st.session_state.real_workflow = True  # Flag to run real workflow
         
         # Log initial message
-        log_info(st.session_state.workflow_id, "🚀 **Database Decommissioning Workflow Started**\n\n- Database: `postgres-air`\n- Repository: `bprzybys-nc/postgres-sample-dbs`\n- Workflow ID: `{}`\n- Total steps: {}".format(
+        log_info(st.session_state.workflow_id, "🚀 **Database Decommissioning Workflow Started**\n\n- Database: `postgres_air`\n- Repository: `bprzybys-nc/postgres-sample-dbs`\n- Workflow ID: `{}`\n- Total steps: {}".format(
             st.session_state.workflow_id, len(steps)
         ))
         
@@ -319,7 +319,7 @@ class StreamlitWorkflowUI:
         if all(step.status == WorkflowStatus.COMPLETED for step in context.steps):
             context.status = WorkflowStatus.COMPLETED
             st.session_state.demo_mode = False
-            log_info(st.session_state.workflow_id, "🎉 **Database Decommissioning Workflow completed successfully!**\n\n- All steps finished\n- Files table with postgres-air matches displayed\n- No errors encountered")
+            log_info(st.session_state.workflow_id, "🎉 **Database Decommissioning Workflow completed successfully!**\n\n- All steps finished\n- Files table with postgres_air matches displayed\n- No errors encountered")
 
     def run_real_workflow_step(self, step):
         """Run actual database decommissioning workflow step."""
@@ -347,7 +347,7 @@ class StreamlitWorkflowUI:
                 
                 async def run_pattern_discovery():
                     pattern_engine = PatternDiscoveryEngine()
-                    workflow_logger = DatabaseWorkflowLogger("postgres-air")
+                    workflow_logger = DatabaseWorkflowLogger("postgres_air")
                     
                     repomix_client = RepomixMCPClient("mcp_config.json")
                     github_client = GitHubMCPClient("mcp_config.json")
@@ -355,7 +355,7 @@ class StreamlitWorkflowUI:
                     repo_url = "https://github.com/bprzybys-nc/postgres-sample-dbs"
                     repo_owner = "bprzybys-nc"
                     repo_name = "postgres-sample-dbs"
-                    database_name = "postgres-air"
+                    database_name = "postgres_air"
                     
                     discovery_result = await pattern_engine.discover_patterns_in_repository(
                         repomix_client, github_client, repo_url, database_name, repo_owner, repo_name
@@ -392,7 +392,7 @@ class StreamlitWorkflowUI:
                             st.session_state.workflow_id,
                             headers=headers,
                             rows=rows,
-                            title=f"📁 FILES DISCOVERED: postgres-air database references"
+                            title=f"📁 FILES DISCOVERED: postgres_air database references"
                         )
                         
                         # Log high confidence matches
@@ -413,7 +413,7 @@ class StreamlitWorkflowUI:
                 
                 files_found = discovery_result.get('total_files', 0)
                 log_info(st.session_state.workflow_id, 
-                    f"✅ **Pattern Discovery Completed**\n\n- Files Found: {files_found}\n- Database: postgres-air\n- Pattern matches displayed in table above")
+                    f"✅ **Pattern Discovery Completed**\n\n- Files Found: {files_found}\n- Database: postgres_air\n- Pattern matches displayed in table above")
                 
             else:
                 # Generic step completion

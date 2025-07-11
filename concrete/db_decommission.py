@@ -8,6 +8,7 @@ Uses centralized parameter service for environment management.
 
 import asyncio
 import time
+import os
 from typing import Dict, List, Any, Optional
 import logging
 
@@ -17,7 +18,147 @@ from concrete.parameter_service import get_parameter_service, ParameterService
 from concrete.pattern_discovery import discover_patterns_step, PatternDiscoveryEngine
 from concrete.contextual_rules_engine import create_contextual_rules_engine, ContextualRulesEngine
 from concrete.workflow_logger import create_workflow_logger, DatabaseWorkflowLogger
-from concrete.source_type_classifier import SourceTypeClassifier, SourceType, get_database_search_patterns
+from concrete.source_type_classifier import SourceTypeClassifier, SourceType, ClassificationResult
+from concrete.contextual_rules_engine import ContextualRulesEngine, FileProcessingResult, RuleResult
+from collections import defaultdict
+import openai
+import json
+
+class AgenticFileProcessor:
+    """Processes files in batches using an agentic, category-based approach."""
+
+    def __init__(self, source_classifier, contextual_rules_engine, github_client, repo_owner, repo_name):
+        self.source_classifier = source_classifier
+        self.contextual_rules_engine = contextual_rules_engine
+        self.github_client = github_client
+        self.repo_owner = repo_owner
+        self.repo_name = repo_name
+        self.agent = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    def _build_agent_prompt(self, batch: List[Dict[str, str]], rules: Dict, source_type: SourceType) -> str:
+        """Builds a detailed prompt for the agent to process a batch of files."""
+        prompt = f"""You are an expert code refactoring agent tasked with decommissioning a database named '{self.contextual_rules_engine.database_name}'.
+        You will be given a batch of files of type '{source_type.value}' and a set of rules to apply.
+        Your task is to analyze each file and apply the necessary code modifications based on the rules.
+
+        **Rules:**
+        {json.dumps(rules, indent=2)}
+
+        **Files to Process:**
+        """
+
+        for file_info in batch:
+            prompt += f"""---
+
+        **File Path:** {file_info['file_path']}
+
+        **File Content:**
+        ```
+        {file_info['file_content']}
+        ```
+        """
+
+        prompt += """---
+
+        Please return a JSON object with a key for each file path processed. The value for each key should be an object containing the new file content under the key 'modified_content'.
+        Example response format:
+        {
+            "path/to/file1.py": {
+                "modified_content": "... new content for file1 ..."
+            },
+            "path/to/file2.js": {
+                "modified_content": "... new content for file2 ..."
+            }
+        }
+        """
+        return prompt
+
+    async def _invoke_agent_on_batch(self, prompt: str, batch: List[Dict[str, str]]) -> List[FileProcessingResult]:
+        """Invokes the OpenAI agent with the prompt and processes the response."""
+        try:
+            response = await self.agent.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant designed to output JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"}
+            )
+            
+            response_content = response.choices[0].message.content
+            agent_results = json.loads(response_content)
+
+            batch_results = []
+            for file_info in batch:
+                file_path = file_info['file_path']
+                original_content = file_info['file_content']
+                
+                if file_path in agent_results and 'modified_content' in agent_results[file_path]:
+                    modified_content = agent_results[file_path]['modified_content']
+                    changes_made = 1 if modified_content != original_content else 0
+                    
+                    if changes_made > 0:
+                        await self.contextual_rules_engine._update_file_content(
+                            self.github_client, self.repo_owner, self.repo_name, file_path, modified_content
+                        )
+
+                    batch_results.append(FileProcessingResult(
+                        file_path=file_path, success=True, total_changes=changes_made, rules_applied=[]
+                    ))
+                else:
+                    # Agent did not return modifications for this file
+                    batch_results.append(FileProcessingResult(
+                        file_path=file_path, success=True, total_changes=0, rules_applied=[]
+                    ))
+            return batch_results
+
+        except Exception as e:
+            logger.error(f"Error invoking agent or processing response: {e}")
+            return [FileProcessingResult(file_path=f['file_path'], success=False, error=str(e)) for f in batch]  
+
+    async def process_files(self, files_to_process: List[Dict[str, str]], batch_size: int = 3) -> List[FileProcessingResult]:
+        """Classify, batch, and process files using an agentic workflow."""
+        logger.info(f"Starting agentic processing for {len(files_to_process)} files with batch size {batch_size}.")
+        
+        # 1. Classify and group files by source type
+        categorized_files = defaultdict(list)
+        for file_info in files_to_process:
+            file_path = file_info['file_path']
+            # Ensure content is available for classification
+            if 'file_content' not in file_info or file_info['file_content'] is None:
+                logger.warning(f"Skipping {file_path} due to missing content.")
+                continue
+            
+            classification = self.source_classifier.classify_file(file_path, file_info['file_content'])
+            categorized_files[classification.source_type].append(file_info)
+
+        all_results = []
+
+        # 2. Process each category in batches
+        for source_type, files in categorized_files.items():
+            logger.info(f"Processing category '{source_type.value}' with {len(files)} files.")
+            
+            # Here we would initialize or configure the agent based on source_type
+            # For now, we'll just log it.
+            logger.info(f"Agent configured for {source_type.value}.")
+
+            for i in range(0, len(files), batch_size):
+                batch = files[i:i + batch_size]
+                logger.info(f"Processing batch of {len(batch)} files for category {source_type.value}.")
+                
+                # 1. Get rules for the current source_type
+                applicable_rules = self.contextual_rules_engine._get_applicable_rules(source_type, [])
+
+                # 2. Construct a prompt for the agent with the batch of files and rules
+                prompt = self._build_agent_prompt(batch, applicable_rules, source_type)
+                logger.info(f"Built prompt for batch (category: {source_type.value}), invoking agent...")
+
+                # 3. Invoke the agent and process the results
+                batch_results = await self._invoke_agent_on_batch(prompt, batch)
+                all_results.extend(batch_results)
+
+        logger.info(f"Agentic processing finished. Processed {len(all_results)} files.")
+        return all_results
 
 # Import performance optimization system for speed improvements
 from concrete.performance_optimization import get_performance_manager, cached, timed, rate_limited
@@ -1359,42 +1500,57 @@ async def _process_discovered_files_with_rules(
 ):
     """Process discovered files with contextual rules."""
     try:
-        files_processed = 0
-        files_modified = 0
-        
         discovered_files = discovery_result.get("files", [])
-        
-        for file_info in discovered_files:
-            file_path = file_info.get("path", "")
-            file_content = file_info.get("content", "")
-            
-            if not file_path or not file_content:
-                continue
-            
-            # Classify file type
-            classification = source_classifier.classify_file(file_path, file_content)
-            
-            # Apply contextual rules
-            processing_result = await contextual_rules_engine.process_file_with_contextual_rules(
-                file_path, file_content, classification, database_name
+
+        # --- Dispatcher to switch between processing strategies ---
+        # Set this to True to use the new agentic batch processor
+        USE_AGENTIC_PROCESSOR = True
+
+        if USE_AGENTIC_PROCESSOR:
+            logger.info("Using AgenticFileProcessor for file processing.")
+            agentic_processor = AgenticFileProcessor(
+                source_classifier=source_classifier,
+                contextual_rules_engine=contextual_rules_engine,
+                github_client=context.clients['ovr_github'],
+                repo_owner=repo_owner,
+                repo_name=repo_name
             )
-            
-            files_processed += 1
-            if processing_result.get("modified", False):
-                files_modified += 1
-        
+            results = await agentic_processor.process_files(discovered_files)
+            files_processed = len(results)
+            files_modified = sum(1 for r in results if r.total_changes > 0)
+
+        else:
+            logger.info("Using original sequential processor for file processing.")
+            files_processed = 0
+            files_modified = 0
+            # HACK/TODO: Force all discovered files to be processed by the agent, regardless of filtering
+            for file_info in discovered_files:
+                file_path = file_info.get("path", "")
+                file_content = file_info.get("content", "")
+                # (No filtering here; all files go through the agent)
+                classification = source_classifier.classify_file(file_path, file_content)
+                processing_result = await contextual_rules_engine.process_file_with_contextual_rules(
+                    file_path, file_content, classification, database_name,
+                    github_client=context.clients['ovr_github'],
+                    repo_owner=repo_owner,
+                    repo_name=repo_name
+                )
+                files_processed += 1
+                if processing_result.total_changes > 0:
+                    files_modified += 1
+
         return {
             "files_processed": files_processed,
             "files_modified": files_modified
         }
-        
+
     except Exception as e:
         workflow_logger.log_error("Failed to process discovered files with rules", e)
         return {"files_processed": 0, "files_modified": 0}
 
 # Workflow execution functions
 async def run_decommission(
-    database_name: str = "postgres-air",
+    database_name: str = "postgres_air",
     target_repos: List[str] = ['https://github.com/bprzybys-nc/postgres-sample-dbs'],
     slack_channel: str = "C01234567",
     workflow_id: str = None
@@ -1440,7 +1596,11 @@ async def run_decommission(
         workflow_id=workflow_id
     )
     
-    result = await workflow.execute()
+    try:
+        result = await workflow.execute()
+    finally:
+        logger.info("Stopping workflow and cleaning up MCP servers...")
+        await workflow.stop()
     
     logger.info(f"\n🎉 Workflow Execution Complete!")
     logger.info(f"Status: {result.status}")
@@ -1459,9 +1619,42 @@ async def run_decommission(
 if __name__ == "__main__":
     import logging
     import asyncio
+    import sys
     
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
     
     logger.info("🚀 Running Database Decommissioning Workflow")
     logger.info("=" * 50)
-    asyncio.run(run_decommission()) 
+    exit_code = 1
+    
+    try:
+        # Run the workflow
+        result = asyncio.run(run_decommission())
+        
+        # Determine exit code based on workflow success
+        if result and hasattr(result, 'status'):
+            exit_code = 0 if result.status == "success" else 1
+            logger.info(f"Workflow completed with status: {result.status}")
+        else:
+            logger.error("Workflow completed but status unknown")
+            exit_code = 1
+            
+    except KeyboardInterrupt:
+        logger.info("Workflow interrupted by user")
+        exit_code = 130
+    except Exception as e:
+        logger.error(f"Workflow failed: {e}")
+        exit_code = 1
+    finally:
+        # Ensure we cleanup any remaining resources
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.stop()
+            if not loop.is_closed():
+                loop.close()
+        except Exception as e:
+            logger.warning(f"Error during cleanup: {e}")
+        
+        logger.info(f"Exiting with code {exit_code}")
+        sys.exit(exit_code)

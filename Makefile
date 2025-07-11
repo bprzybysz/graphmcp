@@ -477,7 +477,7 @@ cmp: check-deps ## Run complete database decommissioning workflow (CMP = Complet
 		exit 1; \
 	fi
 	@echo "$(GREEN)🚀 Starting Complete Workflow...$(NC)"
-	@echo "$(CYAN)Target Database: $$(if [ -n "$(DB)" ]; then echo "$(DB)"; else echo "postgres-air (default)"; fi)$(NC)"
+	@echo "$(CYAN)Target Database: $$(if [ -n "$(DB)" ]; then echo "$(DB)"; else echo "postgres_air (default)"; fi)$(NC)"
 	@echo "$(CYAN)Target Repository: $$(if [ -n "$(REPO)" ]; then echo "$(REPO)"; else echo "bprzybys-nc/postgres-sample-dbs (default)"; fi)$(NC)"
 	@echo ""
 	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
@@ -487,7 +487,7 @@ import os; \
 sys.path.append('.'); \
 from concrete.db_decommission import run_decommission; \
 \
-database_name = os.environ.get('DB', 'postgres-air'); \
+database_name = os.environ.get('DB', 'postgres_air'); \
 repo_url = os.environ.get('REPO', 'https://github.com/bprzybys-nc/postgres-sample-dbs'); \
 target_repos = [repo_url]; \
 \
@@ -520,7 +520,7 @@ else: \
 	print('📊 Workflow result structure: basic'); \
 print(''); \
 print('$(CYAN)💡 Usage Examples:$(NC)'); \
-print('  make cmp                                    # Default: postgres-air'); \
+print('  make cmp                                    # Default: postgres_air'); \
 print('  make cmp DB=periodic_table                  # Custom database'); \
 print('  make cmp DB=chinook REPO=https://github.com/org/repo  # Custom DB + repo'); \
 "
