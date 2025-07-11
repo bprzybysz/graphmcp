@@ -8,7 +8,7 @@ class QualityAssuranceStep(BaseWorkflowStep):
     A workflow step for running quality assurance checks.
     """
 
-    async def execute(self, workflow_context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Any, step: Any, **params) -> Dict[str, Any]:
         """
         Executes the quality assurance logic.
         """

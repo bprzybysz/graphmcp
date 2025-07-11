@@ -13,7 +13,7 @@ class PatternDiscoveryStep(BaseWorkflowStep):
     A workflow step for discovering patterns in a processed repository.
     """
 
-    async def execute(self, workflow_context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Any, step: Any, **params) -> Dict[str, Any]:
         """
         Executes the pattern discovery logic.
 
@@ -23,7 +23,7 @@ class PatternDiscoveryStep(BaseWorkflowStep):
         use_mock = os.getenv("USE_MOCK_DISCOVERY", "true").lower() == "true"
         
         # This step depends on the output of the repository processing step
-        repo_pack_path = workflow_context.get("packed_repo_path")
+        repo_pack_path = context.get_step_result("repository_processing", {}).get("packed_repo_path")
         if not repo_pack_path:
             raise ValueError("Repository pack path not found in workflow context.")
 

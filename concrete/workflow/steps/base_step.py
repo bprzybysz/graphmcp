@@ -10,12 +10,14 @@ class BaseWorkflowStep(ABC):
         self.config = step_config
 
     @abstractmethod
-    async def execute(self, workflow_context: Dict[str, Any]) -> Any:
+    async def execute(self, context: Any, step: Any, **params) -> Any:
         """
         Execute the logic for this workflow step.
 
         Args:
-            workflow_context: A dictionary containing the shared workflow context.
+            context: The shared workflow context object.
+            step: The workflow step object being executed.
+            params: The parameters for this step.
 
         Returns:
             Any: The result of the step's execution.

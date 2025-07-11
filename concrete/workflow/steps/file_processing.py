@@ -9,7 +9,7 @@ class FileProcessingStep(BaseWorkflowStep):
     A workflow step for processing files based on discovered patterns.
     """
 
-    async def execute(self, workflow_context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Any, step: Any, **params) -> Dict[str, Any]:
         """
         Executes the file processing logic.
 
@@ -18,7 +18,7 @@ class FileProcessingStep(BaseWorkflowStep):
         """
         use_mock = os.getenv("USE_MOCK_PROCESSING", "true").lower() == "true"
         
-        discovery_result = workflow_context.get("discovery_result")
+        discovery_result = context.get_step_result("pattern_discovery", {}).get("discovery_result")
         if not discovery_result:
             raise ValueError("Discovery result not found in workflow context.")
 

@@ -14,7 +14,7 @@ class RepositoryProcessingStep(BaseWorkflowStep):
     This includes cloning, analyzing, and packing the repository.
     """
 
-    async def execute(self, workflow_context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Any, step: Any, **params) -> Dict[str, Any]:
         """
         Executes the repository processing logic.
 

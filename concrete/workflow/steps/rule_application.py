@@ -8,14 +8,14 @@ class RuleApplicationStep(BaseWorkflowStep):
     A workflow step for applying contextual rules to the processed files.
     """
 
-    async def execute(self, workflow_context: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, context: Any, step: Any, **params) -> Dict[str, Any]:
         """
         Executes the rule application logic.
         """
         print("Executing rule application step.")
         
         # This step would depend on the output of file processing.
-        file_processing_result = workflow_context.get("file_processing_result")
+        file_processing_result = context.get_step_result("file_processing")
         if not file_processing_result:
             print("Warning: File processing result not found in context.")
 

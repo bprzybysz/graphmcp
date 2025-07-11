@@ -30,7 +30,7 @@ logging.basicConfig(
 )
 
 # Import the database decommissioning workflow
-from concrete.db_decommission import create_db_decommission_workflow, run_decommission
+from workflows.db_decommission import create_decommission_workflow
 
 def print_header():
     """Print demo header with branding."""
@@ -99,7 +99,7 @@ async def run_demo(database_name: str, quick_mode: bool = False):
         start_time = time.time()
         
         # Create and execute workflow
-        workflow = create_db_decommission_workflow(
+        workflow = create_decommission_workflow(
             database_name=database_name,
             target_repos=["https://github.com/bprzybys-nc/postgres-sample-dbs"],
             slack_channel="C01234567",  # Demo channel
@@ -142,23 +142,25 @@ async def run_demo(database_name: str, quick_mode: bool = False):
             for step_id, step_result in result.step_results.items():
                 # Ensure step_result is a dict before calling .get()
                 if isinstance(step_result, dict):
-                    status = "✅ SUCCESS" if step_result.get('success', False) else "❌ FAILED"
-                    duration = step_result.get('duration', 0)
+                    status = "✅ SUCCESS" if step_result.get('status') == 'mock_success' or step_result.get('status') == 'real_success' or step_result.get('status') == 'success' else "❌ FAILED"
+                    message = step_result.get('message', '')
+                    print(f"  {step_id}: {status} - {message}")
                 else:
-                    status = "✅ SUCCESS"
-                    duration = 0
-                print(f"  {step_id}: {status} ({duration:.1f}s)")
-            
-            # Look for process_repositories instead of enhanced_process_repositories
-            repo_result = result.step_results.get('process_repositories', {})
-            
-            if repo_result and isinstance(repo_result, dict):
+                    status = "ℹ️ UNKNOWN"
+                    print(f"  {step_id}: {status}")
+
+            # Custom logic to display results from specific steps
+            repo_result = result.step_results.get('repository_processing', {})
+            if repo_result:
                 print(f"\n📊 Repository Processing Results:")
-                print(f"  📁 Repositories Processed: {repo_result.get('repositories_processed', 0)}")
-                print(f"  📄 Files Discovered: {repo_result.get('total_files_processed', 0)}")
-                print(f"  ✏️  Files Modified: {repo_result.get('total_files_modified', 0)}")
-                print(f"  🗄️ Database Name: {repo_result.get('database_name', 'N/A')}")
-        
+                print(f"  📦 Packed Repo Path: {repo_result.get('packed_repo_path', 'N/A')}")
+            
+            discovery_result = result.step_results.get('pattern_discovery', {})
+            if discovery_result:
+                 print(f"\n🔍 Pattern Discovery Results:")
+                 patterns = discovery_result.get('discovery_result', {}).get('patterns', [])
+                 print(f"  Found {len(patterns)} patterns.")
+
         # Success message
         print("🎉 DEMO COMPLETED SUCCESSFULLY!")
         print("💡 The enhanced database decommissioning workflow is ready for production use.")
