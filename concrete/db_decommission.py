@@ -176,7 +176,8 @@ async def process_repositories_step(
             await send_slack_notification_with_retry(
                 slack_client, 
                 slack_channel, 
-                f"🚀 Starting decommission of '{database_name}' in repository {target_repos.index(repo_url) + 1}/{len(target_repos)}: `{repo_owner}/{repo_name}`"
+                f"🚀 Starting decommission of '{database_name}' in repository {target_repos.index(repo_url) + 1}/{len(target_repos)}: `{repo_owner}/{repo_name}`",
+                workflow_logger
             )
             
             try:
@@ -188,12 +189,13 @@ async def process_repositories_step(
                     context,
                     step,
                     database_name=database_name,
-                    repo_url=repo_url,
+                    repo_owner=repo_owner,
+                    repo_name=repo_name,
                     ttl=3600  # Cache for 1 hour
                 )
                 
-                files_found = discovery_result.get("total_files_found", 0)
-                high_confidence_matches = discovery_result.get("high_confidence_matches", [])
+                files_found = discovery_result.get("total_files", 0)
+                high_confidence_matches = discovery_result.get("files", [])
                 
                 workflow_logger.log_info("🔍 PATTERN DISCOVERY RESULTS:")
                 workflow_logger.log_info(f"   Total Files Found: {files_found}")
@@ -204,7 +206,8 @@ async def process_repositories_step(
                     slack_client,
                     slack_channel,
                     f"ℹ️ Repository `{repo_owner}/{repo_name}` completed: "
-                    f"{'No' if files_found == 0 else files_found} '{database_name}' database references found"
+                    f"{'No' if files_found == 0 else files_found} '{database_name}' database references found",
+                    workflow_logger
                 )
                 
                 workflow_logger.log_info(f"✅ REPOSITORY END: {repo_owner}/{repo_name}")
@@ -236,29 +239,43 @@ async def process_repositories_step(
                     "files_modified": 0
                 }
         
-        # Process repositories in parallel for better performance
-        repo_results = await performance_manager.optimize_repository_processing(
-            target_repos,
-            process_single_repository
-        )
+        # Process repositories (temporarily bypassing parallel processing to fix closure issue)
+        repo_results = []
+        for repo_url in target_repos:
+            result = await process_single_repository(repo_url)
+            repo_results.append(result)
         
         # Calculate totals
         total_files_processed = sum(r.get("files_processed", 0) for r in repo_results if isinstance(r, dict))
         total_files_modified = sum(r.get("files_modified", 0) for r in repo_results if isinstance(r, dict))
         
+        # Calculate success/failure counts handling both dicts and exceptions
+        successful_repos = []
+        failed_repos = []
+        
+        for r in repo_results:
+            if isinstance(r, dict):
+                if r.get("success", False):
+                    successful_repos.append(r)
+                else:
+                    failed_repos.append(r)
+            else:
+                # It's an exception object
+                failed_repos.append({"success": False, "error": str(r)})
+        
         # Compile final results
         workflow_result = {
             "database_name": database_name,
             "total_repositories": len(target_repos),
-            "repositories_processed": len([r for r in repo_results if r["success"]]),
-            "repositories_failed": len([r for r in repo_results if not r["success"]]),
+            "repositories_processed": len(successful_repos),
+            "repositories_failed": len(failed_repos),
             "total_files_processed": total_files_processed,
             "total_files_modified": total_files_modified,
             "repository_results": repo_results,
             "workflow_version": "v2.0",
             "metrics": workflow_logger.get_metrics_summary(),
             # Add required fields for demo display
-            "success": len([r for r in repo_results if not r["success"]]) == 0,  # True if no failures
+            "success": len(failed_repos) == 0,  # True if no failures
             "duration": time.time() - process_start_time
         }
         
@@ -864,8 +881,8 @@ async def _process_discovered_files_with_rules(
 
 # Workflow execution functions
 async def run_decommission(
-    database_name: str = "example_database",
-    target_repos: List[str] = None,
+    database_name: str = "postgres-air",
+    target_repos: List[str] = ['https://github.com/bprzybys-nc/postgres-sample-dbs'],
     slack_channel: str = "C01234567",
     workflow_id: str = None
 ):

@@ -40,6 +40,8 @@ __pycache__/
 *.pyo
 repomix-output.xml
 
+*.pkl
+
 # uv and virtual environment specific files
 .venv/
 venv/
@@ -47,3 +49,7 @@ venv/
 secrets.json
 
 logs/
+
+test-output.txt
+
+

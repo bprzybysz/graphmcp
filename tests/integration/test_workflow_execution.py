@@ -29,7 +29,7 @@ async def validate_repository_step(context, step, repo_url: str):
             from clients import GitHubMCPClient
             github_client = GitHubMCPClient(context.config.config_path)
         except Exception:
-            return {"error": "No GitHub client available"}
+        return {"error": "No GitHub client available"}
     
     try:
         # Parse repo URL
@@ -208,61 +208,61 @@ class TestWorkflowIntegration:
              patch('clients.RepomixMCPClient', return_value=mock_mcp_clients["repomix_instance"]), \
              patch('clients.SlackMCPClient', return_value=mock_mcp_clients["slack_instance"]):
             
-            workflow = (WorkflowBuilder("repo-analysis", real_config_path,
-                                      description="Complete repository analysis and notification")
-                .repomix_pack_repo(
-                    "pack_repo", 
-                    "https://github.com/bprzybys-nc/postgres-sample-dbs",
-                    include_patterns=["**/*.py", "**/*.js", "**/*.md"],
-                    exclude_patterns=["node_modules/**", "**/.git/**"]
-                )
-                .github_analyze_repo(
-                    "analyze_structure", 
-                    "https://github.com/bprzybys-nc/postgres-sample-dbs",
-                    depends_on=["pack_repo"]
-                )
-                .custom_step(
-                    "validate_repo", 
-                    "Validate Repository Access",
-                    validate_repository_step,
-                    parameters={"repo_url": "https://github.com/bprzybys-nc/postgres-sample-dbs"},
-                    depends_on=[]
-                )
-                .slack_post(
-                    "notify_completion",
-                    "C01234567",
-                    lambda ctx: f"Analysis complete for repo with {ctx.get_shared_value('analyze_structure', {}).get('file_count', 0)} files",
-                    depends_on=["analyze_structure", "validate_repo"]
-                )
-                .with_config(
-                    max_parallel_steps=2,
-                    default_timeout=120,
-                    stop_on_error=False,
-                    default_retry_count=2
-                )
-                .build()
+        workflow = (WorkflowBuilder("repo-analysis", real_config_path,
+                                  description="Complete repository analysis and notification")
+            .repomix_pack_repo(
+                "pack_repo", 
+                "https://github.com/bprzybys-nc/postgres-sample-dbs",
+                include_patterns=["**/*.py", "**/*.js", "**/*.md"],
+                exclude_patterns=["node_modules/**", "**/.git/**"]
             )
-            
-            result = await workflow.execute()
-            
-            # Verify workflow completion
-            assert result.status in ["completed", "partial_success"]
-            assert result.steps_completed >= 3
-            assert "pack_repo" in result.step_results
-            assert "analyze_structure" in result.step_results
-            assert "validate_repo" in result.step_results
-            
-            # Verify step results have expected structure
-            pack_result = result.step_results["pack_repo"]
-            assert "repository_url" in pack_result
-            
-            analyze_result = result.step_results["analyze_structure"]
-            assert "file_count" in analyze_result
-            
-            validate_result = result.step_results["validate_repo"]
-            assert "valid" in validate_result
-            
-            # Verify mocked client calls
+            .github_analyze_repo(
+                "analyze_structure", 
+                "https://github.com/bprzybys-nc/postgres-sample-dbs",
+                depends_on=["pack_repo"]
+            )
+            .custom_step(
+                "validate_repo", 
+                "Validate Repository Access",
+                validate_repository_step,
+                parameters={"repo_url": "https://github.com/bprzybys-nc/postgres-sample-dbs"},
+                depends_on=[]
+            )
+            .slack_post(
+                "notify_completion",
+                "C01234567",
+                lambda ctx: f"Analysis complete for repo with {ctx.get_shared_value('analyze_structure', {}).get('file_count', 0)} files",
+                depends_on=["analyze_structure", "validate_repo"]
+            )
+            .with_config(
+                max_parallel_steps=2,
+                default_timeout=120,
+                stop_on_error=False,
+                default_retry_count=2
+            )
+            .build()
+        )
+        
+        result = await workflow.execute()
+        
+        # Verify workflow completion
+        assert result.status in ["completed", "partial_success"]
+        assert result.steps_completed >= 3
+        assert "pack_repo" in result.step_results
+        assert "analyze_structure" in result.step_results
+        assert "validate_repo" in result.step_results
+        
+        # Verify step results have expected structure
+        pack_result = result.step_results["pack_repo"]
+        assert "repository_url" in pack_result
+        
+        analyze_result = result.step_results["analyze_structure"]
+        assert "file_count" in analyze_result
+        
+        validate_result = result.step_results["validate_repo"]
+        assert "valid" in validate_result
+        
+        # Verify mocked client calls
             mock_mcp_clients["repomix_instance"].call_tool_with_retry.assert_called()
             mock_mcp_clients["github_instance"].call_tool_with_retry.assert_called()
             mock_mcp_clients["slack_instance"].call_tool_with_retry.assert_called()
