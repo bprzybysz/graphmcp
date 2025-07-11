@@ -43,6 +43,10 @@ help: ## Show this help message
 	@echo "  make format        - Format code with black/ruff"
 	@echo "  make test-all      - Run all test suites"
 	@echo ""
+	@echo "$(GREEN)🚀 Complete Workflow:$(NC)"
+	@echo "  $(CYAN)make cmp$(NC)           - Run complete database decommissioning workflow"
+	@echo "  $(CYAN)make cmp DB=<name>$(NC) - Run workflow for specific database"
+	@echo ""
 	@echo "$(GREEN)Testing Targets:$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		grep -E '(test|e2e)' | \
@@ -446,6 +450,81 @@ docs-build: check-deps ## Build documentation (TBD)
 	@echo "  • MkDocs for user guides"
 	@echo "  • Auto-generated workflow diagrams"
 	@echo "$(BLUE)Status: Documentation framework selection pending$(NC)"
+
+# =============================================================================
+# COMPLETE WORKFLOW TARGETS
+# =============================================================================
+
+cmp: check-deps ## Run complete database decommissioning workflow (CMP = Complete workflow)
+	@echo "$(YELLOW)Running Complete Database Decommissioning Workflow...$(NC)"
+	@echo "$(CYAN)🚀 GraphMCP Complete Workflow - Database Decommissioning$(NC)"
+	@echo "$(CYAN)──────────────────────────────────────────────────────$(NC)"
+	@echo "$(GREEN)Features:$(NC)"
+	@echo "  🔍 AI-Powered Pattern Discovery with Repomix"
+	@echo "  📁 Multi-Language Source Type Classification"
+	@echo "  🛠️  Contextual Rules Engine for Intelligent Processing"
+	@echo "  🌐 GitHub Integration (Fork → Branch → Commit → PR)"
+	@echo "  📊 Real-time Progress Tracking & Metrics"
+	@echo "  💬 Slack Notifications & Status Updates"
+	@echo ""
+	@echo "$(YELLOW)Environment Check:$(NC)"
+	@echo "  GitHub Token: $$(if [ -n "$(GITHUB_TOKEN)" ]; then echo "✅ Set"; else echo "❌ Missing - export GITHUB_TOKEN=<token>"; fi)"
+	@echo "  Slack Token: $$(if [ -n "$(SLACK_BOT_TOKEN)" ]; then echo "✅ Set"; else echo "⚠️  Optional - export SLACK_BOT_TOKEN=<token>"; fi)"
+	@echo ""
+	@if [ -z "$(GITHUB_TOKEN)" ]; then \
+		echo "$(RED)❌ GITHUB_TOKEN is required for the complete workflow$(NC)"; \
+		echo "$(CYAN)💡 Set it with: export GITHUB_TOKEN=<your_github_token>$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)🚀 Starting Complete Workflow...$(NC)"
+	@echo "$(CYAN)Target Database: $$(if [ -n "$(DB)" ]; then echo "$(DB)"; else echo "postgres-air (default)"; fi)$(NC)"
+	@echo "$(CYAN)Target Repository: $$(if [ -n "$(REPO)" ]; then echo "$(REPO)"; else echo "bprzybys-nc/postgres-sample-dbs (default)"; fi)$(NC)"
+	@echo ""
+	PYTHONPATH=. $(VENV_PATH)/bin/python -c "\
+import asyncio; \
+import sys; \
+import os; \
+sys.path.append('.'); \
+from concrete.db_decommission import run_decommission; \
+\
+database_name = os.environ.get('DB', 'postgres-air'); \
+repo_url = os.environ.get('REPO', 'https://github.com/bprzybys-nc/postgres-sample-dbs'); \
+target_repos = [repo_url]; \
+\
+print(f'🎯 Executing workflow for database: {database_name}'); \
+print(f'📁 Processing repository: {repo_url}'); \
+print(''); \
+\
+result = asyncio.run(run_decommission( \
+	database_name=database_name, \
+	target_repos=target_repos, \
+	slack_channel='C01234567', \
+	workflow_id=f'cmp-{database_name}-{int(__import__(\"time\").time())}' \
+)); \
+\
+print(''); \
+print('$(GREEN)🎉 COMPLETE WORKFLOW FINISHED!$(NC)'); \
+print('$(CYAN)──────────────────────────────────────────$(NC)'); \
+if hasattr(result, 'get_step_result'): \
+	repo_result = result.get_step_result('process_repositories', {}); \
+	refactor_result = result.get_step_result('apply_refactoring', {}); \
+	pr_result = result.get_step_result('create_github_pr', {}); \
+	qa_result = result.get_step_result('quality_assurance', {}); \
+	print(f'📊 Files Discovered: {repo_result.get(\"total_files_processed\", 0)}'); \
+	print(f'✏️  Files Modified: {refactor_result.get(\"total_files_modified\", 0)}'); \
+	print(f'🔀 Pull Request: {pr_result.get(\"pr_url\", \"N/A\")}'); \
+	print(f'✅ Quality Score: {qa_result.get(\"overall_quality_score\", 0):.1f}%'); \
+	print(f'⏱️  Duration: {getattr(result, \"duration_seconds\", 0):.1f}s'); \
+	print(f'📈 Success Rate: {getattr(result, \"success_rate\", 0):.1f}%'); \
+else: \
+	print('📊 Workflow result structure: basic'); \
+print(''); \
+print('$(CYAN)💡 Usage Examples:$(NC)'); \
+print('  make cmp                                    # Default: postgres-air'); \
+print('  make cmp DB=periodic_table                  # Custom database'); \
+print('  make cmp DB=chinook REPO=https://github.com/org/repo  # Custom DB + repo'); \
+"
+	@echo "$(GREEN)✅ Complete workflow execution finished$(NC)"
 
 # =============================================================================
 # UTILITY TARGETS

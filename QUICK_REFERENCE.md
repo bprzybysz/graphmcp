@@ -22,6 +22,22 @@
 | **Create Pull Request** | `create_pull_request(owner, repo, title, head, base, body)` | PR details | `await github.create_pull_request(...)` |
 | **Repository Info** | `get_repository(owner, repo)` | Repo metadata | `await github.get_repository("owner", "repo")` |
 
+## ⚡ Complete Workflow Commands
+
+| Command | Description | Environment | Example |
+|---------|-------------|-------------|---------|
+| **`make cmp`** | Complete database decommissioning workflow | Requires `GITHUB_TOKEN` | `make cmp` |
+| **`make cmp DB=<name>`** | Custom database workflow | Requires `GITHUB_TOKEN` | `make cmp DB=periodic_table` |
+| **`make cmp DB=<name> REPO=<url>`** | Custom database + repository | Requires `GITHUB_TOKEN` | `make cmp DB=chinook REPO=https://github.com/org/repo` |
+
+### Workflow Features:
+- 🔍 AI-Powered Pattern Discovery with Repomix
+- 📁 Multi-Language Source Type Classification  
+- 🛠️ Contextual Rules Engine for Intelligent Processing
+- 🌐 GitHub Integration (Fork → Branch → Commit → PR)
+- 📊 Real-time Progress Tracking & Metrics
+- 💬 Slack Notifications & Status Updates
+
 ## 📊 Database Decommission Workflow
 
 ```python

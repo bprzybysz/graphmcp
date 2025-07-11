@@ -537,6 +537,30 @@ def create_db_decommission_workflow(
         timeout_seconds=600
     )
     .custom_step(
+        "apply_refactoring", "Apply Contextual Refactoring Rules",
+        apply_refactoring_step,
+        parameters={
+            "database_name": database_name,
+            "repo_owner": repo_owner,
+            "repo_name": repo_name,
+            "workflow_id": workflow_id
+        },
+        depends_on=["process_repositories"],
+        timeout_seconds=300
+    )
+    .custom_step(
+        "create_github_pr", "Create GitHub Pull Request",
+        create_github_pr_step,
+        parameters={
+            "database_name": database_name,
+            "repo_owner": repo_owner,
+            "repo_name": repo_name,
+            "workflow_id": workflow_id
+        },
+        depends_on=["apply_refactoring"],
+        timeout_seconds=180
+    )
+    .custom_step(
         "quality_assurance", "Quality Assurance & Validation",
         quality_assurance_step,
         parameters={
@@ -545,7 +569,7 @@ def create_db_decommission_workflow(
             "repo_name": repo_name,
             "workflow_id": workflow_id
         },
-        depends_on=["process_repositories"], 
+        depends_on=["create_github_pr"], 
         timeout_seconds=60
     )
     .custom_step(
@@ -755,11 +779,18 @@ async def apply_refactoring_step(
                 
                 if processing_result.success and processing_result.total_changes > 0:
                     total_files_modified += 1
+                    
+                    # Get modified content from the last successful rule result
+                    modified_content = file_content  # Default to original content
+                    for rule_result in processing_result.rules_applied:
+                        if rule_result.applied and hasattr(rule_result, 'modified_content'):
+                            modified_content = rule_result.modified_content
+                    
                     refactoring_results.append({
                         "path": file_path,
                         "source_type": source_type_str,
                         "changes_made": processing_result.total_changes,
-                        "modified_content": processing_result.modified_content,
+                        "modified_content": modified_content,
                         "success": True
                     })
                     workflow_logger.log_info(f"   ✅ {file_path} ({source_type_str}): {processing_result.total_changes} changes")
@@ -955,8 +986,8 @@ This pull request removes all references to the `{database_name}` database as pa
         if not pr_result.get("success", False):
             raise RuntimeError(f"Failed to create pull request: {pr_result.get('error', 'Unknown error')}")
         
-        pr_number = pr_result["number"]
-        pr_url = pr_result["url"]
+        pr_number = pr_result.get("number", "Unknown")
+        pr_url = pr_result.get("url") or pr_result.get("html_url") or f"https://github.com/{repo_owner}/{repo_name}/pulls"
         
         workflow_logger.log_info(f"✅ Created PR #{pr_number}: {pr_url}")
         
