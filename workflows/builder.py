@@ -201,9 +201,9 @@ class WorkflowBuilder:
         return self
 
     def custom_step(self, step_id: str, name: str, func: Callable, 
-                   description: str = "", parameters: Dict = None, 
-                   depends_on: List[str] = None, timeout_seconds: int = None, 
-                   retry_count: int = None, **kwargs) -> WorkflowBuilder:
+                   description: str = "", parameters: Optional[Dict] = None, 
+                   depends_on: Optional[List[str]] = None, timeout_seconds: Optional[int] = None, 
+                   retry_count: Optional[int] = None, **kwargs) -> WorkflowBuilder:
         """Add a custom step with a user-defined function."""
         step = WorkflowStep(
             id=step_id,
@@ -220,16 +220,16 @@ class WorkflowBuilder:
         return self
 
     def repomix_pack_repo(self, step_id: str, repo_url: str, 
-                         include_patterns: List[str] = None,
-                         exclude_patterns: List[str] = None,
-                         parameters: Dict = None, **kwargs) -> WorkflowBuilder:
+                         include_patterns: Optional[List[str]] = None,
+                         exclude_patterns: Optional[List[str]] = None,
+                         parameters: Optional[Dict] = None, **kwargs) -> WorkflowBuilder:
         """Add a Repomix repository packing step."""
         # Remove the async def step_func as it will now be handled by Workflow.execute
         
         step_params = {
             "repo_url": repo_url,
-            "include_patterns": include_patterns,
-            "exclude_patterns": exclude_patterns
+            "include_patterns": include_patterns or [],
+            "exclude_patterns": exclude_patterns or []
         }
         if parameters:
             step_params.update(parameters)
@@ -249,7 +249,7 @@ class WorkflowBuilder:
         return self
 
     def github_analyze_repo(self, step_id: str, repo_url: str, 
-                           parameters: Dict = None, **kwargs) -> WorkflowBuilder:
+                           parameters: Optional[Dict] = None, **kwargs) -> WorkflowBuilder:
         """Add a GitHub repository analysis step."""
         # Remove the async def step_func
 
@@ -272,7 +272,7 @@ class WorkflowBuilder:
         return self
 
     def github_create_pr(self, step_id: str, title: str, head: str, base: str, 
-                        body_template: str, parameters: Dict = None, **kwargs) -> WorkflowBuilder:
+                        body_template: str, parameters: Optional[Dict] = None, **kwargs) -> WorkflowBuilder:
         """Add a GitHub pull request creation step."""
         # Remove the async def step_func
 
@@ -299,7 +299,7 @@ class WorkflowBuilder:
         self._steps.append(step)
         return self
 
-    def slack_post(self, step_id: str, channel_id: str, text_or_fn: Union[str, Callable], parameters: Dict = None, **kwargs) -> WorkflowBuilder:
+    def slack_post(self, step_id: str, channel_id: str, text_or_fn: Union[str, Callable], parameters: Optional[Dict] = None, **kwargs) -> WorkflowBuilder:
         """Add a Slack message posting step. Supports both text strings and dynamic text functions."""
         step_params = {
             "channel_id": channel_id,
@@ -323,7 +323,7 @@ class WorkflowBuilder:
         return self
     
     def gpt_step(self, step_id: str, model: str, prompt: str, 
-                parameters: Dict = None, **kwargs) -> WorkflowBuilder:
+                parameters: Optional[Dict] = None, **kwargs) -> WorkflowBuilder:
         """Add a GPT analysis step."""
         async def step_func(context, step, **params):
             # This would use an OpenAI client in a real implementation

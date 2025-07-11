@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Set, Any
+from typing import List, Optional, Set, Any, Dict
 
 @dataclass
 class LogEntry:
@@ -25,3 +25,4 @@ class WorkflowState:
     last_refresh: datetime = field(default_factory=datetime.now)
     expanded_sections: Set[str] = field(default_factory=set)
     mock_mode: bool = True  # For testing
+    progress_stats: Dict[str, Any] = field(default_factory=dict)

@@ -1,5 +1,9 @@
 import streamlit as st
 
+from concrete.ui.components.workflow_controls import render_workflow_controls
+from concrete.ui.components.log_stream import render_log_stream
+from concrete.ui.components.progress_tables import render_progress_tables
+
 def create_three_pane_layout():
     """
     Creates the main three-pane layout for the application.
@@ -15,18 +19,12 @@ def create_three_pane_layout():
     left_pane_col, main_pane_col, right_pane_col = st.columns((0.25, 0.375, 0.375))
 
     with left_pane_col:
-        st.header("Controls")
-        # Placeholder for workflow_controls.py content
-        st.info("Workflow controls will be here.")
+        render_workflow_controls()
 
     with main_pane_col:
-        st.header("Log Stream")
-        # Placeholder for log_stream.py content
-        st.info("Live log stream will be here.")
+        render_log_stream()
 
     with right_pane_col:
-        st.header("Progress")
-        # Placeholder for progress_tables.py content
-        st.info("Progress tables will be here.")
+        render_progress_tables()
 
     return left_pane_col, main_pane_col, right_pane_col
