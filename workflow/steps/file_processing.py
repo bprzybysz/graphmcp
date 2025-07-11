@@ -1,8 +1,9 @@
-import os
 import asyncio
-from typing import Any, Dict, List
+import os
+from typing import Any, Dict
 
 from .base_step import BaseWorkflowStep
+
 
 class FileProcessingStep(BaseWorkflowStep):
     """
@@ -17,8 +18,10 @@ class FileProcessingStep(BaseWorkflowStep):
         Otherwise, it simulates a real file processing task.
         """
         use_mock = os.getenv("USE_MOCK_PROCESSING", "true").lower() == "true"
-        
-        discovery_result = context.get_step_result("pattern_discovery", {}).get("discovery_result")
+
+        discovery_result = context.get_step_result("pattern_discovery", {}).get(
+            "discovery_result"
+        )
         if not discovery_result:
             raise ValueError("Discovery result not found in workflow context.")
 
@@ -32,7 +35,7 @@ class FileProcessingStep(BaseWorkflowStep):
         Executes the mock version of the step.
         """
         print("Executing MOCK file processing.")
-        
+
         # Simulate processing based on the number of patterns found
         num_patterns = len(discovery_result.get("patterns", []))
         await asyncio.sleep(num_patterns * 0.1)
@@ -41,23 +44,23 @@ class FileProcessingStep(BaseWorkflowStep):
             "status": "mock_success",
             "files_processed": num_patterns,
             "files_with_errors": 0,
-            "message": f"Mock processed {num_patterns} files."
+            "message": f"Mock processed {num_patterns} files.",
         }
 
     async def _execute_real(self, discovery_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Executes the real file processing logic.
-        
+
         TODO: Implement real file processing (e.g., applying refactorings).
         """
         print("Executing REAL file processing.")
-        
+
         num_patterns = len(discovery_result.get("patterns", []))
         await asyncio.sleep(num_patterns * 0.5)
 
         return {
             "status": "real_success",
             "files_processed": num_patterns,
-            "files_with_errors": 2, # Placeholder
-            "message": f"Real processed {num_patterns} files with some errors."
+            "files_with_errors": 2,  # Placeholder
+            "message": f"Real processed {num_patterns} files with some errors.",
         }

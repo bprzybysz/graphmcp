@@ -1,6 +1,8 @@
-import os
 import json
+import os
+
 from dotenv import load_dotenv
+
 
 def _obfuscate_secret(secret: str) -> str:
     if not secret:
@@ -10,6 +12,7 @@ def _obfuscate_secret(secret: str) -> str:
         return "*" * length  # Obfuscate short secrets entirely
     return secret[0] + "*" * (length - 2) + secret[-1]
 
+
 def load_application_secrets():
     """
     Loads application secrets following a hierarchy:
@@ -17,7 +20,7 @@ def load_application_secrets():
     2. .env file (overwrites environment variables)
     3. secrets.json file (overwrites .env and environment variables)
     """
-    
+
     # 1. Load environment variables (already done by OS, but good to note)
     # This function primarily handles .env and secrets.json on top of existing env vars.
 
@@ -28,7 +31,7 @@ def load_application_secrets():
     secrets_file_path = "secrets.json"
     if os.path.exists(secrets_file_path):
         try:
-            with open(secrets_file_path, 'r') as f:
+            with open(secrets_file_path, "r") as f:
                 secrets = json.load(f)
             for key, value in secrets.items():
                 os.environ[key] = str(value)
@@ -40,12 +43,17 @@ def load_application_secrets():
     else:
         print(f"Info: {secrets_file_path} not found. Skipping.")
 
+
 if __name__ == "__main__":
     # Example usage for testing
     print("Loading application secrets...")
     load_application_secrets()
     print("\n--- Loaded Secrets (Examples) ---")
     print(f"GITHUB_TOKEN: {_obfuscate_secret(os.getenv('GITHUB_TOKEN', 'Not Set'))}")
-    print(f"SLACK_API_TOKEN: {_obfuscate_secret(os.getenv('SLACK_API_TOKEN', 'Not Set'))}")
-    print(f"REPOMIX_API_KEY: {_obfuscate_secret(os.getenv('REPOMIX_API_KEY', 'Not Set'))}")
-    print("\nRemember: Actual sensitive values are not printed for security.") 
+    print(
+        f"SLACK_API_TOKEN: {_obfuscate_secret(os.getenv('SLACK_API_TOKEN', 'Not Set'))}"
+    )
+    print(
+        f"REPOMIX_API_KEY: {_obfuscate_secret(os.getenv('REPOMIX_API_KEY', 'Not Set'))}"
+    )
+    print("\nRemember: Actual sensitive values are not printed for security.")

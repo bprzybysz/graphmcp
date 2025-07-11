@@ -55,7 +55,13 @@ class MCPConfigError(MCPUtilityError):
 class MCPRetryError(MCPUtilityError):
     """Raised when retry operations fail after all attempts."""
 
-    def __init__(self, message: str, attempts: int = None, last_error: Exception = None, details: str = None):
+    def __init__(
+        self,
+        message: str,
+        attempts: int = None,
+        last_error: Exception = None,
+        details: str = None,
+    ):
         self.attempts = attempts
         self.last_error = last_error
         super().__init__(message, details)
@@ -76,7 +82,13 @@ class MCPRetryError(MCPUtilityError):
 class MCPToolError(MCPUtilityError):
     """Raised when MCP tool execution fails."""
 
-    def __init__(self, message: str, tool_name: str = None, server_name: str = None, details: str = None):
+    def __init__(
+        self,
+        message: str,
+        tool_name: str = None,
+        server_name: str = None,
+        details: str = None,
+    ):
         self.tool_name = tool_name
         self.server_name = server_name
         super().__init__(message, details)
@@ -91,4 +103,4 @@ class MCPToolError(MCPUtilityError):
 
         if parts:
             return f"[{', '.join(parts)}] {base_msg}"
-        return base_msg 
+        return base_msg

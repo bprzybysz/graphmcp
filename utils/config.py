@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class MCPConfigManager:
     """
     Handles MCP configuration loading and validation.
-    
+
     Extracted from proven patterns in DirectMCPClient._load_and_validate_config()
     to ensure compatibility with working MCP server configurations.
     """
@@ -28,7 +28,7 @@ class MCPConfigManager:
     def __init__(self, config_path: str | Path, config_data: dict[str, Any] = None):
         """
         Initialize configuration manager.
-        
+
         Args:
             config_path: Path to MCP configuration file
             config_data: Optional pre-loaded configuration data
@@ -38,16 +38,16 @@ class MCPConfigManager:
         self._validation_status: MCPConfigStatus | None = None
 
     @classmethod
-    def from_file(cls, config_path: str | Path) -> 'MCPConfigManager':
+    def from_file(cls, config_path: str | Path) -> "MCPConfigManager":
         """
         Create configuration manager from file.
-        
+
         Args:
             config_path: Path to MCP configuration JSON file
-            
+
         Returns:
             MCPConfigManager instance
-            
+
         Raises:
             MCPConfigError: If file cannot be loaded or is invalid
         """
@@ -55,7 +55,7 @@ class MCPConfigManager:
         if not config_path.exists():
             raise MCPConfigError(
                 f"MCP configuration file not found: {config_path}",
-                config_path=str(config_path)
+                config_path=str(config_path),
             )
 
         try:
@@ -63,13 +63,11 @@ class MCPConfigManager:
                 config_data = json.load(f)
         except json.JSONDecodeError as e:
             raise MCPConfigError(
-                f"Invalid JSON in MCP config file: {e}",
-                config_path=str(config_path)
+                f"Invalid JSON in MCP config file: {e}", config_path=str(config_path)
             )
         except Exception as e:
             raise MCPConfigError(
-                f"Failed to read config file: {e}",
-                config_path=str(config_path)
+                f"Failed to read config file: {e}", config_path=str(config_path)
             )
 
         return cls(config_path, config_data)
@@ -77,13 +75,13 @@ class MCPConfigManager:
     def _load_and_validate_config(self) -> dict[str, Any]:
         """
         Load and validate MCP configuration from file.
-        
+
         This is extracted EXACTLY from DirectMCPClient._load_and_validate_config()
         to maintain compatibility with working configurations.
-        
+
         Returns:
             Validated configuration dictionary
-            
+
         Raises:
             MCPConfigError: If configuration is invalid
         """
@@ -94,7 +92,7 @@ class MCPConfigManager:
             if not config_path.exists():
                 raise MCPConfigError(
                     f"MCP configuration file not found: {config_path}",
-                    config_path=self.config_path
+                    config_path=self.config_path,
                 )
 
             try:
@@ -103,14 +101,14 @@ class MCPConfigManager:
             except json.JSONDecodeError as e:
                 raise MCPConfigError(
                     f"Invalid JSON in MCP config file: {e}",
-                    config_path=self.config_path
+                    config_path=self.config_path,
                 )
 
         # Validation logic extracted exactly from working implementation
         if "mcpServers" not in config:
             raise MCPConfigError(
                 "Configuration missing 'mcpServers' section",
-                config_path=self.config_path
+                config_path=self.config_path,
             )
 
         # Validate server configurations
@@ -118,23 +116,25 @@ class MCPConfigManager:
             if not isinstance(server_config, dict):
                 raise MCPConfigError(
                     f"Invalid server configuration for {server_name}",
-                    config_path=self.config_path
+                    config_path=self.config_path,
                 )
 
             # Check for required fields based on connection type
             if "command" not in server_config and "url" not in server_config:
                 raise MCPConfigError(
                     f"Server {server_name} missing 'command' or 'url'",
-                    config_path=self.config_path
+                    config_path=self.config_path,
                 )
 
-        logger.info(f"Validated MCP configuration with {len(config['mcpServers'])} servers")
+        logger.info(
+            f"Validated MCP configuration with {len(config['mcpServers'])} servers"
+        )
         return config
 
     def get_config(self) -> dict[str, Any]:
         """
         Get the full validated configuration.
-        
+
         Returns:
             Complete configuration dictionary
         """
@@ -143,13 +143,13 @@ class MCPConfigManager:
     def get_server_config(self, server_name: str) -> dict[str, Any]:
         """
         Get specific server configuration.
-        
+
         Args:
             server_name: Name of the server to get config for
-            
+
         Returns:
             Server configuration dictionary
-            
+
         Raises:
             MCPConfigError: If server not found
         """
@@ -161,7 +161,7 @@ class MCPConfigManager:
             raise MCPConfigError(
                 f"Server '{server_name}' not found in configuration. "
                 f"Available servers: {available}",
-                config_path=self.config_path
+                config_path=self.config_path,
             )
 
         return servers[server_name]
@@ -169,7 +169,7 @@ class MCPConfigManager:
     def list_servers(self) -> list[str]:
         """
         List all configured MCP servers.
-        
+
         Returns:
             List of server names
         """
@@ -179,7 +179,7 @@ class MCPConfigManager:
     def validate_config(self) -> MCPConfigStatus:
         """
         Validate configuration and return status.
-        
+
         Returns:
             MCPConfigStatus with validation results
         """
@@ -196,16 +196,24 @@ class MCPConfigManager:
                 # Validate environment variable references
                 env_vars = server_config.get("env", {})
                 for var_name, var_value in env_vars.items():
-                    if isinstance(var_value, str) and var_value.startswith("${") and var_value.endswith("}"):
+                    if (
+                        isinstance(var_value, str)
+                        and var_value.startswith("${")
+                        and var_value.endswith("}")
+                    ):
                         env_name = var_value[2:-1]  # Remove ${ and }
                         if env_name not in os.environ:
-                            errors.append(f"Server '{server_name}': Environment variable '{env_name}' not set")
+                            errors.append(
+                                f"Server '{server_name}': Environment variable '{env_name}' not set"
+                            )
 
                 # Validate command structure
                 if "command" in server_config:
                     command = server_config["command"]
                     if not isinstance(command, str) or not command.strip():
-                        errors.append(f"Server '{server_name}': Invalid command '{command}'")
+                        errors.append(
+                            f"Server '{server_name}': Invalid command '{command}'"
+                        )
 
                 # Validate args structure
                 if "args" in server_config:
@@ -227,7 +235,7 @@ class MCPConfigManager:
             config_path=self.config_path,
             is_valid=is_valid,
             server_count=server_count,
-            validation_errors=errors
+            validation_errors=errors,
         )
 
         return self._validation_status
@@ -235,13 +243,13 @@ class MCPConfigManager:
     def get_server_args(self, server_name: str) -> list[str]:
         """
         Get npx args for server - supports version locking.
-        
+
         Args:
             server_name: Name of the server
-            
+
         Returns:
             List of command arguments including command
-            
+
         Example:
             For config with "command": "npx", "args": ["@modelcontextprotocol/server-github@0.5.0"]
             Returns: ["npx", "@modelcontextprotocol/server-github@0.5.0"]
@@ -259,10 +267,10 @@ class MCPConfigManager:
     def resolve_env_vars(self, server_name: str) -> dict[str, str]:
         """
         Resolve environment variables for a server.
-        
+
         Args:
             server_name: Name of the server
-            
+
         Returns:
             Dictionary of resolved environment variables
         """
@@ -271,9 +279,15 @@ class MCPConfigManager:
         resolved_env = {}
 
         for var_name, var_value in env_config.items():
-            if isinstance(var_value, str) and var_value.startswith("${") and var_value.endswith("}"):
+            if (
+                isinstance(var_value, str)
+                and var_value.startswith("${")
+                and var_value.endswith("}")
+            ):
                 env_name = var_value[2:-1]  # Remove ${ and }
-                resolved_value = os.environ.get(env_name, var_value)  # Fallback to original if not found
+                resolved_value = os.environ.get(
+                    env_name, var_value
+                )  # Fallback to original if not found
                 resolved_env[var_name] = resolved_value
             else:
                 resolved_env[var_name] = str(var_value)
@@ -283,10 +297,10 @@ class MCPConfigManager:
     def get_server_config_object(self, server_name: str) -> MCPServerConfig:
         """
         Get server configuration as typed object.
-        
+
         Args:
             server_name: Name of the server
-            
+
         Returns:
             MCPServerConfig object
         """
@@ -298,7 +312,7 @@ class MCPConfigManager:
             args=config.get("args", []),
             env=config.get("env", {}),
             url=config.get("url"),
-            timeout=config.get("timeout", 30)
+            timeout=config.get("timeout", 30),
         )
 
     @property
@@ -306,4 +320,4 @@ class MCPConfigManager:
         """Check if configuration is valid (requires validation to have been run)."""
         if self._validation_status is None:
             return None
-        return self._validation_status.is_valid 
+        return self._validation_status.is_valid

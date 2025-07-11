@@ -9,7 +9,7 @@ THEME_SETTINGS = {
     "backgroundColor": "#0E1117",
     "secondaryBackgroundColor": "#262730",
     "textColor": "#FAFAFA",
-    "font": "sans serif"
+    "font": "sans serif",
 }
 
 # To apply this theme, you would typically copy these settings into

@@ -1,12 +1,13 @@
-import os
-import json
 import asyncio
+import json
+import os
 from typing import Any, Dict
 
 from .base_step import BaseWorkflowStep
 
 # HACK: Using a hardcoded path for mock data as per plan.
 MOCK_DISCOVERY_PATH = "tests/data/discovery_outcome_context.json"
+
 
 class PatternDiscoveryStep(BaseWorkflowStep):
     """
@@ -21,9 +22,11 @@ class PatternDiscoveryStep(BaseWorkflowStep):
         Otherwise, it simulates a real pattern discovery task.
         """
         use_mock = os.getenv("USE_MOCK_DISCOVERY", "true").lower() == "true"
-        
+
         # This step depends on the output of the repository processing step
-        repo_pack_path = context.get_step_result("repository_processing", {}).get("packed_repo_path")
+        repo_pack_path = context.get_step_result("repository_processing", {}).get(
+            "packed_repo_path"
+        )
         if not repo_pack_path:
             raise ValueError("Repository pack path not found in workflow context.")
 
@@ -40,22 +43,22 @@ class PatternDiscoveryStep(BaseWorkflowStep):
         await asyncio.sleep(3)
 
         if not os.path.exists(MOCK_DISCOVERY_PATH):
-             raise FileNotFoundError(f"Mock data not found at: {MOCK_DISCOVERY_PATH}")
+            raise FileNotFoundError(f"Mock data not found at: {MOCK_DISCOVERY_PATH}")
 
-        with open(MOCK_DISCOVERY_PATH, 'r') as f:
+        with open(MOCK_DISCOVERY_PATH, "r") as f:
             discovery_data = json.load(f)
 
         return {
             "status": "mock_success",
             "source_pack": repo_pack_path,
             "discovery_result": discovery_data,
-            "message": "Mock pattern discovery complete."
+            "message": "Mock pattern discovery complete.",
         }
 
     async def _execute_real(self, repo_pack_path: str) -> Dict[str, Any]:
         """
         Executes the real pattern discovery logic.
-        
+
         TODO: Implement real pattern discovery.
         """
         print(f"Executing REAL pattern discovery on: {repo_pack_path}")
@@ -64,6 +67,6 @@ class PatternDiscoveryStep(BaseWorkflowStep):
         return {
             "status": "real_success",
             "source_pack": repo_pack_path,
-            "discovery_result": {"patterns_found": 100}, # Placeholder
-            "message": "Real pattern discovery complete."
+            "discovery_result": {"patterns_found": 100},  # Placeholder
+            "message": "Real pattern discovery complete.",
         }

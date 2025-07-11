@@ -1,5 +1,7 @@
 import streamlit as st
+
 from .workflow_state import WorkflowState
+
 
 class SessionManager:
     """
@@ -11,8 +13,8 @@ class SessionManager:
         """
         Initializes the session state with a WorkflowState object if not already present.
         """
-        if 'workflow_state' not in st.session_state:
-            st.session_state['workflow_state'] = WorkflowState()
+        if "workflow_state" not in st.session_state:
+            st.session_state["workflow_state"] = WorkflowState()
 
     @staticmethod
     def get_workflow_state() -> WorkflowState:
@@ -25,4 +27,4 @@ class SessionManager:
             WorkflowState: The current workflow state.
         """
         SessionManager.initialize_session_state()
-        return st.session_state['workflow_state']
+        return st.session_state["workflow_state"]

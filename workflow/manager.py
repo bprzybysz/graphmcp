@@ -1,7 +1,9 @@
-from typing import Optional, Dict, Any
-from .models import WorkflowStatus, StepDetails, WorkflowPhase
 import uuid
 from datetime import datetime
+from typing import Dict, Optional
+
+from .models import StepDetails, WorkflowPhase, WorkflowStatus
+
 
 class WorkflowManager:
     """
@@ -14,7 +16,7 @@ class WorkflowManager:
     async def start_workflow(self, config: Optional[Dict] = None) -> str:
         """
         Starts a new workflow based on the provided configuration.
-        
+
         Returns:
             str: The unique ID of the started workflow.
         """
@@ -22,7 +24,7 @@ class WorkflowManager:
         self._workflows[workflow_id] = WorkflowStatus(
             workflow_id=workflow_id,
             status=WorkflowPhase.PENDING,
-            start_time=datetime.utcnow()
+            start_time=datetime.utcnow(),
         )
         return workflow_id
 
@@ -59,7 +61,9 @@ class WorkflowManager:
         """
         return self._workflows.get(workflow_id)
 
-    async def get_step_details(self, workflow_id: str, step_id: str) -> Optional[StepDetails]:
+    async def get_step_details(
+        self, workflow_id: str, step_id: str
+    ) -> Optional[StepDetails]:
         """
         Gets the details of a specific step within a workflow.
         """

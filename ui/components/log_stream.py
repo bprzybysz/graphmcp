@@ -1,13 +1,14 @@
 import streamlit as st
-from don_concrete.ui.state.session_manager import SessionManager
-from don_concrete.ui.state.workflow_state import LogEntry
+
+from ui.state.session_manager import SessionManager
+
 
 def render_log_stream():
     """
     Renders the log stream, displaying log entries from the current workflow state.
     """
     state = SessionManager.get_workflow_state()
-    
+
     st.subheader("Live Workflow Log")
 
     log_container = st.container()
@@ -25,7 +26,10 @@ def render_log_stream():
                 "DEBUG": "🐞",
             }.get(entry.level, "➡️")
 
-            with st.expander(f"{log_level_icon} [{entry.timestamp.strftime('%H:%M:%S')}] {entry.message}", expanded=False):
+            with st.expander(
+                f"{log_level_icon} [{entry.timestamp.strftime('%H:%M:%S')}] {entry.message}",
+                expanded=False,
+            ):
                 if entry.details:
                     st.json(entry.details)
                 else:

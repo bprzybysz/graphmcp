@@ -1,6 +1,11 @@
-import pytest
-from don_concrete.ui.state.workflow_state import WorkflowState, LogEntry
 from datetime import datetime
+
+import pytest
+
+import pandas as pd
+
+from ui.state.workflow_state import LogEntry, WorkflowState
+
 
 @pytest.fixture
 def running_workflow_state() -> WorkflowState:
@@ -18,5 +23,5 @@ def running_workflow_state() -> WorkflowState:
         ],
         progress_stats={
             "file_processing": {"total_files": 100, "processed": 50, "errors": 2},
-        }
+        },
     )

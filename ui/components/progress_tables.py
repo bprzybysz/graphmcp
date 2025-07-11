@@ -1,6 +1,8 @@
-import streamlit as st
 import pandas as pd
-from don_concrete.ui.state.session_manager import SessionManager
+import streamlit as st
+
+from ui.state.session_manager import SessionManager
+
 
 def render_progress_tables():
     """
@@ -17,7 +19,7 @@ def render_progress_tables():
 
     # Use mock data if the workflow is not running but we want to see the UI
     stats = state.progress_stats
-    if not stats and state.workflow_running == False: # for UI design purposes
+    if not stats and state.workflow_running == False:  # for UI design purposes
         stats = {
             "file_processing": {
                 "total_files": 100,
@@ -28,13 +30,13 @@ def render_progress_tables():
                 {"source_type": "Python", "files": 60, "processed": 30, "errors": 3},
                 {"source_type": "SQL", "files": 30, "processed": 15, "errors": 2},
                 {"source_type": "JSON", "files": 10, "processed": 5, "errors": 0},
-            ]
+            ],
         }
 
     if not stats:
         st.info("Waiting for progress data...")
         return
-        
+
     # --- Metrics ---
     col1, col2, col3 = st.columns(3)
     file_stats = stats.get("file_processing", {})

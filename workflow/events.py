@@ -1,5 +1,6 @@
 from collections import defaultdict
-from typing import Callable, Dict, List, Any
+from typing import Callable, Dict, List
+
 
 class EventBus:
     """
@@ -26,6 +27,7 @@ class EventBus:
                 except Exception as e:
                     # In a real app, you'd want more robust error handling here
                     print(f"Error in event bus callback for {event_type}: {e}")
+
 
 # Global event bus instance
 event_bus = EventBus()

@@ -3,6 +3,7 @@ from typing import Any, Dict
 
 from .base_step import BaseWorkflowStep
 
+
 class RuleApplicationStep(BaseWorkflowStep):
     """
     A workflow step for applying contextual rules to the processed files.
@@ -13,17 +14,17 @@ class RuleApplicationStep(BaseWorkflowStep):
         Executes the rule application logic.
         """
         print("Executing rule application step.")
-        
+
         # This step would depend on the output of file processing.
         file_processing_result = context.get_step_result("file_processing")
         if not file_processing_result:
             print("Warning: File processing result not found in context.")
 
-        await asyncio.sleep(2) # Simulate work
+        await asyncio.sleep(2)  # Simulate work
 
         return {
             "status": "success",
-            "rules_applied": 15, # Placeholder
-            "rules_failed": 1, # Placeholder
-            "message": "Rule application complete."
+            "rules_applied": 15,  # Placeholder
+            "rules_failed": 1,  # Placeholder
+            "message": "Rule application complete.",
         }

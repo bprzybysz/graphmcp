@@ -4,7 +4,7 @@ MCP Session Manager
 Manages MCP server sessions with proven lifecycle patterns extracted
 from the working DirectMCPClient implementation.
 
-CRITICAL: This implementation avoids storing actual mcp_use client/session 
+CRITICAL: This implementation avoids storing actual mcp_use client/session
 objects to prevent pickle serialization issues with LangGraph.
 """
 
@@ -33,16 +33,16 @@ logger = logging.getLogger(__name__)
 def ensure_serializable(data: Any) -> Any:
     """
     Ensure data is serializable by testing pickle serialization.
-    
+
     This is extracted EXACTLY from the working DirectMCPClient.ensure_serializable()
     to maintain compatibility with LangGraph state management.
-    
+
     Args:
         data: Data to test for serializability
-        
+
     Returns:
         The same data if serializable
-        
+
     Raises:
         RuntimeError: If data cannot be serialized
     """
@@ -57,7 +57,7 @@ def ensure_serializable(data: Any) -> Any:
 class MCPSessionManager:
     """
     Manages MCP server sessions with proven lifecycle patterns.
-    
+
     CRITICAL DESIGN PRINCIPLES (extracted from working implementation):
     1. Never store actual mcp_use client/session objects in instance state
     2. Always create fresh client instances for each operation
@@ -69,7 +69,7 @@ class MCPSessionManager:
     def __init__(self, config_manager: MCPConfigManager):
         """
         Initialize session manager.
-        
+
         Args:
             config_manager: Configuration manager for MCP servers
         """
@@ -86,22 +86,22 @@ class MCPSessionManager:
     async def create_session(self, server_name: str) -> MCPSession:
         """
         Create session using proven patterns from DirectMCPClient.
-        
+
         CRITICAL: This returns an MCPSession dataclass (serializable metadata)
         NOT the actual mcp_use session object.
-        
+
         Args:
             server_name: Name of MCP server to connect to
-            
+
         Returns:
             MCPSession metadata object (serializable)
-            
+
         Raises:
             MCPSessionError: If session creation fails
         """
         try:
             # Validate server exists in configuration
-            server_config = self.config_manager.get_server_config(server_name)
+            self.config_manager.get_server_config(server_name)
 
             # Create unique session ID
             session_id = f"{server_name}_{id(asyncio.current_task())}"
@@ -110,7 +110,7 @@ class MCPSessionManager:
             session_metadata = MCPSession(
                 server_name=server_name,
                 session_id=session_id,
-                config_path=self.config_manager.config_path
+                config_path=self.config_manager.config_path,
             )
 
             # Store metadata only
@@ -122,20 +122,20 @@ class MCPSessionManager:
         except Exception as e:
             raise MCPSessionError(
                 f"Failed to create session for server '{server_name}': {e}",
-                server_name=server_name
+                server_name=server_name,
             )
 
     @asynccontextmanager
     async def session_context(self, server_name: str):
         """
         Context manager for automatic session lifecycle management.
-        
+
         This implements the exact pattern from DirectMCPClient:
         - Create fresh client instance
         - Create and connect session
         - Yield session for use
         - Ensure cleanup in finally block
-        
+
         Usage:
             async with session_manager.session_context('ovr_github') as session:
                 result = await session.connector.call_tool('tool_name', params)
@@ -161,8 +161,7 @@ class MCPSessionManager:
         except Exception as e:
             logger.error(f"Session context error for {server_name}: {e}")
             raise MCPSessionError(
-                f"Session context failed: {e}",
-                server_name=server_name
+                f"Session context failed: {e}", server_name=server_name
             )
         finally:
             # Explicit cleanup (exact pattern from DirectMCPClient)
@@ -171,7 +170,9 @@ class MCPSessionManager:
                     await session.disconnect()
                     logger.debug(f"Disconnected session for {server_name}")
                 except Exception as cleanup_error:
-                    logger.warning(f"Session disconnect warning for {server_name}: {cleanup_error}")
+                    logger.warning(
+                        f"Session disconnect warning for {server_name}: {cleanup_error}"
+                    )
 
             if client is not None:
                 try:
@@ -179,7 +180,9 @@ class MCPSessionManager:
                     del client
                     logger.debug(f"Closed client for {server_name}")
                 except Exception as cleanup_error:
-                    logger.warning(f"Client cleanup warning for {server_name}: {cleanup_error}")
+                    logger.warning(
+                        f"Client cleanup warning for {server_name}: {cleanup_error}"
+                    )
 
             # Force garbage collection (exact pattern from DirectMCPClient)
             gc.collect()
@@ -188,18 +191,18 @@ class MCPSessionManager:
         self,
         session: Any,  # The actual mcp_use session object
         tool_name: str,
-        params: dict
+        params: dict,
     ) -> Any:
         """
         Call MCP tool with session using proven patterns.
-        
+
         This implements the exact retry and cleanup patterns from DirectMCPClient.
-        
+
         Args:
             session: The actual mcp_use session object
             tool_name: Name of tool to call
             params: Tool parameters
-            
+
         Returns:
             Tool result (guaranteed serializable)
         """
@@ -211,7 +214,7 @@ class MCPSessionManager:
         if tool_name not in tool_names:
             raise MCPToolError(
                 f"Tool '{tool_name}' not found. Available tools: {tool_names}",
-                tool_name=tool_name
+                tool_name=tool_name,
             )
 
         # Call tool
@@ -226,10 +229,10 @@ class MCPSessionManager:
     async def list_tools(self, session: Any) -> list[str]:
         """
         List available tools for a session.
-        
+
         Args:
             session: The actual mcp_use session object
-            
+
         Returns:
             List of tool names
         """
@@ -245,10 +248,10 @@ class MCPSessionManager:
     async def health_check(self, server_name: str = None) -> dict[str, bool]:
         """
         Check health of MCP servers.
-        
+
         Args:
             server_name: Optional specific server to check, or None for all
-            
+
         Returns:
             Dictionary mapping server names to health status
         """
@@ -275,7 +278,7 @@ class MCPSessionManager:
     async def close_session(self, session: MCPSession) -> None:
         """
         Close a session (cleanup metadata).
-        
+
         Args:
             session: MCPSession metadata object
         """
@@ -286,7 +289,7 @@ class MCPSessionManager:
     def get_active_sessions(self) -> list[MCPSession]:
         """
         Get list of active session metadata.
-        
+
         Returns:
             List of MCPSession metadata objects
         """
@@ -295,14 +298,13 @@ class MCPSessionManager:
 
 # High-level convenience functions following DirectMCPClient patterns
 
+
 async def execute_github_analysis(
-    config_path: str | Path,
-    repo_url: str,
-    max_retries: int = 3
+    config_path: str | Path, repo_url: str, max_retries: int = 3
 ) -> str:
     """
     Execute GitHub analysis using session manager.
-    
+
     This replicates DirectMCPClient.call_github_tools() exactly
     but using the new session manager architecture.
     """
@@ -313,7 +315,7 @@ async def execute_github_analysis(
         try:
             logger.debug(f"GitHub analysis attempt {attempt + 1}/{max_retries}")
 
-            async with session_manager.session_context('ovr_github') as session:
+            async with session_manager.session_context("ovr_github") as session:
                 # Get available tools
                 tools = await session.connector.list_tools()
 
@@ -326,17 +328,28 @@ async def execute_github_analysis(
 
                 # 1. Try to get repository files/structure (exact pattern from DirectMCPClient)
                 try:
-                    for filename in ['README.md', 'package.json', 'requirements.txt', 'pyproject.toml', 'Cargo.toml']:
+                    for filename in [
+                        "README.md",
+                        "package.json",
+                        "requirements.txt",
+                        "pyproject.toml",
+                        "Cargo.toml",
+                    ]:
                         try:
-                            result = await session.connector.call_tool('get_file_contents', {
-                                "owner": repo_url.split('/')[-2],
-                                "repo": repo_url.split('/')[-1],
-                                "path": filename
-                            })
-                            if result and hasattr(result, 'content'):
+                            result = await session.connector.call_tool(
+                                "get_file_contents",
+                                {
+                                    "owner": repo_url.split("/")[-2],
+                                    "repo": repo_url.split("/")[-1],
+                                    "path": filename,
+                                },
+                            )
+                            if result and hasattr(result, "content"):
                                 content = str(result.content)
                                 if content and content != "null" and len(content) > 10:
-                                    results.append(f"File {filename}: {content[:500]}...")
+                                    results.append(
+                                        f"File {filename}: {content[:500]}..."
+                                    )
                                     break  # Found a useful file
                         except Exception:
                             continue  # Try next file
@@ -345,11 +358,14 @@ async def execute_github_analysis(
 
                 # 2. Try to search the repository (exact pattern from DirectMCPClient)
                 try:
-                    result = await session.connector.call_tool('search_code', {
-                        "q": f"repo:{repo_url.split('/')[-2]}/{repo_url.split('/')[-1]} extension:json OR extension:py OR extension:js OR extension:ts",
-                        "sort": "indexed"
-                    })
-                    if result and hasattr(result, 'content'):
+                    result = await session.connector.call_tool(
+                        "search_code",
+                        {
+                            "q": f"repo:{repo_url.split('/')[-2]}/{repo_url.split('/')[-1]} extension:json OR extension:py OR extension:js OR extension:ts",
+                            "sort": "indexed",
+                        },
+                    )
+                    if result and hasattr(result, "content"):
                         content = str(result.content)
                         if content and content != "null":
                             results.append(f"Code search results: {content[:500]}...")
@@ -360,7 +376,9 @@ async def execute_github_analysis(
                 if results:
                     final_result = "\n\n".join(results)
                     ensure_serializable(final_result)
-                    logger.info(f"Successfully executed GitHub tools (attempt {attempt + 1})")
+                    logger.info(
+                        f"Successfully executed GitHub tools (attempt {attempt + 1})"
+                    )
                     return final_result
                 else:
                     # Fallback: create a basic success response
@@ -370,8 +388,10 @@ async def execute_github_analysis(
 
         except (ConnectionError, TimeoutError) as e:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff (exact pattern)
-                logger.warning(f"Network error on attempt {attempt + 1}, retrying in {wait_time}s: {e}")
+                wait_time = 2**attempt  # Exponential backoff (exact pattern)
+                logger.warning(
+                    f"Network error on attempt {attempt + 1}, retrying in {wait_time}s: {e}"
+                )
                 await asyncio.sleep(wait_time)
             else:
                 logger.error(f"Failed after {max_retries} attempts: {e}")
@@ -386,11 +406,11 @@ async def execute_context7_search(
     search_query: str,
     library_id: str | None = None,
     topic: str | None = None,
-    max_retries: int = 3
+    max_retries: int = 3,
 ) -> str:
     """
     Execute Context7 documentation search using session manager.
-    
+
     This replicates DirectMCPClient.call_context7_tools() exactly
     but using the new session manager architecture.
     """
@@ -401,7 +421,7 @@ async def execute_context7_search(
         try:
             logger.debug(f"Context7 search attempt {attempt + 1}/{max_retries}")
 
-            async with session_manager.session_context('ovr_context7') as session:
+            async with session_manager.session_context("ovr_context7") as session:
                 tools = await session.connector.list_tools()
 
                 if not tools:
@@ -413,39 +433,65 @@ async def execute_context7_search(
 
                 # Exact logic from DirectMCPClient.call_context7_tools()
                 if library_id and "get-library-docs" in [t.name for t in tools]:
-                    logger.debug(f"Calling get-library-docs for library_id: {library_id}, topic: {topic}")
+                    logger.debug(
+                        f"Calling get-library-docs for library_id: {library_id}, topic: {topic}"
+                    )
                     try:
                         params = {"context7CompatibleLibraryID": library_id}
                         if topic:
                             params["topic"] = topic
 
-                        raw_result = await session.connector.call_tool('get-library-docs', params)
+                        raw_result = await session.connector.call_tool(
+                            "get-library-docs", params
+                        )
 
                         # Extract content exactly as in DirectMCPClient
-                        if raw_result and hasattr(raw_result, 'content') and isinstance(raw_result.content, list):
+                        if (
+                            raw_result
+                            and hasattr(raw_result, "content")
+                            and isinstance(raw_result.content, list)
+                        ):
                             extracted_content = []
                             for item in raw_result.content:
-                                if hasattr(item, 'text') and isinstance(item.text, str):
+                                if hasattr(item, "text") and isinstance(item.text, str):
                                     extracted_content.append(item.text)
 
                             if extracted_content:
-                                combined_content = "\n\n----------------------------------------\n\n".join(extracted_content)
+                                combined_content = "\n\n----------------------------------------\n\n".join(
+                                    extracted_content
+                                )
                                 results.append(combined_content)
-                                logger.info(f"Successfully extracted detailed Context7 documentation for {library_id}")
+                                logger.info(
+                                    f"Successfully extracted detailed Context7 documentation for {library_id}"
+                                )
                             else:
-                                logger.warning(f"get-library-docs returned empty content for {library_id}")
-                                results.append(f"No detailed documentation found for {library_id} on topic {topic or 'general'}.")
+                                logger.warning(
+                                    f"get-library-docs returned empty content for {library_id}"
+                                )
+                                results.append(
+                                    f"No detailed documentation found for {library_id} on topic {topic or 'general'}."
+                                )
                         else:
-                            logger.warning(f"get-library-docs returned unexpected format for {library_id}: {raw_result}")
-                            results.append(f"No detailed documentation found for {library_id} on topic {topic or 'general'}.")
+                            logger.warning(
+                                f"get-library-docs returned unexpected format for {library_id}: {raw_result}"
+                            )
+                            results.append(
+                                f"No detailed documentation found for {library_id} on topic {topic or 'general'}."
+                            )
                     except Exception as tool_error:
-                        logger.warning(f"get-library-docs tool failed for {library_id}: {tool_error}")
-                        results.append(f"Error retrieving documentation for {library_id}: {tool_error}")
+                        logger.warning(
+                            f"get-library-docs tool failed for {library_id}: {tool_error}"
+                        )
+                        results.append(
+                            f"Error retrieving documentation for {library_id}: {tool_error}"
+                        )
 
                 if results:
                     final_result = "\n\n".join(results)
                     ensure_serializable(final_result)
-                    logger.info(f"Successfully executed Context7 tools (attempt {attempt + 1})")
+                    logger.info(
+                        f"Successfully executed Context7 tools (attempt {attempt + 1})"
+                    )
                     return final_result
                 else:
                     fallback_result = f"Documentation search completed for '{search_query}' - tools executed but no detailed results available"
@@ -454,12 +500,14 @@ async def execute_context7_search(
 
         except (ConnectionError, TimeoutError) as e:
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # Exponential backoff
-                logger.warning(f"Network error on attempt {attempt + 1}, retrying in {wait_time}s: {e}")
+                wait_time = 2**attempt  # Exponential backoff
+                logger.warning(
+                    f"Network error on attempt {attempt + 1}, retrying in {wait_time}s: {e}"
+                )
                 await asyncio.sleep(wait_time)
             else:
                 logger.error(f"Failed after {max_retries} attempts: {e}")
                 raise RuntimeError(f"Failed after retries: {e}")
         except Exception as e:
             logger.error(f"Unexpected error during execution: {e}")
-            raise RuntimeError(f"Context7 search execution failed: {e}") 
+            raise RuntimeError(f"Context7 search execution failed: {e}")

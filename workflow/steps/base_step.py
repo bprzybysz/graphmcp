@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
+
 class BaseWorkflowStep(ABC):
     """
     Abstract base class for a single step in a workflow.
@@ -22,7 +23,6 @@ class BaseWorkflowStep(ABC):
         Returns:
             Any: The result of the step's execution.
         """
-        pass
 
     @property
     def name(self) -> str:

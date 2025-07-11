@@ -1,5 +1,7 @@
 import streamlit as st
-from don_concrete.ui.state.session_manager import SessionManager
+
+from ui.state.session_manager import SessionManager
+
 
 def render_workflow_controls():
     """
@@ -26,6 +28,13 @@ def render_workflow_controls():
                 st.rerun()
 
     with col2:
-        state.auto_refresh = st.toggle("Auto-refresh", value=state.auto_refresh, help="Toggle to enable/disable auto-refreshing the log view.")
-    
-    st.progress(state.progress_percentage / 100.0, text=f"Progress: {state.progress_percentage:.2f}%")
+        state.auto_refresh = st.toggle(
+            "Auto-refresh",
+            value=state.auto_refresh,
+            help="Toggle to enable/disable auto-refreshing the log view.",
+        )
+
+    st.progress(
+        state.progress_percentage / 100.0,
+        text=f"Progress: {state.progress_percentage:.2f}%",
+    )

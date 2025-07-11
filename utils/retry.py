@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class MCPRetryHandler:
     """
     Handles retry logic with exponential backoff.
-    
+
     Extracted from proven retry patterns in DirectMCPClient.call_github_tools()
     to ensure compatibility with working retry strategies.
     """
@@ -29,11 +29,11 @@ class MCPRetryHandler:
         max_retries: int = 3,
         base_delay: float = 2.0,
         max_delay: float = 30.0,
-        retryable_exceptions: tuple[type[Exception], ...] = None
+        retryable_exceptions: tuple[type[Exception], ...] = None,
     ):
         """
         Initialize retry handler.
-        
+
         Args:
             max_retries: Maximum number of retry attempts
             base_delay: Base delay in seconds (used for exponential backoff)
@@ -55,26 +55,21 @@ class MCPRetryHandler:
         else:
             self.retryable_exceptions = retryable_exceptions
 
-    async def with_retry(
-        self,
-        operation: Callable,
-        *args,
-        **kwargs
-    ) -> Any:
+    async def with_retry(self, operation: Callable, *args, **kwargs) -> Any:
         """
         Execute operation with exponential backoff retry.
-        
-        This implementation follows the exact pattern from 
+
+        This implementation follows the exact pattern from
         DirectMCPClient.call_github_tools() retry logic.
-        
+
         Args:
             operation: Async callable to execute
             *args: Arguments to pass to operation
             **kwargs: Keyword arguments to pass to operation
-            
+
         Returns:
             Result from successful operation execution
-            
+
         Raises:
             MCPRetryError: If all retry attempts are exhausted
             Exception: If operation fails with non-retryable exception
@@ -83,7 +78,9 @@ class MCPRetryHandler:
 
         for attempt in range(self.max_retries):
             try:
-                logger.debug(f"Executing operation (attempt {attempt + 1}/{self.max_retries})")
+                logger.debug(
+                    f"Executing operation (attempt {attempt + 1}/{self.max_retries})"
+                )
 
                 result = await operation(*args, **kwargs)
 
@@ -113,16 +110,16 @@ class MCPRetryHandler:
         raise MCPRetryError(
             f"Operation failed after {self.max_retries} retry attempts",
             attempts=self.max_retries,
-            last_error=last_error
+            last_error=last_error,
         )
 
     def should_retry(self, exception: Exception) -> bool:
         """
         Determine if exception is retryable.
-        
+
         Args:
             exception: Exception that occurred
-            
+
         Returns:
             True if exception should trigger a retry
         """
@@ -131,18 +128,18 @@ class MCPRetryHandler:
     def calculate_delay(self, attempt: int) -> float:
         """
         Calculate delay with exponential backoff.
-        
+
         This uses the exact pattern from DirectMCPClient:
         wait_time = 2 ** attempt  # Exponential backoff
-        
+
         Args:
             attempt: Current attempt number (0-based)
-            
+
         Returns:
             Delay in seconds
         """
         # Exponential backoff: 2^attempt
-        delay = self.base_delay ** attempt
+        delay = self.base_delay**attempt
 
         # Cap at maximum delay
         delay = min(delay, self.max_delay)
@@ -150,24 +147,20 @@ class MCPRetryHandler:
         return delay
 
     async def with_retry_and_cleanup(
-        self,
-        operation: Callable,
-        cleanup_func: Callable = None,
-        *args,
-        **kwargs
+        self, operation: Callable, cleanup_func: Callable = None, *args, **kwargs
     ) -> Any:
         """
         Execute operation with retry and guaranteed cleanup.
-        
+
         This pattern is extracted from DirectMCPClient where cleanup
         is performed in the finally block regardless of success/failure.
-        
+
         Args:
             operation: Async callable to execute
             cleanup_func: Optional cleanup function to call after operation
             *args: Arguments to pass to operation
             **kwargs: Keyword arguments to pass to operation
-            
+
         Returns:
             Result from successful operation execution
         """
@@ -223,38 +216,35 @@ class TimedRetryHandler(MCPRetryHandler):
                 "success_rate": 0.0,
                 "avg_execution_time": 0.0,
                 "total_successes": 0,
-                "total_failures": 0
+                "total_failures": 0,
             }
 
         return {
             "total_operations": len(self.execution_times),
             "total_attempts": self.total_attempts,
-            "success_rate": self.total_successes / (self.total_successes + self.total_failures),
+            "success_rate": self.total_successes
+            / (self.total_successes + self.total_failures),
             "avg_execution_time": sum(self.execution_times) / len(self.execution_times),
             "total_successes": self.total_successes,
-            "total_failures": self.total_failures
+            "total_failures": self.total_failures,
         }
 
 
 async def retry_with_exponential_backoff(
-    operation: Callable,
-    max_retries: int = 3,
-    base_delay: float = 2.0,
-    *args,
-    **kwargs
+    operation: Callable, max_retries: int = 3, base_delay: float = 2.0, *args, **kwargs
 ) -> Any:
     """
     Standalone function for simple retry operations.
-    
+
     Args:
         operation: Async callable to execute
         max_retries: Maximum retry attempts
         base_delay: Base delay for exponential backoff
         *args: Arguments for operation
         **kwargs: Keyword arguments for operation
-        
+
     Returns:
         Result from successful operation
     """
     handler = MCPRetryHandler(max_retries=max_retries, base_delay=base_delay)
-    return await handler.with_retry(operation, *args, **kwargs) 
+    return await handler.with_retry(operation, *args, **kwargs)

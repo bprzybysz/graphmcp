@@ -1,11 +1,14 @@
 import pytest
-from don_concrete.workflow.manager import WorkflowManager
-from don_concrete.workflow.models import WorkflowPhase
+
+from workflow.manager import WorkflowManager
+from workflow.models import WorkflowPhase
+
 
 @pytest.fixture
 def manager():
     """Returns a new WorkflowManager instance for each test."""
     return WorkflowManager()
+
 
 @pytest.mark.asyncio
 async def test_start_workflow_creates_entry(manager: WorkflowManager):
@@ -15,11 +18,12 @@ async def test_start_workflow_creates_entry(manager: WorkflowManager):
     workflow_id = await manager.start_workflow()
     assert workflow_id is not None
     assert len(manager._workflows) == 1
-    
+
     status = await manager.get_status(workflow_id)
     assert status is not None
     assert status.workflow_id == workflow_id
     assert status.status == WorkflowPhase.PENDING
+
 
 @pytest.mark.asyncio
 async def test_get_status_returns_correct_workflow(manager: WorkflowManager):
@@ -31,6 +35,7 @@ async def test_get_status_returns_correct_workflow(manager: WorkflowManager):
     assert status is not None
     assert status.workflow_id == workflow_id
 
+
 @pytest.mark.asyncio
 async def test_get_status_returns_none_for_invalid_id(manager: WorkflowManager):
     """
@@ -39,22 +44,24 @@ async def test_get_status_returns_none_for_invalid_id(manager: WorkflowManager):
     status = await manager.get_status("invalid_id")
     assert status is None
 
+
 @pytest.mark.asyncio
 async def test_pause_workflow(manager: WorkflowManager):
     """
     Tests that a workflow can be paused.
     """
     workflow_id = await manager.start_workflow()
-    
+
     # Manually set to RUNNING for the test
     manager._workflows[workflow_id].status = WorkflowPhase.RUNNING
-    
+
     result = await manager.pause_workflow(workflow_id)
     assert result is True
-    
+
     status = await manager.get_status(workflow_id)
     assert status is not None
     assert status.status == WorkflowPhase.PAUSED
+
 
 @pytest.mark.asyncio
 async def test_resume_workflow(manager: WorkflowManager):
@@ -63,13 +70,14 @@ async def test_resume_workflow(manager: WorkflowManager):
     """
     workflow_id = await manager.start_workflow()
     manager._workflows[workflow_id].status = WorkflowPhase.PAUSED
-    
+
     result = await manager.resume_workflow(workflow_id)
     assert result is True
-    
+
     status = await manager.get_status(workflow_id)
     assert status is not None
     assert status.status == WorkflowPhase.RUNNING
+
 
 @pytest.mark.asyncio
 async def test_stop_workflow(manager: WorkflowManager):
@@ -85,6 +93,7 @@ async def test_stop_workflow(manager: WorkflowManager):
     status = await manager.get_status(workflow_id)
     assert status is not None
     assert status.status == WorkflowPhase.CANCELLED
+
 
 @pytest.mark.asyncio
 async def test_workflow_actions_on_invalid_id(manager: WorkflowManager):

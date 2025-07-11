@@ -1,11 +1,13 @@
 import json
 import os
-from typing import Dict, Any
+from typing import Any, Dict
+
 
 class MockDataProvider:
     """
     Provides access to mock data used in tests and mock workflow runs.
     """
+
     _cache: Dict[str, Any] = {}
 
     @staticmethod
@@ -17,12 +19,12 @@ class MockDataProvider:
         if not os.path.exists(path):
             raise FileNotFoundError(f"Mock data file not found: {path}")
 
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             if is_json:
                 data = json.load(f)
             else:
                 data = f.read()
-        
+
         MockDataProvider._cache[path] = data
         return data
 
@@ -34,4 +36,6 @@ class MockDataProvider:
     @staticmethod
     def get_packed_repository() -> str:
         """Returns the content of the mock packed repository XML."""
-        return MockDataProvider._load_data("tests/data/postgres_sample_dbs_packed.xml", is_json=False)
+        return MockDataProvider._load_data(
+            "tests/data/postgres_sample_dbs_packed.xml", is_json=False
+        )

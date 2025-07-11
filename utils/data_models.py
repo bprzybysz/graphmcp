@@ -16,6 +16,7 @@ from typing import Any
 @dataclass
 class GitHubSearchResult:
     """Serializable result from GitHub MCP tool operations."""
+
     repository_url: str
     files_found: list[str]
     matches: list[dict]
@@ -30,6 +31,7 @@ class GitHubSearchResult:
 @dataclass
 class Context7Documentation:
     """Serializable result from Context7 documentation search."""
+
     library_id: str
     topic: str
     content_sections: list[str]
@@ -44,6 +46,7 @@ class Context7Documentation:
 @dataclass
 class FilesystemScanResult:
     """Serializable result from filesystem MCP operations."""
+
     base_path: str
     pattern: str
     files_found: list[str]
@@ -58,6 +61,7 @@ class FilesystemScanResult:
 @dataclass
 class MCPToolCall:
     """Record of an MCP tool call for debugging and monitoring."""
+
     server_name: str
     tool_name: str
     parameters: dict
@@ -75,15 +79,16 @@ class MCPToolCall:
 @dataclass
 class MCPSession:
     """Represents an active MCP server session for type hinting and state tracking.
-    
+
     WARNING: This is NOT the actual mcp_use session object.
     The actual mcp_use session object (e.g., mcp_use.client.MCPSession)
     cannot be directly pickled. This dataclass represents the *concept* of
     the session for type hinting and internal state tracking within utilities.
-    
-    For actual MCP operations, the utilities will create fresh mcp_use 
+
+    For actual MCP operations, the utilities will create fresh mcp_use
     client instances as needed.
     """
+
     server_name: str
     session_id: str
     config_path: str
@@ -109,8 +114,8 @@ class MCPSession:
         """Custom pickling to exclude non-serializable references."""
         state = self.__dict__.copy()
         # Remove non-serializable internal references
-        state['_session_ref'] = None
-        state['_client_ref'] = None
+        state["_session_ref"] = None
+        state["_client_ref"] = None
         return state
 
     def __setstate__(self, state):
@@ -123,6 +128,7 @@ class MCPSession:
 @dataclass
 class MCPServerConfig:
     """Configuration for a single MCP server."""
+
     name: str
     command: str
     args: list[str]
@@ -132,11 +138,7 @@ class MCPServerConfig:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary format for mcp_use configuration."""
-        config = {
-            "command": self.command,
-            "args": self.args,
-            "env": self.env
-        }
+        config = {"command": self.command, "args": self.args, "env": self.env}
         if self.url:
             config["url"] = self.url
         return config
@@ -145,6 +147,7 @@ class MCPServerConfig:
 @dataclass
 class MCPConfigStatus:
     """Status information for MCP configuration validation."""
+
     config_path: str
     is_valid: bool
     server_count: int
@@ -153,4 +156,4 @@ class MCPConfigStatus:
 
     def __post_init__(self):
         if self.validated_at is None:
-            self.validated_at = time.time() 
+            self.validated_at = time.time()

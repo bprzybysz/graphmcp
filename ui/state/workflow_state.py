@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Set, Any, Dict
+from typing import Any, Dict, List, Optional, Set
+
 
 @dataclass
 class LogEntry:
     """Represents a single log entry in the UI."""
+
     timestamp: datetime
     message: str
     level: str = "INFO"
@@ -15,6 +17,7 @@ class LogEntry:
 @dataclass
 class WorkflowState:
     """Manages the state of a single workflow run."""
+
     workflow_id: Optional[str] = None
     workflow_running: bool = False
     auto_refresh: bool = True

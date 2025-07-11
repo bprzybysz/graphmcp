@@ -1,8 +1,9 @@
 import streamlit as st
 
-from don_concrete.ui.components.workflow_controls import render_workflow_controls
-from don_concrete.ui.components.log_stream import render_log_stream
-from don_concrete.ui.components.progress_tables import render_progress_tables
+from ui.components.log_stream import render_log_stream
+from ui.components.progress_tables import render_progress_tables
+from ui.components.workflow_controls import render_workflow_controls
+
 
 def create_three_pane_layout():
     """

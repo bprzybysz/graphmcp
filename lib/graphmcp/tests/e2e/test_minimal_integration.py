@@ -1,7 +1,7 @@
-import asyncio
-import os
-from graphmcp import MultiServerMCPClient
+
 from concrete.secret_manager import load_application_secrets
+
+from graphmcp import MultiServerMCPClient
 
 # Load environment variables from .env file
 load_application_secrets()
