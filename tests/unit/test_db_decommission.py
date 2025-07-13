@@ -606,8 +606,8 @@ class TestWorkflowExecution:
             "total_files_modified": 2
         }
         
-        mock_workflow = MagicMock()
-        mock_workflow.execute = AsyncMock(return_value=mock_workflow_result)
+        mock_workflow = AsyncMock()
+        mock_workflow.execute.return_value = mock_workflow_result
         mock_create_workflow.return_value = mock_workflow
         
         # Execute
@@ -633,8 +633,8 @@ class TestWorkflowExecution:
         mock_workflow_result.duration_seconds = 85.2
         mock_workflow_result.get_step_result.return_value = {}
         
-        mock_workflow = MagicMock()
-        mock_workflow.execute = AsyncMock(return_value=mock_workflow_result)
+        mock_workflow = AsyncMock()
+        mock_workflow.execute.return_value = mock_workflow_result
         mock_create_workflow.return_value = mock_workflow
         
         # Execute with defaults

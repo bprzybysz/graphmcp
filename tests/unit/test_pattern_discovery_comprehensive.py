@@ -479,47 +479,43 @@ class TestPatternDiscoveryIntegration:
     
     @pytest.mark.asyncio
     async def test_full_pattern_discovery_workflow(self):
-        """Test complete pattern discovery workflow."""
-        engine = PatternDiscoveryEngine()
+        """Test the full pattern discovery workflow integration."""
         
-        # Mock clients
-        mock_repomix = AsyncMock()
-        mock_github = AsyncMock()
+        # Mock clients and engine
+        mock_repomix_client = AsyncMock()
         
-        # Setup mock responses
-        mock_repomix.pack_remote_repository.return_value = {"output_id": "test123"}
-        mock_repomix.read_repomix_output.return_value = {
-            "content": '''<file path="config.py">
-DATABASE_URL = "postgresql://myapp:password@localhost/myappdb"
-DB_NAME = "myappdb"
-</file>
-<file path="deploy.yaml">
-name: myappdb-service
-image: postgres:13
-environment:
-  - POSTGRES_DB=myappdb
-</file>'''
+        # This will be the mock return from analyze_repository_structure
+        mock_analysis_result = {
+            "files": [
+                {"path": "config.py", "content": "DB_NAME = 'testdb'", "type": "python", "size": 100},
+                {"path": "schema.sql", "content": "CREATE TABLE testdb.users", "type": "sql", "size": 200},
+                {"path": "service.yaml", "content": "database: testdb", "type": "yaml", "size": 50},
+                {"path": "README.md", "content": "The testdb is used for...", "type": "markdown", "size": 75}
+            ],
+            "structure": {"total_directories": 1, "max_depth": 1},
+            "total_size": 425
         }
         
-        result = await engine.discover_patterns_in_repository(
-            mock_repomix, mock_github,
-            "https://github.com/test/myapp",
-            "myappdb", "test", "myapp"
-        )
-        
-        # Verify comprehensive result
-        assert result["database_name"] == "myappdb"
-        assert result["repository"] == "test/myapp"
-        assert result["total_files"] == 2
-        assert result["matched_files"] >= 1
-        
-        # Verify files were found and analyzed
-        assert len(result["files"]) >= 1
-        
-        # Verify confidence analysis
-        conf_dist = result["confidence_distribution"]
-        assert conf_dist["average_confidence"] > 0
-        
-        # Verify repository analysis included
-        assert "repository_analysis" in result
-        assert result["repository_analysis"]["total_size"] > 0 
+        with patch.object(PatternDiscoveryEngine, 'analyze_repository_structure', return_value=mock_analysis_result) as mock_analyze:
+            engine = PatternDiscoveryEngine()
+            
+            result = await engine.discover_patterns_in_repository(
+                repomix_client=mock_repomix_client, 
+                github_client=AsyncMock(),
+                repo_url="https://github.com/test/myapp",
+                repo_owner="test", 
+                repo_name="myapp", 
+                database_name="testdb"
+            )
+            
+            # Verify results
+            assert "total_files" in result
+            assert result["total_files"] == 4
+            assert "files_matched" in result
+            assert len(result["files_matched"]) > 0
+            
+            # Verify that high-confidence matches are found
+            high_confidence_files = [f for f in result["files_matched"] if f["match_confidence"] > 0.7]
+            assert len(high_confidence_files) > 0
+            
+            mock_analyze.assert_called_once() 

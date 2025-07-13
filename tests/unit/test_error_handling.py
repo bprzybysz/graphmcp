@@ -39,26 +39,25 @@ TEST_LOGGER_NAME = "test_error_handling_logger"
 @pytest.fixture
 def mock_time():
     """Mock time.time(), datetime.utcnow(), and datetime.now() in the module under test."""
-    # Patch datetime.datetime directly as it's used as a class (not a module) in concrete.error_handling
+    # Patch the datetime module used in concrete.error_handling
     with patch('concrete.error_handling.time.time') as mock_time_time, \
-         patch('concrete.error_handling.datetime.datetime', autospec=True) as mock_datetime_datetime_class, \
+         patch('concrete.error_handling.datetime') as mock_datetime_module, \
          patch('concrete.error_handling.asyncio.sleep', new_callable=AsyncMock) as mock_async_sleep:
         
         mock_fixed_datetime = datetime(2023, 3, 15, 0, 0, 0)
 
-        # Configure the mocked datetime.datetime class methods
-        mock_datetime_datetime_class.utcnow.return_value = mock_fixed_datetime
-        mock_datetime_datetime_class.now.return_value = mock_fixed_datetime
+        # Mock the datetime class within the datetime module
+        mock_datetime_class = MagicMock()
+        mock_datetime_class.utcnow.return_value = mock_fixed_datetime
+        mock_datetime_class.now.return_value = mock_fixed_datetime
+        mock_datetime_module.datetime = mock_datetime_class
         
-        # Ensure the mocked datetime.datetime can still be called as a constructor
-        mock_datetime_datetime_class.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
-
         # Mock time.time()
         mock_time_time.return_value = 1678886400.0  # March 15, 2023 00:00:00 GMT
         
-        yield { # Return a dictionary of mocks if you need to interact with them in tests
+        yield { 
             "time_time": mock_time_time,
-            "datetime_datetime": mock_datetime_datetime_class, # Use this to interact with the mocked class
+            "datetime_module": mock_datetime_module,
             "async_sleep": mock_async_sleep
         }
 
@@ -116,7 +115,7 @@ class TestErrorContext:
         # Simulate the call to handle_error which creates ErrorContext
         error_context = ErrorContext(
             error_id=f"err_{mock_uuid_instance.hex}",
-            timestamp=datetime.utcnow(),  # This will use the mocked datetime.utcnow
+            timestamp=datetime(2023, 3, 15, 0, 0, 0),
             severity=ErrorSeverity.HIGH,
             category=ErrorCategory.BUSINESS_LOGIC,
             message=str(exception),
@@ -163,7 +162,7 @@ class TestErrorContext:
 
         error_context = ErrorContext(
             error_id=f"err_{mock_uuid_instance.hex}",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime(2023, 3, 15, 0, 0, 0),
             severity=ErrorSeverity.MEDIUM,
             category=ErrorCategory.RESOURCE,
             message="Resource not found",

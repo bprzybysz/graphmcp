@@ -23,6 +23,7 @@
     "useDefaultPatterns": true,
     "customPatterns": [
       "tests/data/**",
+      "*trash/**",
       "tests/test_data/**",
       "**/test_data/**",
       "**/__pycache__/**",
@@ -33,7 +34,7 @@
       "**/*.pyc",
       "**/*.pyo",
       "**/*.pyd",
-      "**/repomix-output.xml",
+      "**/*repomix-output.xml",
       "**/.venv/**",
       "**/venv/**",
       "**/node_modules/**",

@@ -287,20 +287,20 @@ class TestPerformanceManager:
         self.manager.connection_pool = mock_pool.return_value
         self.manager.parallel_processor = mock_processor.return_value
 
-    @patch('time.monotonic') # Patch monotonic for test_cached_api_call_success
+    @patch('time.monotonic')
     async def test_cached_api_call_success(self, mock_monotonic):
         """Test a successful cached API call."""
         current_time = 0.0
         def monotonic_side_effect():
             nonlocal current_time
             val = current_time
-            current_time += 0.01 # Small increment for each call
+            current_time += 0.01 
             return val
         mock_monotonic.side_effect = monotonic_side_effect
 
         mock_api_func = AsyncMock(return_value="api_result")
-        self.manager.cache.get.return_value = None
-        self.manager.cache.set.return_value = None
+        self.manager.cache.get = AsyncMock(return_value=None)
+        self.manager.cache.set = AsyncMock()
 
         result = await self.manager.cached_api_call("test_key", mock_api_func, "arg1", kwarg="value")
 
