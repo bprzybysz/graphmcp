@@ -8,7 +8,6 @@ that leverage multiple MCP servers.
 from __future__ import annotations
 import logging
 import time
-import asyncio
 from enum import Enum, auto
 from typing import Any, Callable, Dict, List, Optional, Union
 from dataclasses import dataclass, field
@@ -98,8 +97,8 @@ class Workflow:
         self.config = config
         self.steps = steps
 
-    async def execute(self) -> WorkflowResult:
-        """Execute the workflow with proper context management."""
+    async def execute(self, enhanced_logger=None) -> WorkflowResult:
+        """Execute the workflow with proper context management and optional enhanced logging."""
         logger.info(f"Executing workflow: {self.config.name}")
         start_time = time.time()
         results = {}
@@ -108,21 +107,59 @@ class Workflow:
         
         # Create workflow context
         context = WorkflowContext(self.config)
+        
+        # Initialize enhanced logging if provided
+        if enhanced_logger and hasattr(enhanced_logger, 'initialize_progress_tracking'):
+            try:
+                await enhanced_logger.initialize_progress_tracking(len(self.steps))
+                enhanced_logger.log_workflow_start([self.config.name], {"steps": len(self.steps)})
+            except Exception as e:
+                logger.warning(f"Failed to initialize enhanced logging: {e}")
+                enhanced_logger = None
 
         # Simplified sequential execution for demonstration
-        for step in self.steps:
+        for step_index, step in enumerate(self.steps):
             logger.info(f"Executing step: {step.id} ({step.name})")
+            
+            # Enhanced logging: Start step tracking
+            if enhanced_logger and hasattr(enhanced_logger, 'log_step_start_async'):
+                try:
+                    await enhanced_logger.log_step_start_async(step.id, step.description or step.name, step.parameters)
+                except Exception as e:
+                    logger.warning(f"Enhanced logging step start failed: {e}")
+            
             try:
                 if step.custom_function:
+                    # Enhanced logging: Initial progress
+                    if enhanced_logger and hasattr(enhanced_logger, 'log_step_progress_async'):
+                        try:
+                            await enhanced_logger.log_step_progress_async(step.id, 0.1, "Starting custom function execution")
+                        except Exception:
+                            pass
+                    
                     # Pass parameters correctly to the function
                     step_result = await step.custom_function(context, step, **step.parameters)
                     results[step.id] = ensure_serializable(step_result)
                     context.set_shared_value(step.id, step_result) # Make result available in shared context
                     completed_count += 1
+                    
+                    # Enhanced logging: Step completion
+                    if enhanced_logger and hasattr(enhanced_logger, 'log_step_end_async'):
+                        try:
+                            await enhanced_logger.log_step_end_async(step.id, {"result": "Custom function completed"}, True)
+                        except Exception:
+                            pass
                 else:
                     # Execute MCP tool steps
                     if step.server_name and step.tool_name:
                         try:
+                            # Enhanced logging: Client initialization progress
+                            if enhanced_logger and hasattr(enhanced_logger, 'log_step_progress_async'):
+                                try:
+                                    await enhanced_logger.log_step_progress_async(step.id, 0.2, "Initializing MCP client")
+                                except Exception:
+                                    pass
+                            
                             # Dynamically import the client based on server_name
                             if step.server_name == "ovr_github":
                                 from clients import GitHubMCPClient as ClientClass
@@ -136,6 +173,13 @@ class Workflow:
                             client = context._clients.get(step.server_name) or ClientClass(context.config.config_path)
                             context._clients[step.server_name] = client
                             
+                            # Enhanced logging: Tool execution progress
+                            if enhanced_logger and hasattr(enhanced_logger, 'log_step_progress_async'):
+                                try:
+                                    await enhanced_logger.log_step_progress_async(step.id, 0.5, f"Executing {step.tool_name}")
+                                except Exception:
+                                    pass
+                            
                             logger.info(f"Calling MCP tool '{step.tool_name}' on server '{step.server_name}' for step '{step.id}'")
                             tool_result = await client.call_tool_with_retry(
                                 step.tool_name, 
@@ -145,10 +189,25 @@ class Workflow:
                             results[step.id] = ensure_serializable(tool_result)
                             context.set_shared_value(step.id, tool_result)
                             completed_count += 1
+                            
+                            # Enhanced logging: Tool completion
+                            if enhanced_logger and hasattr(enhanced_logger, 'log_step_end_async'):
+                                try:
+                                    await enhanced_logger.log_step_end_async(step.id, {"tool_result": "MCP tool completed"}, True)
+                                except Exception:
+                                    pass
                         except Exception as client_e:
                             logger.error(f"MCP client call failed for step {step.id} ({step.name}): {client_e}")
                             results[step.id] = {"error": str(client_e)}
                             failed_count += 1
+                            
+                            # Enhanced logging: Step failure
+                            if enhanced_logger and hasattr(enhanced_logger, 'log_step_end_async'):
+                                try:
+                                    await enhanced_logger.log_step_end_async(step.id, {"error": str(client_e)}, False)
+                                except Exception:
+                                    pass
+                            
                             if self.config.stop_on_error:
                                 break
                     else:
@@ -156,10 +215,25 @@ class Workflow:
                         logger.warning(f"Unhandled step type: {step.step_type.name} for step {step.id}. Mocking execution.")
                         results[step.id] = {"status": "mocked_unhandled", "step_type": step.step_type.name}
                         completed_count += 1
+                        
+                        # Enhanced logging: Mocked step completion
+                        if enhanced_logger and hasattr(enhanced_logger, 'log_step_end_async'):
+                            try:
+                                await enhanced_logger.log_step_end_async(step.id, {"status": "mocked_unhandled"}, True)
+                            except Exception:
+                                pass
             except Exception as e:
                 logger.error(f"Step {step.id} failed: {e}")
                 results[step.id] = {"error": str(e)}
                 failed_count += 1
+                
+                # Enhanced logging: General step failure
+                if enhanced_logger and hasattr(enhanced_logger, 'log_step_end_async'):
+                    try:
+                        await enhanced_logger.log_step_end_async(step.id, {"error": str(e)}, False)
+                    except Exception:
+                        pass
+                
                 if self.config.stop_on_error:
                     break
         
@@ -167,6 +241,13 @@ class Workflow:
         success_rate = (completed_count / len(self.steps)) * 100 if self.steps else 100
 
         status = "completed" if failed_count == 0 else ("partial_success" if completed_count > 0 else "failed")
+
+        # Enhanced logging: Workflow completion
+        if enhanced_logger and hasattr(enhanced_logger, 'log_workflow_end'):
+            try:
+                enhanced_logger.log_workflow_end(failed_count == 0)
+            except Exception as e:
+                logger.warning(f"Enhanced logging workflow end failed: {e}")
 
         # Cleanup: Close all cached MCP clients to prevent memory leaks
         for client_name, client in context._clients.items():

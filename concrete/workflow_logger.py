@@ -40,6 +40,60 @@ class WorkflowMetrics:
         result['duration'] = self.duration
         return result
 
+@dataclass
+class EnhancedWorkflowMetrics(WorkflowMetrics):
+    """Enhanced metrics with animation state and performance tracking."""
+    current_step: str = ""
+    progress_percentage: float = 0.0
+    estimated_completion: Optional[float] = None
+    bandwidth_mbps: float = 0.0
+    animation_state: str = "idle"  # idle, running, completed, error
+    bytes_processed: int = 0
+    
+    def calculate_bandwidth(self, bytes_processed: int, duration: float) -> float:
+        """Calculate bandwidth in MB/s with safe division."""
+        if duration <= 0:
+            return 0.0
+        return (bytes_processed / duration) / (1024 * 1024)  # MB/s
+    
+    def update_progress(self, step_name: str, progress: float, bytes_delta: int = 0):
+        """Update progress and calculate bandwidth."""
+        self.current_step = step_name
+        self.progress_percentage = max(0.0, min(100.0, progress * 100))
+        self.bytes_processed += bytes_delta
+        
+        # Calculate real-time bandwidth
+        current_duration = self.duration
+        if current_duration > 0:
+            self.bandwidth_mbps = self.calculate_bandwidth(self.bytes_processed, current_duration)
+        
+        # Update animation state
+        if progress >= 1.0:
+            self.animation_state = "completed"
+        elif progress > 0:
+            self.animation_state = "running"
+        else:
+            self.animation_state = "idle"
+            
+        # Estimate completion time
+        if progress > 0 and progress < 1.0 and current_duration > 0:
+            remaining_progress = 1.0 - progress
+            time_per_progress = current_duration / progress
+            self.estimated_completion = time.time() + (remaining_progress * time_per_progress)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert enhanced metrics to dictionary."""
+        result = super().to_dict()
+        result.update({
+            'current_step': self.current_step,
+            'progress_percentage': self.progress_percentage,
+            'estimated_completion': self.estimated_completion,
+            'bandwidth_mbps': self.bandwidth_mbps,
+            'animation_state': self.animation_state,
+            'bytes_processed': self.bytes_processed
+        })
+        return result
+
 class DatabaseWorkflowLogger:
     """Enhanced logger for database decommissioning workflows."""
     

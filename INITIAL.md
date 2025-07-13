@@ -3,7 +3,10 @@
 BEING IMPLEMENTED IF NOT IMPLEMENTED ALREADY
 
 
-ok so lets 
+i mean https://github.com/daaain/claude-code-log check docs best    │
+│   patterns anti[atterns pitfall t'avoid. then rebuiold our logging    │
+│   with it include animated element blinker at step text when sth is   │
+│   loading and some metrics like progress or bandwidth displayed 
 
 
 ## EXAMPLES:
