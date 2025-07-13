@@ -27,7 +27,7 @@ logging.basicConfig(
 )
 
 # Import the database decommissioning workflow
-from customized.unused_db_decomission.db_decommission import (
+from customized.unused_db_decomission.workflow.db_decommission import (
     create_decommission_workflow,
 )
 
