@@ -267,7 +267,7 @@ class StreamlitWorkflowUI:
         # Create actual database decommissioning steps
         steps = [
             ("Environment Validation", {"database_name": "postgres_air"}),
-            ("Repository Processing", {"target_repos": ["https://github.com/bprzybys-nc/postgres-sample-dbs"]}),
+            ("Repository Processing", {"target_repos": ["https://github.com/bprzybysz/postgres-sample-dbs"]}),
             ("Pattern Discovery", {"database_name": "postgres_air"}),
             ("Quality Assurance", {"validation_rules": "decommission_rules"}),
             ("Workflow Summary", {"generate_metrics": True})
@@ -283,7 +283,7 @@ class StreamlitWorkflowUI:
         st.session_state.real_workflow = True  # Flag to run real workflow
         
         # Log initial message
-        log_info(st.session_state.workflow_id, "🚀 **Database Decommissioning Workflow Started**\n\n- Database: `postgres_air`\n- Repository: `bprzybys-nc/postgres-sample-dbs`\n- Workflow ID: `{}`\n- Total steps: {}".format(
+        log_info(st.session_state.workflow_id, "🚀 **Database Decommissioning Workflow Started**\n\n- Database: `postgres_air`\n- Repository: `bprzybysz/postgres-sample-dbs`\n- Workflow ID: `{}`\n- Total steps: {}".format(
             st.session_state.workflow_id, len(steps)
         ))
         
@@ -308,9 +308,9 @@ class StreamlitWorkflowUI:
                     self.run_real_workflow_step(step)
                 else:
                     # Fallback to simulation
-                time.sleep(1)
-                step.status = WorkflowStatus.COMPLETED
-                step.output_data = {"status": "completed", "timestamp": datetime.now().isoformat()}
+                    time.sleep(1)
+                    step.status = WorkflowStatus.COMPLETED
+                    step.output_data = {"status": "completed", "timestamp": datetime.now().isoformat()}
                     log_info(st.session_state.workflow_id, f"✅ **Completed:** {step.name}")
                 
                 break
@@ -352,8 +352,8 @@ class StreamlitWorkflowUI:
                     repomix_client = RepomixMCPClient("mcp_config.json")
                     github_client = GitHubMCPClient("mcp_config.json")
                     
-                    repo_url = "https://github.com/bprzybys-nc/postgres-sample-dbs"
-                    repo_owner = "bprzybys-nc"
+                    repo_url = "https://github.com/bprzybysz/postgres-sample-dbs"
+                    repo_owner = "bprzybysz"
                     repo_name = "postgres-sample-dbs"
                     database_name = "postgres_air"
                     

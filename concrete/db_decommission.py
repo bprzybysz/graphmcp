@@ -103,18 +103,33 @@ class AgenticFileProcessor:
                         )
 
                     batch_results.append(FileProcessingResult(
-                        file_path=file_path, success=True, total_changes=changes_made, rules_applied=[]
+                        file_path=file_path, 
+                        source_type=self.source_classifier.classify_file(file_path, original_content).source_type,
+                        success=True, 
+                        total_changes=changes_made, 
+                        rules_applied=[]
                     ))
                 else:
                     # Agent did not return modifications for this file
                     batch_results.append(FileProcessingResult(
-                        file_path=file_path, success=True, total_changes=0, rules_applied=[]
+                        file_path=file_path, 
+                        source_type=self.source_classifier.classify_file(file_path, original_content).source_type,
+                        success=True, 
+                        total_changes=0, 
+                        rules_applied=[]
                     ))
             return batch_results
 
         except Exception as e:
             logger.error(f"Error invoking agent or processing response: {e}")
-            return [FileProcessingResult(file_path=f['file_path'], success=False, error=str(e)) for f in batch]  
+            return [FileProcessingResult(
+                file_path=f['file_path'], 
+                source_type=self.source_classifier.classify_file(f['file_path'], f.get('file_content', '')).source_type,
+                success=False, 
+                total_changes=0,
+                rules_applied=[],
+                error_message=str(e)
+            ) for f in batch]  
 
     async def process_files(self, files_to_process: List[Dict[str, str]], batch_size: int = 3) -> List[FileProcessingResult]:
         """Classify, batch, and process files using an agentic workflow."""

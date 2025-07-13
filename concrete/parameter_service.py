@@ -121,6 +121,10 @@ class ParameterService:
     
     def _load_environment(self):
         """Load environment variables from .env file."""
+        # First, load all system environment variables
+        for key, value in os.environ.items():
+            self.parameters[key] = value
+            
         env_path = Path(self.env_file)
         
         if env_path.exists():
