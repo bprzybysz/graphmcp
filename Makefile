@@ -32,35 +32,27 @@ help: ## Show this help message
 	@echo "$(CYAN)GraphMCP Framework - Build & Test Automation$(NC)"
 	@echo "$(YELLOW)=============================================$(NC)"
 	@echo ""
-	@echo "$(GREEN)Prerequisites:$(NC)"
-	@echo "  make install-uv    - Install uv package manager"
-	@echo "  make setup         - Initialize development environment"
-	@echo ""
-	@echo "$(GREEN)Development Workflow:$(NC)"
-	@echo "  make clean         - Clean build artifacts and cache"
+	@echo "$(GREEN)🚀 Quick Start:$(NC)"
 	@echo "  make setup         - Setup development environment"
+	@echo "  make demo          - Run demo (mock mode, fast)"
+	@echo "  make demo-real     - Run demo with live services"
+	@echo "  make test-all      - Run all tests"
+	@echo ""
+	@echo "$(GREEN)📦 Development:$(NC)"
+	@echo "  make clean         - Clean build artifacts"
 	@echo "  make lint          - Run code linting"
-	@echo "  make format        - Format code with black/ruff"
-	@echo "  make test-all      - Run all test suites"
+	@echo "  make format        - Format code"
 	@echo ""
-	@echo "$(GREEN)🚀 Complete Workflow:$(NC)"
-	@echo "  $(CYAN)make cmp$(NC)           - Run complete database decommissioning workflow"
-	@echo "  $(CYAN)make cmp DB=<name>$(NC) - Run workflow for specific database"
+	@echo "$(GREEN)🧪 Testing:$(NC)"
+	@echo "  make test-unit     - Unit tests"
+	@echo "  make test-integration - Integration tests"
+	@echo "  make test-e2e      - End-to-end tests"
 	@echo ""
-	@echo "$(GREEN)Testing Targets:$(NC)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		grep -E '(test|e2e)' | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(BLUE)%-25s$(NC) %s\n", $$1, $$2}'
-	@echo ""
-	@echo "$(GREEN)Process Management:$(NC)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		grep -E '(kill-|start-.+-8501|check-ports|restart-ui)' | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(CYAN)%-25s$(NC) %s\n", $$1, $$2}'
-	@echo ""
-	@echo "$(GREEN)Deployment:$(NC)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		grep -E '(deploy|mocked)' | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(MAGENTA)%-25s$(NC) %s\n", $$1, $$2}'
+	@echo "$(GREEN)🎯 Demo:$(NC)"
+	@echo "  make demo-mock     - Fast demo with cached data (~30s)"
+	@echo "  make demo-real     - Full demo with live services (~5min)"
+	@echo "  make demo-setup    - Setup demo environment"
+	@echo "  make demo-clean    - Clean demo cache"
 
 # =============================================================================
 # PREREQUISITES & SETUP
@@ -146,222 +138,42 @@ format: check-deps ## Format code with black and ruff
 # TESTING TARGETS
 # =============================================================================
 
-graphmcp-test-unit: check-deps ## Run comprehensive unit tests for GraphMCP framework
-	@echo "$(YELLOW)Running GraphMCP unit tests...$(NC)"
-	@if [ -f "$(TEST_PATH)/unit/test_builder_and_serialization.py" ]; then \
-		PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/unit/ \
-			--verbose \
-			--cov=$(SRC_PATH) \
-			--cov-report=term-missing \
-			--cov-report=html:htmlcov/unit \
-			--junit-xml=test-results-unit.xml \
-			-m "not e2e" \
-			--tb=short; \
-		echo "$(GREEN)✓ Unit tests completed$(NC)"; \
-	else \
-		echo "$(BLUE)ℹ NOP: Unit tests not yet implemented$(NC)"; \
-		echo "$(CYAN)  Placeholder: $(TEST_PATH)/unit/test_builder_and_serialization.py$(NC)"; \
-	fi
-
-graphmcp-test-integration: check-deps ## Run integration tests with mocked MCP servers
-	@echo "$(YELLOW)Running GraphMCP integration tests...$(NC)"
-	@if [ -f "$(TEST_PATH)/integration/test_workflow_execution.py" ]; then \
-		PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/integration/ \
-			--verbose \
-			--cov=$(SRC_PATH) \
-			--cov-report=term-missing \
-			--cov-report=html:htmlcov/integration \
-			--junit-xml=test-results-integration.xml \
-			-m "not e2e" \
-			--maxfail=5; \
-		echo "$(GREEN)✓ Integration tests completed$(NC)"; \
-	else \
-		echo "$(BLUE)ℹ NOP: Integration tests not yet implemented$(NC)"; \
-		echo "$(CYAN)  Placeholder: $(TEST_PATH)/integration/test_workflow_execution.py$(NC)"; \
-	fi
-
-dbdecomission-dev-e2e: check-deps ## Run partially mocked E2E tests for database decommissioning (development)
-	@echo "$(YELLOW)Running DB Decommission E2E tests (Development - Partially Mocked)...$(NC)"
-	@echo "$(CYAN)Mode: Initial steps + progressive unmocking as features stabilize$(NC)"
-	@if [ -f "$(TEST_PATH)/e2e/test_real_integration.py" ]; then \
-		MOCK_MODE=partial \
-		E2E_TESTS_ENABLED=true \
-		DB_DECOMMISSION_TEST=true \
-		$(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
-			--verbose \
-			-k "decommission or db_decommission" \
-			--junit-xml=test-results-e2e-dev.xml \
-			--tb=short \
-			--maxfail=3 \
-			--timeout=300; \
-		echo "$(GREEN)✓ Development E2E tests completed$(NC)"; \
-	else \
-		echo "$(BLUE)ℹ Partially mocked E2E test simulation...$(NC)"; \
-		echo "$(CYAN)  • Environment validation: ✓ MOCKED$(NC)"; \
-		echo "$(CYAN)  • Repository discovery: ✓ MOCKED$(NC)"; \
-		echo "$(CYAN)  • File pattern matching: ✓ MOCKED$(NC)"; \
-		echo "$(CYAN)  • Batch processing: ⚠ REAL (when ready)$(NC)"; \
-		echo "$(CYAN)  • PR creation: ⚠ REAL (when ready)$(NC)"; \
-		echo "$(CYAN)  • Slack notifications: ✓ MOCKED$(NC)"; \
-		echo "$(GREEN)✓ Development simulation complete$(NC)"; \
-	fi
-
-dbdecomission-demo-e2e: check-deps ## Run full E2E demonstration of database decommissioning workflow
-	@echo "$(YELLOW)Running DB Decommission E2E Demo (Full Workflow)...$(NC)"
-	@if [ -f "$(TEST_PATH)/e2e/test_real_integration.py" ]; then \
-		echo "$(CYAN)Note: Requires GITHUB_TOKEN and SLACK_BOT_TOKEN environment variables$(NC)"; \
-		MOCK_MODE=none \
-		E2E_TESTS_ENABLED=true \
-		$(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
-			--verbose \
-			-k "db_decommission_workflow_integration" \
-			--junit-xml=test-results-e2e-full.xml \
-			--tb=short \
-			--maxfail=1 \
-			--timeout=600; \
-		echo "$(GREEN)✓ Full E2E demo completed$(NC)"; \
-	else \
-		echo "$(BLUE)ℹ Full E2E test simulation...$(NC)"; \
-		echo "$(CYAN)  • Real GitHub fork/branch operations$(NC)"; \
-		echo "$(CYAN)  • Real repository analysis with Repomix$(NC)"; \
-		echo "$(CYAN)  • Real file modifications$(NC)"; \
-		echo "$(CYAN)  • Real PR creation$(NC)"; \
-		echo "$(CYAN)  • Real Slack notifications$(NC)"; \
-		echo "$(GREEN)✓ Demo simulation complete$(NC)"; \
-	fi
-
-# New comprehensive E2E test targets for individual MCP tools
-
-graphmcp-test-e2e-repomix: check-deps ## Test RepomixMCPClient with real repository packing
-	@echo "$(YELLOW)Testing RepomixMCPClient E2E...$(NC)"
-	@echo "$(CYAN)Note: Requires GITHUB_TOKEN for repository access$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
+test-unit: check-deps ## Run unit tests
+	@echo "$(YELLOW)Running unit tests...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/unit/ \
 		--verbose \
-		-k "repomix" \
-		-m "e2e" \
-		--junit-xml=test-results-e2e-repomix.xml \
-		--tb=short \
-		--timeout=180
-	@echo "$(GREEN)✓ RepomixMCPClient E2E tests completed$(NC)"
+		--cov=$(SRC_PATH) \
+		--cov-report=term-missing \
+		--cov-report=html:htmlcov/unit \
+		--junit-xml=test-results-unit.xml \
+		-m "not e2e" \
+		--tb=short
+	@echo "$(GREEN)✓ Unit tests completed$(NC)"
 
-graphmcp-test-e2e-github: check-deps ## Test GitHubMCPClient with real GitHub operations
-	@echo "$(YELLOW)Testing GitHubMCPClient E2E...$(NC)"
-	@echo "$(CYAN)Note: Requires GITHUB_TOKEN for GitHub API access$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
+test-integration: check-deps ## Run integration tests
+	@echo "$(YELLOW)Running integration tests...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/integration/ \
 		--verbose \
-		-k "github and not workflow" \
-		-m "e2e" \
-		--junit-xml=test-results-e2e-github.xml \
-		--tb=short \
-		--timeout=180
-	@echo "$(GREEN)✓ GitHubMCPClient E2E tests completed$(NC)"
-
-graphmcp-test-e2e-filesystem: check-deps ## Test FilesystemMCPClient with real file operations
-	@echo "$(YELLOW)Testing FilesystemMCPClient E2E...$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
-		--verbose \
-		-k "filesystem" \
-		-m "e2e" \
-		--junit-xml=test-results-e2e-filesystem.xml \
-		--tb=short \
-		--timeout=60
-	@echo "$(GREEN)✓ FilesystemMCPClient E2E tests completed$(NC)"
-
-graphmcp-test-e2e-slack: check-deps ## Test SlackMCPClient with real Slack workspace
-	@echo "$(YELLOW)Testing SlackMCPClient E2E...$(NC)"
-	@echo "$(CYAN)Note: Requires SLACK_BOT_TOKEN and SLACK_TEST_CHANNEL$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
-		--verbose \
-		-k "slack and not workflow" \
-		-m "e2e" \
-		--junit-xml=test-results-e2e-slack.xml \
-		--tb=short \
-		--timeout=60
-	@echo "$(GREEN)✓ SlackMCPClient E2E tests completed$(NC)"
-
-graphmcp-test-e2e-fork-ops: check-deps ## Test GitHub fork and branch operations with cleanup
-	@echo "$(YELLOW)Testing GitHub Fork & Branch Operations E2E...$(NC)"
-	@echo "$(CYAN)Note: Requires GITHUB_TOKEN and gh CLI tool$(NC)"
-	@echo "$(RED)Warning: This test creates and deletes GitHub forks$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
-		--verbose \
-		-k "fork_and_branch" \
-		-m "e2e" \
-		--junit-xml=test-results-e2e-fork-ops.xml \
-		--tb=short \
-		--timeout=300
-	@echo "$(GREEN)✓ GitHub fork operations E2E tests completed$(NC)"
-
-graphmcp-test-e2e-multi-client: check-deps ## Test multi-client coordination and integration
-	@echo "$(YELLOW)Testing Multi-Client Coordination E2E...$(NC)"
-	@echo "$(CYAN)Note: Requires GITHUB_TOKEN for comprehensive testing$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
-		--verbose \
-		-k "multi_client" \
-		-m "e2e" \
-		--junit-xml=test-results-e2e-multi-client.xml \
-		--tb=short \
-		--timeout=240
-	@echo "$(GREEN)✓ Multi-client coordination E2E tests completed$(NC)"
-
-graphmcp-test-e2e-all: check-deps ## Run all comprehensive E2E tests (requires all tokens)
-	@echo "$(YELLOW)Running ALL GraphMCP E2E Tests...$(NC)"
-	@echo "$(CYAN)Note: Requires GITHUB_TOKEN, SLACK_BOT_TOKEN, SLACK_TEST_CHANNEL$(NC)"
-	@echo "$(RED)Warning: This may create/delete GitHub forks and post Slack messages$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
-		--verbose \
-		-m "e2e" \
-		--junit-xml=test-results-e2e-all.xml \
-		--tb=short \
-		--timeout=600 \
+		--cov=$(SRC_PATH) \
+		--cov-report=term-missing \
+		--cov-report=html:htmlcov/integration \
+		--junit-xml=test-results-integration.xml \
+		-m "not e2e" \
 		--maxfail=5
-	@echo "$(GREEN)✓ All E2E tests completed$(NC)"
-	@echo "$(CYAN)Mode: Complete end-to-end demonstration$(NC)"
-	@if [ -z "$(GITHUB_TOKEN)" ] || [ -z "$(SLACK_BOT_TOKEN)" ]; then \
-		echo "$(RED)✗ Missing required environment variables:$(NC)"; \
-		echo "$(YELLOW)  GITHUB_TOKEN: $$(if [ -n "$(GITHUB_TOKEN)" ]; then echo "✓ Set"; else echo "✗ Missing"; fi)$(NC)"; \
-		echo "$(YELLOW)  SLACK_BOT_TOKEN: $$(if [ -n "$(SLACK_BOT_TOKEN)" ]; then echo "✓ Set"; else echo "✗ Missing"; fi)$(NC)"; \
-		echo "$(CYAN)Run with: GITHUB_TOKEN=xxx SLACK_BOT_TOKEN=xxx make dbdecomission-demo-e2e$(NC)"; \
-		exit 1; \
-	fi
-	@if [ -f "$(TEST_PATH)/e2e/test_real_integration.py" ]; then \
-		E2E_TESTS_ENABLED=true \
-		DB_DECOMMISSION_DEMO=true \
-		DEMO_DATABASE_NAME=periodic_table \
-		DEMO_REPO_URL=https://github.com/bprzybys-nc/postgres-sample-dbs \
-		$(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
-			--verbose \
-			-k "demo or full_workflow" \
-			--junit-xml=test-results-e2e-demo.xml \
-			--tb=short \
-			--timeout=600 \
-			--capture=no; \
-		echo "$(GREEN)✓ Demo E2E tests completed$(NC)"; \
-	else \
-		echo "$(BLUE)ℹ Demo E2E test simulation...$(NC)"; \
-		echo "$(CYAN)  Database: periodic_table$(NC)"; \
-		echo "$(CYAN)  Repository: bprzybys-nc/postgres-sample-dbs$(NC)"; \
-		echo "$(CYAN)  Steps:$(NC)"; \
-		echo "$(GREEN)    ✓ Environment validation$(NC)"; \
-		echo "$(GREEN)    ✓ Repository analysis$(NC)"; \
-		echo "$(GREEN)    ✓ Pattern discovery$(NC)"; \
-		echo "$(GREEN)    ✓ File processing$(NC)"; \
-		echo "$(GREEN)    ✓ PR creation$(NC)"; \
-		echo "$(GREEN)    ✓ Slack notification$(NC)"; \
-		echo "$(GREEN)✓ Demo simulation complete$(NC)"; \
-	fi
+	@echo "$(GREEN)✓ Integration tests completed$(NC)"
 
-test-all: graphmcp-test-unit graphmcp-test-integration dbdecomission-dev-e2e ## Run all test suites in sequence
-	@echo "$(GREEN)✓ All test suites completed$(NC)"
+test-e2e: check-deps ## Run end-to-end tests
+	@echo "$(YELLOW)Running E2E tests...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/pytest $(TEST_PATH)/e2e/ \
+		--verbose \
+		-m "e2e" \
+		--junit-xml=test-results-e2e.xml \
+		--tb=short \
+		--timeout=600
+	@echo "$(GREEN)✓ E2E tests completed$(NC)"
 
-test-all-with-e2e: check-deps ## Run complete test suite including comprehensive E2E tests (requires tokens)
-	@echo "$(YELLOW)Running complete test suite with comprehensive E2E...$(NC)"
-	@echo "$(CYAN)Note: This requires GITHUB_TOKEN, SLACK_BOT_TOKEN, and SLACK_TEST_CHANNEL$(NC)"
-	@$(MAKE) graphmcp-test-unit
-	@$(MAKE) graphmcp-test-integration
-	@$(MAKE) graphmcp-test-e2e-all
-	@$(MAKE) dbdecomission-demo-e2e
-	@echo "$(GREEN)✓ Complete test suite with E2E finished$(NC)"
+test-all: test-unit test-integration test-e2e ## Run all test suites
+	@echo "$(GREEN)✓ All tests completed$(NC)"
 
 # =============================================================================
 # DEPLOYMENT TARGETS (MOCKED - TBD)
@@ -564,8 +376,6 @@ quick-test: check-deps ## Run quick tests (unit only)
 	$(VENV_PATH)/bin/pytest $(TEST_PATH)/unit/ -x --tb=short --quiet
 	@echo "$(GREEN)✓ Quick tests completed$(NC)" 
 
-test-e2e:
-	.venv/bin/python -m pytest tests/e2e/test_real_integration.py -m e2e -v
 
 # =============================================================================
 # PREVIEW-MCP INTEGRATION
@@ -752,82 +562,28 @@ restart-ui: kill-all start-demo-8501 ## Full restart: kill all processes and sta
 	@echo "$(GREEN)✓ Full restart completed - Demo running on port 8501$(NC)"
 
 # =============================================================================
-# GRAPHMCP WORKFLOW DEMO TARGETS
+# DEMO TARGETS
 # =============================================================================
 
-demo: demo-mock ## Run GraphMCP demo in mock mode (default for fast iteration)
+demo: demo-mock ## Run demo in mock mode (default - fast)
 
-demo-mock: check-deps ## Run GraphMCP workflow demo in mock mode using cached data
-	@echo "$(YELLOW)Running GraphMCP Workflow Demo - Mock Mode$(NC)"
-	@echo "$(CYAN)Features:$(NC)"
-	@echo "  📁 Uses cached repository data for fast iteration"
-	@echo "  🚀 WorkflowBuilder pattern demonstration"
-	@echo "  🔍 Pattern discovery with cached results"
-	@echo "  ⚡ Executes in 30-60 seconds"
-	@echo ""
-	@echo "$(GREEN)Starting mock mode demo...$(NC)"
+demo-mock: check-deps ## Run demo using cached data (fast, ~30s)
+	@echo "$(YELLOW)🚀 GraphMCP Demo - Mock Mode$(NC)"
+	@echo "$(CYAN)  📁 Cached data • ⚡ 30-60s execution • 🔄 Pattern replay$(NC)"
 	PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --mock
 
-demo-real: check-deps ## Run GraphMCP workflow demo in real mode using live MCP services
-	@echo "$(YELLOW)Running GraphMCP Workflow Demo - Real Mode$(NC)"
-	@echo "$(CYAN)Features:$(NC)"
-	@echo "  🌐 Fetches live repository data via Repomix MCP"
-	@echo "  🔍 Real-time pattern discovery and analysis"
-	@echo "  💾 Caches results for future mock mode execution"
-	@echo "  ⏱️ May take 5-10 minutes for full execution"
-	@echo ""
-	@echo "$(GREEN)Starting real mode demo...$(NC)"
+demo-real: check-deps ## Run demo with live MCP services (real, ~5-10min)
+	@echo "$(YELLOW)🚀 GraphMCP Demo - Real Mode$(NC)"
+	@echo "$(CYAN)  🌐 Live services • 📊 Real analysis • 🔀 Actual PR creation$(NC)"
 	PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --real
 
-demo-quick: check-deps ## Run GraphMCP workflow demo in real mode with quick execution
-	@echo "$(YELLOW)Running GraphMCP Workflow Demo - Quick Real Mode$(NC)"
-	@echo "$(CYAN)Features:$(NC)"
-	@echo "  🚀 Optimized for faster execution"
-	@echo "  🌐 Uses live MCP services but with reduced scope"
-	@echo "  💾 Still caches results for future use"
-	@echo ""
-	@echo "$(GREEN)Starting quick real mode demo...$(NC)"
-	PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --real --quick
-
-demo-setup: check-deps ## Setup demo environment and populate default cache
-	@echo "$(YELLOW)Setting up GraphMCP Demo Environment$(NC)"
-	@echo "$(CYAN)Tasks:$(NC)"
-	@echo "  📁 Creating cache directories"
-	@echo "  💾 Populating default cache data"
-	@echo "  🔧 Validating demo configuration"
-	@echo ""
+demo-setup: check-deps ## Setup demo environment and cache
+	@echo "$(YELLOW)Setting up demo environment...$(NC)"
 	@mkdir -p tests/data
-	@echo "$(GREEN)✓ Cache directory created$(NC)"
 	PYTHONPATH=. $(VENV_PATH)/bin/python -c "import asyncio; from demo.cache import DemoCache; from demo.config import DemoConfig; asyncio.run(DemoCache(DemoConfig.for_mock_mode()).populate_default_cache())"
-	@echo "$(GREEN)✓ Demo environment setup complete$(NC)"
-	@echo "$(CYAN)You can now run: make demo$(NC)"
+	@echo "$(GREEN)✓ Demo ready - run 'make demo'$(NC)"
 
-demo-clean: ## Clean demo cache and reset environment
+demo-clean: ## Clean demo cache
 	@echo "$(YELLOW)Cleaning demo cache...$(NC)"
-	rm -rf tests/data/postgres_air_*.xml
-	rm -rf tests/data/postgres_air_*.json
-	@echo "$(GREEN)✓ Demo cache cleaned$(NC)"
-
-demo-info: ## Show demo configuration and cache status
-	@echo "$(YELLOW)GraphMCP Demo Information$(NC)"
-	@echo "$(CYAN)===============================$(NC)"
-	@echo ""
-	@echo "$(GREEN)Available Demo Commands:$(NC)"
-	@echo "  make demo         - Run demo in mock mode (fast)"
-	@echo "  make demo-mock    - Run demo using cached data"
-	@echo "  make demo-real    - Run demo with live MCP services"
-	@echo "  make demo-quick   - Run demo in quick real mode"
-	@echo "  make demo-setup   - Setup demo environment"
-	@echo "  make demo-clean   - Clean demo cache"
-	@echo ""
-	@echo "$(GREEN)Demo Features:$(NC)"
-	@echo "  🏗️  WorkflowBuilder pattern implementation"
-	@echo "  🔄 Record-and-replay caching system"
-	@echo "  📊 Pattern discovery and analysis"
-	@echo "  🎯 Database decommissioning workflow"
-	@echo ""
-	@if [ -f "tests/data/postgres_air_mock_repo_pack.xml" ]; then \
-		echo "$(GREEN)Cache Status: ✅ Ready$(NC)"; \
-	else \
-		echo "$(YELLOW)Cache Status: ⚠️  Not populated - run 'make demo-setup'$(NC)"; \
-	fi 
+	rm -rf tests/data/postgres_air_*.xml tests/data/postgres_air_*.json
+	@echo "$(GREEN)✓ Cache cleaned$(NC)" 

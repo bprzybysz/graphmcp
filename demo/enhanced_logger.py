@@ -313,7 +313,7 @@ class EnhancedDemoLogger:
     
     def log_git_diff(self, file_path: str, diff_content: str, additions: int = 0, deletions: int = 0):
         """
-        Log a nicely formatted git diff for a file.
+        Log a nicely formatted git diff for a file with Rich styling.
         
         Args:
             file_path: Path to the file
@@ -321,10 +321,33 @@ class EnhancedDemoLogger:
             additions: Number of additions
             deletions: Number of deletions
         """
-        print(f"\n📝 Updated {self._truncate_path(file_path, 60)}")
+        if not RICH_AVAILABLE or not self.console:
+            # Fallback to simple print without colors
+            print(f"\nUpdated {self._truncate_path(file_path, 60)}")
+            if additions > 0 or deletions > 0:
+                print(f"   {additions} additions, {deletions} deletions")
+            print("-" * 70)
+            
+            if diff_content.strip():
+                lines = diff_content.split('\n')
+                for line in lines:
+                    if line.startswith('+++') or line.startswith('---'):
+                        continue
+                    elif line.startswith('@@'):
+                        print(f"   {line}")
+                    elif line.startswith('+'):
+                        print(f"   + {line[1:]}")
+                    elif line.startswith('-'):
+                        print(f"   - {line[1:]}")
+                    else:
+                        print(f"      {line}")
+            return
+        
+        # Rich formatting with background colors
+        self.console.print(f"\nUpdated [cyan]{self._truncate_path(file_path, 60)}[/cyan]")
         if additions > 0 or deletions > 0:
-            print(f"   📊 {additions} additions, {deletions} deletions")
-        print("-" * 70)
+            self.console.print(f"   [dim]{additions} additions, {deletions} deletions[/dim]")
+        self.console.print("-" * 70)
         
         if diff_content.strip():
             lines = diff_content.split('\n')
@@ -332,15 +355,17 @@ class EnhancedDemoLogger:
                 if line.startswith('+++') or line.startswith('---'):
                     continue  # Skip file headers
                 elif line.startswith('@@'):
-                    print(f"   📍 {line}")
+                    self.console.print(f"   [blue]{line}[/blue]")
                 elif line.startswith('+'):
-                    print(f"   🟢 {line}")
+                    # Green background for additions
+                    self.console.print(f"   [green on dark_green]{line}[/green on dark_green]")
                 elif line.startswith('-'):
-                    print(f"   🔴 {line}")
+                    # Red background for deletions  
+                    self.console.print(f"   [red on dark_red]{line}[/red on dark_red]")
                 else:
-                    print(f"      {line}")
+                    self.console.print(f"      [dim]{line}[/dim]")
         else:
-            print("   (No changes to display)")
+            self.console.print("   [dim](No changes to display)[/dim]")
     
     def log_batch_processing_status(self, batch_id: str, files_processed: int, total_files: int, 
                                     duration: float, errors: int = 0):
@@ -387,6 +412,107 @@ class EnhancedDemoLogger:
         
         self.console.print(panel)
     
+    def log_batch_file_results(self, files_processed: List[Dict[str, Any]], batch_name: str = "Batch Processing Results"):
+        """
+        Log detailed results for each file in a batch, including files with no changes.
+        
+        Args:
+            files_processed: List of file processing results with status info
+            batch_name: Name of the batch being processed
+        """
+        if not RICH_AVAILABLE or not self.console:
+            # Fallback to simple print
+            self.print_subsection_header(batch_name, "📊")
+            if not files_processed:
+                print("   No files processed.")
+                return
+            for i, file_result in enumerate(files_processed, 1):
+                status = file_result.get('status', 'unknown')
+                status_emoji = "✅" if status == "modified" else "➖" if status == "no_changes" else "❌" if status == "error" else "❓"
+                print(f"{i}. {status_emoji} {file_result.get('file_path', 'Unknown')} - {status}")
+            return
+        
+        if not files_processed:
+            self.console.print(f"\n📊 {batch_name}")
+            self.console.print("   No files processed.")
+            return
+        
+        # Create Rich table for file results
+        table = Table(title=f"📊 {batch_name}", show_header=True, header_style="bold blue")
+        table.add_column("#", style="dim", width=3)
+        table.add_column("File Path", style="cyan", min_width=30)
+        table.add_column("Status", style="white", justify="center")
+        table.add_column("Changes", style="yellow", justify="right")
+        table.add_column("Duration", style="blue", justify="right")
+        table.add_column("Details", style="dim")
+        
+        # Add rows for each file
+        for i, file_result in enumerate(files_processed, 1):
+            file_path = file_result.get('file_path', 'Unknown')
+            status = file_result.get('status', 'unknown')
+            changes_count = file_result.get('changes_count', 0)
+            duration = file_result.get('duration_ms', 0)
+            error_msg = file_result.get('error', '')
+            
+            # Status with color and emoji
+            if status == "modified":
+                status_display = "[green]✅ Modified[/green]"
+            elif status == "no_changes":
+                status_display = "[blue]➖ No changes[/blue]"
+            elif status == "error":
+                status_display = "[red]❌ Error[/red]"
+            elif status == "skipped":
+                status_display = "[yellow]⏭️ Skipped[/yellow]"
+            else:
+                status_display = "[dim]❓ Unknown[/dim]"
+            
+            # Format changes
+            changes_display = str(changes_count) if changes_count > 0 else "-"
+            
+            # Format duration
+            if duration > 1000:
+                duration_display = f"{duration/1000:.1f}s"
+            elif duration > 0:
+                duration_display = f"{duration}ms"
+            else:
+                duration_display = "-"
+            
+            # Details (error message or file size)
+            details = error_msg[:30] + "..." if error_msg and len(error_msg) > 30 else error_msg
+            if not details and 'file_size' in file_result:
+                details = self._format_file_size(file_result['file_size'])
+            
+            truncated_path = self._truncate_path(file_path, 40)
+            
+            table.add_row(
+                str(i),
+                truncated_path,
+                status_display,
+                changes_display,
+                duration_display,
+                details or "-"
+            )
+        
+        self.console.print(table)
+        
+        # Summary statistics
+        total_files = len(files_processed)
+        modified_count = len([f for f in files_processed if f.get('status') == 'modified'])
+        no_changes_count = len([f for f in files_processed if f.get('status') == 'no_changes'])
+        error_count = len([f for f in files_processed if f.get('status') == 'error'])
+        skipped_count = len([f for f in files_processed if f.get('status') == 'skipped'])
+        total_changes = sum(f.get('changes_count', 0) for f in files_processed)
+        
+        summary_text = f"""[bold]📈 Summary:[/bold] [cyan]{total_files}[/cyan] files processed
+[green]✅ Modified:[/green] {modified_count} ([yellow]{total_changes}[/yellow] total changes)
+[blue]➖ No changes:[/blue] {no_changes_count}
+[yellow]⏭️ Skipped:[/yellow] {skipped_count}"""
+        
+        if error_count > 0:
+            summary_text += f"\n[red]❌ Errors:[/red] {error_count}"
+        
+        self.console.print(f"\n{summary_text}")
+
     def log_workflow_summary(self, total_duration: float, steps_completed: int, 
                             total_steps: int, success_rate: float):
         """
@@ -449,12 +575,67 @@ def create_sample_refactoring_groups() -> List[RefactoringGroup]:
 
 
 def create_sample_agent_params(mode: str = "mock") -> AgentParameters:
-    """Create sample agent parameters for demo purposes."""
+    """Create sample agent parameters optimized for database decommissioning refactoring."""
     return AgentParameters(
         mode=mode,
-        model_name="gpt-4-turbo-preview" if mode == "real" else "mock-model",
-        temperature=0.1,
-        max_tokens=4000,
+        model_name="gpt-4-nano" if mode == "real" else "mock-model",
+        temperature=0.2,  # Slightly higher for creative refactoring solutions but still conservative
+        max_tokens=8000,  # Increased for comprehensive database analysis and planning
         response_format="json_object",
-        prompt_type="contextual_refactoring"
+        prompt_type="database_decommissioning_refactoring"
     )
+
+
+def create_sample_batch_results() -> List[Dict[str, Any]]:
+    """Create sample batch file processing results for demo purposes."""
+    return [
+        {
+            "file_path": "src/config/database.py",
+            "status": "modified",
+            "changes_count": 3,
+            "duration_ms": 1250,
+            "file_size": 2048
+        },
+        {
+            "file_path": "sql/migrations/001_initial.sql", 
+            "status": "modified",
+            "changes_count": 8,
+            "duration_ms": 2100,
+            "file_size": 4096
+        },
+        {
+            "file_path": "tests/test_database.py",
+            "status": "no_changes",
+            "changes_count": 0,
+            "duration_ms": 450,
+            "file_size": 1536
+        },
+        {
+            "file_path": "docker-compose.yml",
+            "status": "modified", 
+            "changes_count": 1,
+            "duration_ms": 780,
+            "file_size": 1024
+        },
+        {
+            "file_path": "README.md",
+            "status": "no_changes",
+            "changes_count": 0,
+            "duration_ms": 320,
+            "file_size": 8192
+        },
+        {
+            "file_path": "config/invalid_file.json",
+            "status": "error",
+            "changes_count": 0,
+            "duration_ms": 150,
+            "error": "File not found or invalid JSON format"
+        },
+        {
+            "file_path": "docs/legacy_setup.md",
+            "status": "skipped",
+            "changes_count": 0,
+            "duration_ms": 0,
+            "file_size": 512
+        }
+    ]

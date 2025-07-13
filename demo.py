@@ -21,6 +21,10 @@ import sys
 import logging
 import os
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging for demo
 logging.basicConfig(
@@ -154,8 +158,14 @@ async def run_demo(database_name: str, mode: str = "real", quick_mode: bool = Fa
         print("✅ Rule compliance validated")
         print("✅ Service integrity confirmed")
         
-        # Step 4: Results summary
-        print_step_separator(4, "Workflow Summary", "30 seconds")
+        # Step 4: Pull request creation
+        print_step_separator(4, "Pull Request Creation", "1 minute" if mode == "mock" else "2 minutes")
+        print("🔀 Creating pull request with refactoring changes...")
+        print("🌿 Creating feature branch for database decommissioning...")
+        print("📋 Generating comprehensive PR description...")
+        
+        # Step 5: Results summary
+        print_step_separator(5, "Workflow Summary", "30 seconds")
         print("📊 Compiling metrics and performance data...")
         print("📋 Generating audit logs...")
         
@@ -193,6 +203,7 @@ async def run_demo(database_name: str, mode: str = "real", quick_mode: bool = Fa
             repo_result = result.step_results.get('get_repo', {})
             patterns_result = result.step_results.get('discover_patterns', {})
             refactoring_result = result.step_results.get('generate_refactoring', {})
+            pr_result = result.step_results.get('create_pull_request', {})
             
             if repo_result and isinstance(repo_result, dict):
                 print(f"\n📊 Repository Processing Results:")
@@ -213,6 +224,14 @@ async def run_demo(database_name: str, mode: str = "real", quick_mode: bool = Fa
                     print(f"  📋 Approach: {plan.get('recommended_approach', 'N/A')}")
                     print(f"  📄 Estimated Files: {plan.get('estimated_files', 0)}")
                     print(f"  🔢 Patterns to Refactor: {plan.get('patterns_to_refactor', 0)}")
+                    
+            if pr_result and isinstance(pr_result, dict):
+                print(f"\n🔀 Pull Request Results:")
+                print(f"  📋 Title: {pr_result.get('title', 'N/A')}")
+                print(f"  🌿 Branch: {pr_result.get('branch_name', 'N/A')}")
+                print(f"  🔗 URL: {pr_result.get('pr_url', 'N/A')}")
+                print(f"  📁 Files Changed: {pr_result.get('files_changed', 0)}")
+                print(f"  ✅ Status: {pr_result.get('status', 'N/A')}")
         
         # Success message
         print("🎉 DEMO COMPLETED SUCCESSFULLY!")

@@ -3,11 +3,7 @@
 BEING IMPLEMENTED IF NOT IMPLEMENTED ALREADY
 
 
-Detailed logging including (visually appealing ):
-listing hit files in table with how many hits 
-refac groups with files listed below 
-indication of refac agent uses prompting shorted mock/real, which model used with important 2-3 params 
-after each batch processed git diff (ncioel;y formatted) for each file
+ok so lets 
 
 
 ## EXAMPLES:
