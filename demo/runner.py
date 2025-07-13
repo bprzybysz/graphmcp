@@ -13,6 +13,10 @@ from pathlib import Path
 from workflows.builder import WorkflowBuilder, WorkflowResult
 from .config import DemoConfig
 from .cache import DemoCache
+from .enhanced_logger import (
+    EnhancedDemoLogger, FileHit, RefactoringGroup, AgentParameters,
+    create_sample_file_hits, create_sample_refactoring_groups, create_sample_agent_params
+)
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +134,7 @@ async def discover_database_patterns_step(context: Any, step: Any, **kwargs) -> 
         raise ValueError("DemoConfig is required in kwargs")
         
     cache = DemoCache(config)
+    enhanced_logger = kwargs.get('enhanced_logger')
     
     logger.info(f"Discovering patterns for database: {config.target_database}")
     
@@ -138,12 +143,22 @@ async def discover_database_patterns_step(context: Any, step: Any, **kwargs) -> 
     if not repo_result:
         raise ValueError("Repository data not available from previous step")
     
+    # Display agent parameters
+    if enhanced_logger:
+        agent_params = create_sample_agent_params(config.mode)
+        enhanced_logger.log_agent_parameters(agent_params, "Pattern Discovery Agent Configuration")
+    
     if config.is_mock_mode:
         # Load patterns from cache
         logger.info("Loading pattern discovery from cache (mock mode)")
         patterns_data = cache.load_patterns_cache()
         if patterns_data is None:
             raise ValueError("Mock mode requested but no cached patterns found")
+        
+        # Display file hits table with enhanced logging
+        if enhanced_logger:
+            file_hits = create_sample_file_hits()
+            enhanced_logger.log_file_hits_table(file_hits, "Database Pattern Discovery Results")
         
         return {
             "status": "loaded_from_cache", 
@@ -166,6 +181,11 @@ async def discover_database_patterns_step(context: Any, step: Any, **kwargs) -> 
             "total_files_scanned": 42,
             "timestamp": time.time(),
         }
+        
+        # Display file hits table with enhanced logging
+        if enhanced_logger:
+            file_hits = create_sample_file_hits()
+            enhanced_logger.log_file_hits_table(file_hits, "Database Pattern Discovery Results")
         
         # Cache the result
         cache.save_patterns_cache(patterns_data)
@@ -195,6 +215,8 @@ async def generate_refactoring_plan_step(context: Any, step: Any, **kwargs) -> D
     if config is None:
         raise ValueError("DemoConfig is required in kwargs")
     
+    enhanced_logger = kwargs.get('enhanced_logger')
+    
     logger.info("Generating refactoring plan")
     
     # Get patterns from previous step
@@ -203,6 +225,28 @@ async def generate_refactoring_plan_step(context: Any, step: Any, **kwargs) -> D
         raise ValueError("Pattern data not available from previous step")
     
     patterns_count = patterns_result.get("patterns_found", 0)
+    
+    # Display refactoring groups with enhanced logging
+    if enhanced_logger:
+        refactoring_groups = create_sample_refactoring_groups()
+        enhanced_logger.log_refactoring_groups(refactoring_groups, "Refactoring Plan by Groups")
+        
+        # Simulate batch processing with git diffs
+        enhanced_logger.print_subsection_header("Batch Processing Results", "⚙️")
+        enhanced_logger.log_batch_processing_status("batch_1", 4, 4, 12.5, 0)
+        
+        # Show sample git diffs
+        sample_diff = """@@ -2,7 +2,7 @@
+ import os
+ 
+ # Database configuration
+-DATABASE_URL = "postgresql://user:pass@localhost/postgres_air"
+-DB_NAME = "postgres_air"
++DATABASE_URL = "postgresql://user:pass@localhost/example_db"
++DB_NAME = "example_db"
+ 
+ def get_connection():"""
+        enhanced_logger.log_git_diff("src/config/database.py", sample_diff, 2, 2)
     
     # Generate refactoring plan
     refactoring_plan = {
@@ -237,6 +281,10 @@ async def run_demo_workflow(config: DemoConfig) -> WorkflowResult:
     logger.info(f"Starting GraphMCP demo workflow in {config.mode} mode")
     logger.info(f"Target: {config.target_database} in {config.target_repo}")
     
+    # Create enhanced logger for visually appealing output
+    enhanced_logger = EnhancedDemoLogger(f"GraphMCP Demo - {config.target_database}")
+    enhanced_logger.print_section_header("GraphMCP Database Decommissioning Workflow", "🚀")
+    
     # Create workflow using WorkflowBuilder
     builder = WorkflowBuilder(
         name="GraphMCP Database Decommissioning Demo",
@@ -252,21 +300,21 @@ async def run_demo_workflow(config: DemoConfig) -> WorkflowResult:
         default_retry_count=2
     )
     
-    # Add workflow steps
+    # Add workflow steps with enhanced logger parameter
     workflow = (builder
         .custom_step(
             "validate_env", 
             "Validate Environment",
             validate_environment_step,
             description="Validate demo environment and prerequisites",
-            parameters={"config": config}
+            parameters={"config": config, "enhanced_logger": enhanced_logger}
         )
         .custom_step(
             "get_repo",
             "Get Repository Pack", 
             get_repository_pack_step,
             description="Get repository pack data from cache or live service",
-            parameters={"config": config},
+            parameters={"config": config, "enhanced_logger": enhanced_logger},
             depends_on=["validate_env"]
         )
         .custom_step(
@@ -274,7 +322,7 @@ async def run_demo_workflow(config: DemoConfig) -> WorkflowResult:
             "Discover Database Patterns",
             discover_database_patterns_step, 
             description="Discover database usage patterns in repository",
-            parameters={"config": config},
+            parameters={"config": config, "enhanced_logger": enhanced_logger},
             depends_on=["get_repo"]
         )
         .custom_step(
@@ -282,7 +330,7 @@ async def run_demo_workflow(config: DemoConfig) -> WorkflowResult:
             "Generate Refactoring Plan",
             generate_refactoring_plan_step,
             description="Generate refactoring plan based on patterns",
-            parameters={"config": config},
+            parameters={"config": config, "enhanced_logger": enhanced_logger},
             depends_on=["discover_patterns"]
         )
         .build()
@@ -290,7 +338,17 @@ async def run_demo_workflow(config: DemoConfig) -> WorkflowResult:
     
     # Execute workflow
     logger.info("Executing workflow...")
+    start_time = time.time()
     result = await workflow.execute()
+    total_duration = time.time() - start_time
+    
+    # Display enhanced workflow summary
+    enhanced_logger.log_workflow_summary(
+        total_duration=total_duration,
+        steps_completed=result.steps_completed,
+        total_steps=result.steps_completed + result.steps_failed,
+        success_rate=result.success_rate
+    )
     
     logger.info(f"Workflow completed with status: {result.status}")
     logger.info(f"Duration: {result.duration_seconds:.2f}s")

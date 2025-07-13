@@ -1,17 +1,14 @@
 ## FEATURE: Working GraphMCP Workflow Demo
 
-Build a functional demonstration of the GraphMCP workflow system using the database decommission workflow. Core goals:
+BEING IMPLEMENTED IF NOT IMPLEMENTED ALREADY
 
-1. **Clean up existing demo.py**: Refactor db decommission workflow without breaking functionality
-2. **Record-and-replay**: Run workflow once with real data, serialize results to `tests/data/` for fast iteration
-3. **Basic workflow execution**: Environment validation → repo processing → pattern discovery → refactoring
-4. **Target case**: Repository `https://github.com/bprzybysz/postgres-sample-dbs`, database `postgres_air`
 
-**Key Requirements:**
-- Use WorkflowBuilder from `workflows/builder.py`
-- Use WorkflowContext for data sharing between steps
-- Support mock mode (using cached data) and real mode
-- Basic logging for progress tracking
+Detailed logging including (visually appealing ):
+listing hit files in table with how many hits 
+refac groups with files listed below 
+indication of refac agent uses prompting shorted mock/real, which model used with important 2-3 params 
+after each batch processed git diff (ncioel;y formatted) for each file
+
 
 ## EXAMPLES:
 

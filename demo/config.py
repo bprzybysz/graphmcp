@@ -62,7 +62,7 @@ class DemoConfig:
             DemoConfig instance with environment values
         """
         return cls(
-            mode=os.getenv('DEMO_MODE', 'mock'),
+            mode=os.getenv('DEMO_MODE', 'real'),
             target_repo=os.getenv(
                 'TARGET_REPO', 
                 'https://github.com/bprzybysz/postgres-sample-dbs'

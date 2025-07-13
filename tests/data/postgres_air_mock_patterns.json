@@ -1,0 +1,29 @@
+{
+  "database": "postgres_air",
+  "patterns": [
+    {
+      "type": "connection_string",
+      "file": "src/config/database.py",
+      "line": 2,
+      "pattern": "postgresql://user:pass@localhost/postgres_air",
+      "confidence": 0.95
+    },
+    {
+      "type": "sql_query",
+      "file": "sql/queries.sql",
+      "line": 2,
+      "pattern": "SELECT * FROM postgres_air.users",
+      "confidence": 0.9
+    },
+    {
+      "type": "environment_variable",
+      "file": "docker-compose.yml",
+      "line": 6,
+      "pattern": "POSTGRES_DB: postgres_air",
+      "confidence": 0.85
+    }
+  ],
+  "total_files_scanned": 3,
+  "scan_duration": 1.5,
+  "timestamp": 1752430955.712023
+}

@@ -1,0 +1,17 @@
+{
+  "database": "postgres_air",
+  "patterns": [
+    {
+      "type": "sql_query",
+      "file": "example.sql",
+      "line": 10
+    },
+    {
+      "type": "connection_string",
+      "file": "config.py",
+      "line": 25
+    }
+  ],
+  "total_files_scanned": 42,
+  "timestamp": 1752432858.711047
+}

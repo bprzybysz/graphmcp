@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<repository url="https://github.com/bprzybysz/postgres-sample-dbs">
+    <file path="src/config/database.py">
+        <content>
+# Database configuration
+DATABASE_URL = "postgresql://user:pass@localhost/postgres_air"
+        </content>
+    </file>
+    <file path="sql/queries.sql">
+        <content>
+-- Sample SQL queries for postgres_air
+SELECT * FROM postgres_air.users;
+        </content>
+    </file>
+    <file path="docker-compose.yml">
+        <content>
+version: '3.8'
+services:
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: postgres_air
+        </content>
+    </file>
+</repository>

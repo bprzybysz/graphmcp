@@ -34,10 +34,11 @@ class DemoCache:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize AsyncCache for performance optimization
+        from concrete.performance_optimization import AsyncCache, CacheStrategy
         self.async_cache = AsyncCache(
-            strategy="disk",
+            strategy=CacheStrategy.DISK,
             cache_dir=str(self.cache_dir),
-            ttl_seconds=config.cache_ttl
+            default_ttl=config.cache_ttl
         )
     
     def _get_cache_key(self, data_type: str) -> str:
