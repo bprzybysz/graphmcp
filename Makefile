@@ -749,4 +749,85 @@ check-ports: ## Show which ports are in use by GraphMCP processes
 	done
 
 restart-ui: kill-all start-demo-8501 ## Full restart: kill all processes and start fresh demo on 8501
-	@echo "$(GREEN)✓ Full restart completed - Demo running on port 8501$(NC)" 
+	@echo "$(GREEN)✓ Full restart completed - Demo running on port 8501$(NC)"
+
+# =============================================================================
+# GRAPHMCP WORKFLOW DEMO TARGETS
+# =============================================================================
+
+demo: demo-mock ## Run GraphMCP demo in mock mode (default for fast iteration)
+
+demo-mock: check-deps ## Run GraphMCP workflow demo in mock mode using cached data
+	@echo "$(YELLOW)Running GraphMCP Workflow Demo - Mock Mode$(NC)"
+	@echo "$(CYAN)Features:$(NC)"
+	@echo "  📁 Uses cached repository data for fast iteration"
+	@echo "  🚀 WorkflowBuilder pattern demonstration"
+	@echo "  🔍 Pattern discovery with cached results"
+	@echo "  ⚡ Executes in 30-60 seconds"
+	@echo ""
+	@echo "$(GREEN)Starting mock mode demo...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --mock
+
+demo-real: check-deps ## Run GraphMCP workflow demo in real mode using live MCP services
+	@echo "$(YELLOW)Running GraphMCP Workflow Demo - Real Mode$(NC)"
+	@echo "$(CYAN)Features:$(NC)"
+	@echo "  🌐 Fetches live repository data via Repomix MCP"
+	@echo "  🔍 Real-time pattern discovery and analysis"
+	@echo "  💾 Caches results for future mock mode execution"
+	@echo "  ⏱️ May take 5-10 minutes for full execution"
+	@echo ""
+	@echo "$(GREEN)Starting real mode demo...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --real
+
+demo-quick: check-deps ## Run GraphMCP workflow demo in real mode with quick execution
+	@echo "$(YELLOW)Running GraphMCP Workflow Demo - Quick Real Mode$(NC)"
+	@echo "$(CYAN)Features:$(NC)"
+	@echo "  🚀 Optimized for faster execution"
+	@echo "  🌐 Uses live MCP services but with reduced scope"
+	@echo "  💾 Still caches results for future use"
+	@echo ""
+	@echo "$(GREEN)Starting quick real mode demo...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --real --quick
+
+demo-setup: check-deps ## Setup demo environment and populate default cache
+	@echo "$(YELLOW)Setting up GraphMCP Demo Environment$(NC)"
+	@echo "$(CYAN)Tasks:$(NC)"
+	@echo "  📁 Creating cache directories"
+	@echo "  💾 Populating default cache data"
+	@echo "  🔧 Validating demo configuration"
+	@echo ""
+	@mkdir -p tests/data
+	@echo "$(GREEN)✓ Cache directory created$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python -c "import asyncio; from demo.cache import DemoCache; from demo.config import DemoConfig; asyncio.run(DemoCache(DemoConfig.for_mock_mode()).populate_default_cache())"
+	@echo "$(GREEN)✓ Demo environment setup complete$(NC)"
+	@echo "$(CYAN)You can now run: make demo$(NC)"
+
+demo-clean: ## Clean demo cache and reset environment
+	@echo "$(YELLOW)Cleaning demo cache...$(NC)"
+	rm -rf tests/data/postgres_air_*.xml
+	rm -rf tests/data/postgres_air_*.json
+	@echo "$(GREEN)✓ Demo cache cleaned$(NC)"
+
+demo-info: ## Show demo configuration and cache status
+	@echo "$(YELLOW)GraphMCP Demo Information$(NC)"
+	@echo "$(CYAN)===============================$(NC)"
+	@echo ""
+	@echo "$(GREEN)Available Demo Commands:$(NC)"
+	@echo "  make demo         - Run demo in mock mode (fast)"
+	@echo "  make demo-mock    - Run demo using cached data"
+	@echo "  make demo-real    - Run demo with live MCP services"
+	@echo "  make demo-quick   - Run demo in quick real mode"
+	@echo "  make demo-setup   - Setup demo environment"
+	@echo "  make demo-clean   - Clean demo cache"
+	@echo ""
+	@echo "$(GREEN)Demo Features:$(NC)"
+	@echo "  🏗️  WorkflowBuilder pattern implementation"
+	@echo "  🔄 Record-and-replay caching system"
+	@echo "  📊 Pattern discovery and analysis"
+	@echo "  🎯 Database decommissioning workflow"
+	@echo ""
+	@if [ -f "tests/data/postgres_air_mock_repo_pack.xml" ]; then \
+		echo "$(GREEN)Cache Status: ✅ Ready$(NC)"; \
+	else \
+		echo "$(YELLOW)Cache Status: ⚠️  Not populated - run 'make demo-setup'$(NC)"; \
+	fi 
