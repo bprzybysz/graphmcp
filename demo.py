@@ -26,14 +26,8 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Configure logging for demo
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+# Import new structured logging system
+from graphmcp.logging import get_logger, configure_cli_logging
 
 # Import the new demo workflow runner
 from demo.runner import run_demo_workflow, run_quick_demo, run_live_demo
@@ -94,10 +88,22 @@ def print_troubleshooting_guide():
     print("  • Use --verbose flag for detailed output")
     print()
 
-async def run_demo(database_name: str, mode: str = "real", quick_mode: bool = False, cache_dir: str = "tests/data"):
+async def run_demo(database_name: str, mode: str = "real", quick_mode: bool = False, cache_dir: str = "tests/data", 
+                   args=None):
     """Run the demo workflow with proper error handling and progress tracking."""
     try:
+        # Initialize structured logger from CLI args or environment
+        from graphmcp.logging.cli_output import CLIOutputHandler
+        if args:
+            logging_config = CLIOutputHandler.config_from_args(args)
+        else:
+            logging_config = CLIOutputHandler.configure_output_format()
+        
+        logger = get_logger(f"demo_{database_name}", logging_config)
+        
         print_header(mode)
+        logger.info(f"Starting GraphMCP demo for database: {database_name}", 
+                   mode=mode, quick_mode=quick_mode, cache_dir=cache_dir)
         
         # Create demo configuration
         config = DemoConfig(
@@ -280,8 +286,12 @@ Examples:
   python demo.py --database postgres_air --real --quick  
   python demo.py --database periodic_table --real
   python demo.py --database chinook --mock --cache-dir ./cache
+  python demo.py --output-format json | jq '.level == "ERROR"'
         """
     )
+    
+    # Add structured logging CLI options
+    configure_cli_logging(parser)
     
     parser.add_argument(
         "--database", 
@@ -327,7 +337,7 @@ Examples:
     
     # Run the demo
     try:
-        result = asyncio.run(run_demo(args.database, mode, args.quick, args.cache_dir))
+        result = asyncio.run(run_demo(args.database, mode, args.quick, args.cache_dir, args))
         sys.exit(0)
     except KeyboardInterrupt:
         print("\n🛑 Demo interrupted by user")

@@ -184,6 +184,15 @@ test-e2e: check-deps ## Run end-to-end tests
 		--timeout=600
 	@echo "$(GREEN)✓ E2E tests completed$(NC)"
 
+test-logging: check-deps ## Run structured logging system tests
+	@echo "$(YELLOW)Running structured logging tests...$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/pytest tests/unit/test_structured_logging.py \
+		--verbose \
+		--cov=graphmcp.logging \
+		--cov-report=term-missing \
+		--tb=short
+	@echo "$(GREEN)✓ Structured logging tests completed$(NC)"
+
 test-all: test-unit test-integration test-e2e ## Run all test suites
 	@echo "$(GREEN)✓ All tests completed$(NC)"
 
@@ -588,6 +597,26 @@ demo-real: check-deps ## Run demo with live MCP services (real, ~5-10min)
 	@echo "$(YELLOW)🚀 GraphMCP Demo - Real Mode$(NC)"
 	@echo "$(CYAN)  🌐 Live services • 📊 Real analysis • 🔀 Actual PR creation$(NC)"
 	PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --real
+
+demo-json: check-deps ## Run demo with JSON output for tools
+	@echo "$(YELLOW)🚀 GraphMCP Demo - JSON Mode$(NC)"
+	@echo "$(CYAN)  📊 Structured JSON output • 🔧 Tool integration$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --mock --output-format json
+
+demo-console: check-deps ## Run demo with console output only  
+	@echo "$(YELLOW)🚀 GraphMCP Demo - Console Mode$(NC)"
+	@echo "$(CYAN)  🖥️  Human-readable output • 🎨 Color-coded$(NC)"
+	PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --mock --output-format console
+
+demo-pipeline: check-deps ## Demo JSON pipeline integration with jq
+	@echo "$(YELLOW)🚀 GraphMCP Demo - Pipeline Mode$(NC)"
+	@echo "$(CYAN)  📊 JSON pipeline • 🔍 Error filtering$(NC)"
+	@if command -v jq >/dev/null 2>&1; then \
+		PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --mock --output-format json | jq '.level == "error"'; \
+	else \
+		echo "$(RED)❌ jq not installed - install with: brew install jq$(NC)"; \
+		PYTHONPATH=. $(VENV_PATH)/bin/python demo.py --database postgres_air --mock --output-format json; \
+	fi
 
 demo-setup: check-deps ## Setup demo environment and cache
 	@echo "$(YELLOW)Setting up demo environment...$(NC)"
