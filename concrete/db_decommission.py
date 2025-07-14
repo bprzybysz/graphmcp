@@ -11,18 +11,29 @@ import time
 import os
 from typing import Dict, List, Any, Optional
 import logging
+from collections import defaultdict
+from dataclasses import dataclass
+import openai
+import json
 
 # Import centralized parameter service for environment management
 from concrete.parameter_service import get_parameter_service, ParameterService
 
-from concrete.pattern_discovery import discover_patterns_step, PatternDiscoveryEngine
-from concrete.contextual_rules_engine import create_contextual_rules_engine, ContextualRulesEngine
+# Import PRP-compliant components
+from concrete.database_reference_extractor import DatabaseReferenceExtractor
+from concrete.file_decommission_processor import FileDecommissionProcessor
 from concrete.workflow_logger import create_workflow_logger, DatabaseWorkflowLogger
 from concrete.source_type_classifier import SourceTypeClassifier, SourceType, ClassificationResult
-from concrete.contextual_rules_engine import ContextualRulesEngine, FileProcessingResult, RuleResult
-from collections import defaultdict
-import openai
-import json
+
+@dataclass
+class FileProcessingResult:
+    """Compatibility class for AgenticFileProcessor."""
+    file_path: str
+    source_type: SourceType
+    success: bool
+    total_changes: int
+    rules_applied: List = None
+    error_message: str = None
 
 class AgenticFileProcessor:
     """Processes files in batches using an agentic, category-based approach."""
@@ -337,14 +348,20 @@ async def process_repositories_step(
             )
             
             try:
-                # Temporarily disable cache to force fresh pattern discovery for debugging
-                logger.info(f"🔄 Running fresh pattern discovery for {database_name} in {repo_owner}/{repo_name}")
-                discovery_result = await discover_patterns_step(
-                    context,
-                    step,
+                # Use PRP-compliant DatabaseReferenceExtractor
+                logger.info(f"🔄 Running DatabaseReferenceExtractor for {database_name} in {repo_owner}/{repo_name}")
+                
+                # First get repo pack from repomix client
+                repomix_result = await repomix_client.pack_remote_repository(
+                    remote=f"https://github.com/{repo_owner}/{repo_name}"
+                )
+                
+                # Extract references using PRP-compliant component
+                extractor = DatabaseReferenceExtractor()
+                discovery_result = await extractor.extract_references(
                     database_name=database_name,
-                    repo_owner=repo_owner,
-                    repo_name=repo_name
+                    target_repo_pack_path=repomix_result.get("output_path", f"tests/data/{repo_name}_repo_pack.xml"),
+                    output_dir=f"tests/tmp/pattern_match/{database_name}"
                 )
                 
                 files_found = discovery_result.get("total_files", 0)
@@ -526,14 +543,10 @@ async def validate_environment_step(
             )
             raise RuntimeError(error_msg)
         
-        logger.info("Initializing pattern discovery engine...")
-        pattern_engine = PatternDiscoveryEngine()
-        
-        logger.info("Initializing source type classifier...")
+        logger.info("Initializing PRP-compliant components...")
+        extractor = DatabaseReferenceExtractor()
+        processor = FileDecommissionProcessor()
         source_classifier = SourceTypeClassifier()
-        
-        logger.info("Initializing contextual rules engine...")
-        rules_engine = create_contextual_rules_engine()
         
         logger.info("Validating pattern generation for database '{}'...".format(database_name))
         
@@ -556,9 +569,9 @@ async def validate_environment_step(
         
         # Store components in context for other steps
         context.set_shared_value("parameter_service", param_service)
-        context.set_shared_value("pattern_engine", pattern_engine)
+        context.set_shared_value("database_extractor", extractor)
+        context.set_shared_value("file_processor", processor)
         context.set_shared_value("source_classifier", source_classifier)
-        context.set_shared_value("rules_engine", rules_engine)
         context.set_shared_value("search_patterns", search_patterns)
         
         validation_result = {
@@ -566,9 +579,9 @@ async def validate_environment_step(
             "environment_status": "ready",
             "components_initialized": {
                 "parameter_service": True,
-                "pattern_discovery": True,
-                "source_classifier": True,
-                "contextual_rules": True
+                "database_extractor": True,
+                "file_processor": True,
+                "source_classifier": True
             },
             "validation_issues": param_service.validation_issues if param_service else [],
             "pattern_count": pattern_count,
@@ -896,83 +909,68 @@ async def apply_refactoring_step(
                 "message": "No files found requiring refactoring"
             }
         
-        # Initialize refactoring components using our tested systems
-        contextual_rules_engine = create_contextual_rules_engine()
-        source_classifier = SourceTypeClassifier()
+        # Use PRP-compliant FileDecommissionProcessor
+        processor = FileDecommissionProcessor()
         
-        workflow_logger.log_info(f"🔧 Processing {len(files_to_process)} discovered files with contextual rules")
+        # Get source directory from discovery results
+        discovery_result = context.get_shared_value("discovery", {})
+        source_dir = discovery_result.get("extraction_directory", f"tests/tmp/pattern_match/{database_name}")
         
-        # Track refactoring results
+        workflow_logger.log_info(f"🔧 Processing files in {source_dir} with FileDecommissionProcessor")
+        
+        # Use PRP-compliant processing
+        processing_result = await processor.process_files(
+            source_dir=source_dir,
+            database_name=database_name,
+            ticket_id="DB-DECOMM-001"
+        )
+        
+        # Extract results in format expected by downstream steps
+        processed_files = processing_result.get("processed_files", [])
+        strategies_applied = processing_result.get("strategies_applied", {})
+        
+        total_files_processed = len(processed_files)
+        total_files_modified = len([f for f in processed_files if strategies_applied.get(f) in ["infrastructure", "configuration", "code"]])
+        
+        # Create refactoring results for compatibility
         refactoring_results = []
-        total_files_processed = 0
-        total_files_modified = 0
         files_by_type = {}
         
-        for file_info in files_to_process:
-            file_path = file_info.get("path", "")
-            file_content = file_info.get("content", "")
+        for file_path in processed_files:
+            strategy = strategies_applied.get(file_path, "documentation")
             
-            if not file_path or not file_content:
-                continue
+            # Group by strategy type
+            if strategy not in files_by_type:
+                files_by_type[strategy] = []
+            files_by_type[strategy].append(file_path)
             
-            try:
-                # Classify file type using our tested classifier
-                classification = source_classifier.classify_file(file_path, file_content)
+            # Read modified content from output directory
+            from pathlib import Path
+            output_dir = Path(processing_result.get("output_directory", f"{source_dir}_decommissioned"))
+            relative_path = Path(file_path).relative_to(source_dir) if source_dir in file_path else Path(file_path)
+            modified_file = output_dir / relative_path
+            
+            if modified_file.exists():
+                modified_content = modified_file.read_text()
+                changes_made = 1 if strategy in ["infrastructure", "configuration", "code"] else 0
                 
-                # Track by file type
-                source_type_str = classification.source_type.value
-                if source_type_str not in files_by_type:
-                    files_by_type[source_type_str] = []
-                files_by_type[source_type_str].append(file_path)
-                
-                # Apply contextual rules using our tested engine
-                processing_result = await contextual_rules_engine.process_file_with_contextual_rules(
-                    file_path, file_content, classification, database_name,
-                    None, repo_owner, repo_name  # GitHub and Slack clients not needed for processing
-                )
-                
-                total_files_processed += 1
-                
-                if processing_result.success and processing_result.total_changes > 0:
-                    total_files_modified += 1
-                    
-                    # Get modified content from the last successful rule result
-                    modified_content = file_content  # Default to original content
-                    for rule_result in processing_result.rules_applied:
-                        if rule_result.applied and hasattr(rule_result, 'modified_content'):
-                            modified_content = rule_result.modified_content
-                    
-                    refactoring_results.append({
-                        "path": file_path,
-                        "source_type": source_type_str,
-                        "changes_made": processing_result.total_changes,
-                        "modified_content": modified_content,
-                        "success": True
-                    })
-                    workflow_logger.log_info(f"   ✅ {file_path} ({source_type_str}): {processing_result.total_changes} changes")
-                else:
-                    refactoring_results.append({
-                        "path": file_path,
-                        "source_type": source_type_str,
-                        "changes_made": 0,
-                        "success": True,
-                        "message": "No changes needed"
-                    })
-                    
-            except Exception as e:
-                workflow_logger.log_error(f"Failed to process file {file_path}", e)
                 refactoring_results.append({
                     "path": file_path,
-                    "success": False,
-                    "error": str(e)
+                    "source_type": strategy,
+                    "changes_made": changes_made,
+                    "modified_content": modified_content,
+                    "success": True
                 })
+                
+                if changes_made > 0:
+                    workflow_logger.log_info(f"   ✅ {file_path} ({strategy}): {changes_made} changes")
         
-        # Log summary by file type (using our tested approach)
-        workflow_logger.log_info("📊 REFACTORING RESULTS BY FILE TYPE:")
-        for source_type, file_paths in files_by_type.items():
+        # Log summary by strategy type
+        workflow_logger.log_info("📊 REFACTORING RESULTS BY STRATEGY:")
+        for strategy, file_paths in files_by_type.items():
             modified_count = len([r for r in refactoring_results 
-                                if r.get("source_type") == source_type and r.get("changes_made", 0) > 0])
-            workflow_logger.log_info(f"   {source_type.upper()}: {modified_count}/{len(file_paths)} files modified")
+                                if r.get("source_type") == strategy and r.get("changes_made", 0) > 0])
+            workflow_logger.log_info(f"   {strategy.upper()}: {modified_count}/{len(file_paths)} files modified")
         
         # Store refactoring results for next step (GitHub operations)
         refactoring_summary = {

@@ -143,8 +143,24 @@ async def run_demo(database_name: str, mode: str = "real", quick_mode: bool = Fa
         
         start_time = time.time()
         
-        # Execute new workflow
-        result = await run_demo_workflow(config)
+        # Execute enhanced PRP-compliant workflow instead of demo workflow
+        if create_db_decommission_workflow:
+            print("🔄 Using PRP-compliant workflow with DatabaseReferenceExtractor and FileDecommissionProcessor")
+            
+            # Create the enhanced workflow that uses PRP components
+            enhanced_workflow = create_db_decommission_workflow(
+                database_name=database_name,
+                target_repos=[config.target_repo],
+                slack_channel="#database-decommission",
+                config_path="mcp_config.json"
+            )
+            
+            # Execute the enhanced workflow
+            result = await enhanced_workflow.execute()
+        else:
+            # Fallback to demo workflow if enhanced workflow not available
+            print("🔄 Using demo workflow (fallback)")
+            result = await run_demo_workflow(config)
         
         execution_time = time.time() - start_time
         
