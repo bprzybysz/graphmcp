@@ -53,5 +53,7 @@ logs/
 test-output.txt
 
 
-tests/data/postgres_sample_dbs_packed.xml
+tests/data/postgres_air_real_repo_pack.xml
 repomix.tar.gz
+
+tests/tmp*

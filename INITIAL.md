@@ -1,13 +1,22 @@
-## FEATURE: Working GraphMCP Workflow Demo
+## FEATURE: Pragmatic Database Decommissioning Workflow
 
-BEING IMPLEMENTED IF NOT IMPLEMENTED ALREADY
+**Goal**: After redeployment, cluster continues working with decommissioned database gracefully removed/disabled.
 
+**Core Strategy**: Instead of complex refactoring, use "graceful deprecation":
+1. **Infrastructure Removal**: Clean removal of Terraform resources, Helm charts
+2. **Config Commenting**: Comment out database configs with clear decommission notices  
+3. **Fail-Fast Code**: Replace database connections with explicit decommission exceptions
+4. **Documentation Updates**: Mark databases as decommissioned with migration guidance
+5. **Monitoring Cleanup**: Disable alerts to prevent false positives
 
-i mean https://github.com/daaain/claude-code-log check docs best    │
-│   patterns anti[atterns pitfall t'avoid. then rebuiold our logging    │
-│   with it include animated element blinker at step text when sth is   │
-│   loading and some metrics like progress or bandwidth displayed 
+**Implementation Focus**:
+- Extract files using existing DatabaseReferenceExtractor  
+- Categorize by complexity: Infrastructure (remove), Config (comment), Code (exception), Docs (notice)
+- Prioritize P0 actions (Terraform, Helm) to ensure cluster stability
+- Use clear decommission headers with ticket IDs and contact info
+- Ensure reversible changes for emergency rollback
 
+**Success Criteria**: Post-deployment cluster is functional, database is cleanly removed, and any remaining references fail fast with clear error messages pointing to migration guidance.
 
 ## EXAMPLES:
 

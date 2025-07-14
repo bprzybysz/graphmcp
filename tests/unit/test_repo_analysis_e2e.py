@@ -177,7 +177,7 @@ REPOSITORY_TEST_CASES = {
     #
     # =============================================================================
     # READY-TO-ANALYZE DATABASE CANDIDATES:
-    # Use the packed file (tests/data/postgres_sample_dbs_packed.xml) to analyze:
+    # Use the packed file (tests/data/postgres_air_real_repo_pack.xml) to analyze:
     # =============================================================================
 
     # Example: To add chinook database, run this analysis first:
@@ -217,7 +217,7 @@ class TestRepositoryAnalysisE2E:
     def setup_class(cls):
         """Set up test environment with real repository data."""
         cls.test_data_dir = Path(__file__).parent.parent / "data"
-        cls.packed_repo_file = cls.test_data_dir / "postgres_sample_dbs_packed.xml"
+        cls.packed_repo_file = cls.test_data_dir / "postgres_air_real_repo_pack.xml"
         
         # Verify test data exists
         if not cls.packed_repo_file.exists():
@@ -689,7 +689,7 @@ def analyze_database_for_test_case(database_name: str, packed_file_path: str) ->
     test case parameters. This makes expansion easier by automating the analysis.
     
     Usage:
-        analysis = analyze_database_for_test_case("chinook", "tests/data/postgres_sample_dbs_packed.xml")
+        analysis = analyze_database_for_test_case("chinook", "tests/data/postgres_air_real_repo_pack.xml")
         print(f"Database: {database_name}")
         print(f"Total matches: {analysis['total_matches']}")
         print(f"File types: {analysis['file_types']}")

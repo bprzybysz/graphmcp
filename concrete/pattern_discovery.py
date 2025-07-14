@@ -83,7 +83,7 @@ class PatternDiscoveryEngine:
             # For the demo repo, use the existing test data
             if repo_owner == "bprzybys-nc" and repo_name == "postgres-sample-dbs":
                 from pathlib import Path
-                test_data_file = Path("tests/data/postgres_sample_dbs_packed.xml")
+                test_data_file = Path("tests/data/postgres_air_real_repo_pack.xml")
                 
                 if test_data_file.exists():
                     logger.info(f"📄 Reading from local test data: {test_data_file}")

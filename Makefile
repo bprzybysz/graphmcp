@@ -1,7 +1,7 @@
 # GraphMCP Framework Makefile
 # Comprehensive build, test, and deployment automation
 
-.PHONY: help install-uv clean setup deploy
+.PHONY: help install-uv clean setup setup-dev deploy
 .PHONY: graphmcp-test-unit graphmcp-test-integration 
 .PHONY: dbdecomission-dev-e2e dbdecomission-demo-e2e
 .PHONY: test-all lint format check-deps
@@ -34,6 +34,7 @@ help: ## Show this help message
 	@echo ""
 	@echo "$(GREEN)🚀 Quick Start:$(NC)"
 	@echo "  make setup         - Setup development environment"
+	@echo "  make setup-dev     - Setup development environment + pip"
 	@echo "  make demo          - Run demo (mock mode, fast)"
 	@echo "  make demo-real     - Run demo with live services"
 	@echo "  make test-all      - Run all tests"
@@ -107,6 +108,17 @@ setup: install-uv clean ## Setup development environment with dependencies
 	@echo "$(BLUE)Installing project in development mode...$(NC)"
 	uv pip install -e .
 	@echo "$(GREEN)✓ Development environment ready$(NC)"
+	@echo "$(CYAN)Activate with: source $(VENV_PATH)/bin/activate$(NC)"
+
+setup-dev: setup ## Setup development environment with dependencies and pip
+	@echo "$(YELLOW)Installing pip for development...$(NC)"
+	@if ! command -v pip > /dev/null 2>&1; then \
+		curl -sSL https://bootstrap.pypa.io/get-pip.py | $(VENV_PATH)/bin/python; \
+		echo "$(GREEN)✓ pip installed successfully$(NC)"; \
+	else \
+		echo "$(GREEN)✓ pip already available$(NC)"; \
+	fi
+	@echo "$(GREEN)✓ Development environment with pip ready$(NC)"
 	@echo "$(CYAN)Activate with: source $(VENV_PATH)/bin/activate$(NC)"
 
 check-deps: ## Check if dependencies are installed

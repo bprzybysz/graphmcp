@@ -1,4 +1,4 @@
-# PRP: GraphMCP Working Workflow Demo
+﻿# PRP: GraphMCP Working Workflow Demo
 
 ## Goal
 Build a functional demonstration of the GraphMCP workflow system using the database decommission workflow with record-and-replay capabilities, clean architecture, and support for both mock and real data modes.
@@ -49,7 +49,7 @@ A refactored database decommissioning workflow that:
 - file: examples/testing_patterns.py
   why: pytest-asyncio patterns and test markers for validation
 
-- file: tests/data/postgres_sample_dbs_packed.xml
+- file: tests/data/postgres_air_real_repo_pack.xml
   why: Example of mock repository structure data format
 
 - docfile: CLAUDE.md

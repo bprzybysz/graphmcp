@@ -66,7 +66,7 @@ class ContextualRulesEngine:
         """Load infrastructure-specific rules."""
         return {
             "terraform_resource_removal": {
-                "id": "R-INFRA-1.1",
+                "id": "did ",
                 "description": "Remove Terraform database resources",
                 "patterns": [
                     r'resource\s+"[^"]*database[^"]*"\s+"{{TARGET_DB}}"',

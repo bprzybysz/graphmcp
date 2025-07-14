@@ -429,6 +429,46 @@ async def test_with_mock(mock_session_mgr):
     # Test your code...
 ```
 
+## Test Coverage: Database Reference Extractor
+
+| Test Category | Test Name | Target | Description | Status |
+|---------------|-----------|--------|-------------|--------|
+| Unit | test_extract_references_basic | Mock | Basic postgres_air extraction with mock repomix data | ✅ |
+| Unit | test_directory_preservation | Mock | Verify nested directory structure maintained during extraction | ✅ |
+| Unit | test_no_matches_found | Mock | Graceful handling when no database references exist | ✅ |
+| Integration | test_real_extraction | Real | Parameterized e2e test with real postgres_air_real_repo_pack.xml | ✅ |
+
+### Database Reference Extractor Usage
+
+```python
+from concrete.database_reference_extractor import DatabaseReferenceExtractor
+
+# Basic usage
+extractor = DatabaseReferenceExtractor()
+result = await extractor.extract_references(
+    database_name="postgres_air",
+    target_repo_pack_path="tests/data/postgres_air_real_repo_pack.xml"
+)
+
+# Custom output directory
+result = await extractor.extract_references(
+    database_name="my_db",
+    target_repo_pack_path="path/to/repo.xml",
+    output_dir="custom/extraction/path"
+)
+
+# Result structure
+{
+    "database_name": "postgres_air",
+    "source_file": "path/to/repo.xml", 
+    "total_references": 15,
+    "matched_files": [MatchedFile(...), ...],
+    "extraction_directory": "tests/tmp/pattern_match/postgres_air",
+    "success": True,
+    "duration_seconds": 1.23
+}
+```
+
 ---
 
 *For comprehensive examples and detailed explanations, see [USAGE_GUIDE.md](USAGE_GUIDE.md)* 
