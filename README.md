@@ -10,6 +10,7 @@ GraphMCP provides a unified interface for managing and coordinating multiple MCP
 
 - **Multi-Client Architecture**: Coordinate multiple MCP servers (GitHub, Slack, Repomix, Filesystem, Preview)
 - **Workflow Orchestration**: Build complex workflows with step-by-step execution
+- **Database Decommissioning**: Pragmatic database removal with fail-fast strategies
 - **Live Streaming**: Real-time workflow visualization with Streamlit UI
 - **Async Support**: Full asynchronous operation for high performance
 - **Error Handling**: Comprehensive error handling and retry mechanisms
@@ -113,6 +114,7 @@ GraphMCP Framework
 │       ├── context.py      # Workflow context management
 │       └── logging.py      # Structured logging
 ├── concrete/               # Concrete implementations
+│   ├── file_decommission_processor.py  # Database decommissioning
 │   ├── preview_ui/         # Streamlit UI for live streaming
 │   └── demo.sh            # Demo script
 ├── workflows/              # Workflow definitions
@@ -135,6 +137,37 @@ make format               # Code formatting
 2. Implement required methods: `list_available_tools()`, `health_check()`
 3. Add server configuration to `mcp_config.json`
 4. Create tests in `tests/unit/`
+
+## Database Decommissioning
+
+GraphMCP includes a pragmatic database decommissioning processor that safely removes database references while ensuring cluster stability:
+
+### Usage
+```python
+from concrete.file_decommission_processor import FileDecommissionProcessor
+
+async def decommission_database():
+    processor = FileDecommissionProcessor()
+    result = await processor.process_files(
+        source_dir="/path/to/extracted/files",
+        database_name="postgres_air",
+        ticket_id="DB-DECOMM-001"
+    )
+    return result
+```
+
+### Strategies
+- **Infrastructure**: Comments out Terraform resources and Helm configurations
+- **Configuration**: Comments out database configs with clear notices
+- **Code**: Adds fail-fast exceptions with contact information
+- **Documentation**: Adds decommission notices to markdown files
+
+### Features
+- ✅ File categorization by type and complexity
+- ✅ Decommission headers with ticket IDs and contact info
+- ✅ Preserves original content for emergency rollback
+- ✅ Comprehensive test suite with E2E validation
+- ✅ Processes real extracted database reference files
 
 ## Live Workflow Streaming
 
