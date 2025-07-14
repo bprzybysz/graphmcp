@@ -1,27 +1,6 @@
-## FEATURE: Pragmatic Database Decommissioning Workflow
+## FEATURE: <feat name>>
 
-**Goal**: After redeployment, cluster continues working with decommissioned database gracefully removed/disabled.
-
-**Core Strategy**: Instead of complex refactoring, use "graceful deprecation":
-1. **Infrastructure Removal**: Clean removal of Terraform resources, Helm charts
-2. **Config Commenting**: Comment out database configs with clear decommission notices  
-3. **Fail-Fast Code**: Replace database connections with explicit decommission exceptions
-4. **Documentation Updates**: Mark databases as decommissioned with migration guidance
-5. **Monitoring Cleanup**: Disable alerts to prevent false positives
-
-**Implementation Focus**: ✅ COMPLETED
-- ✅ Extract files using existing DatabaseReferenceExtractor  
-- ✅ Categorize by complexity: Infrastructure (remove), Config (comment), Code (exception), Docs (notice)
-- ✅ Prioritize P0 actions (Terraform, Helm) to ensure cluster stability
-- ✅ Use clear decommission headers with ticket IDs and contact info
-- ✅ Ensure reversible changes for emergency rollback
-
-**FileDecommissionProcessor Implementation**:
-- Located: `concrete/file_decommission_processor.py`
-- Tests: `tests/unit/test_file_decommission_processor.py` (4/4 passing)
-- E2E Validation: Real postgres_air files processed successfully
-
-**Success Criteria**: Post-deployment cluster is functional, database is cleanly removed, and any remaining references fail fast with clear error messages pointing to migration guidance.
+<Feature specification prd>
 
 ## EXAMPLES:
 
