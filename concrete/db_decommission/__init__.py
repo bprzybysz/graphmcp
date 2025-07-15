@@ -18,13 +18,14 @@ from typing import Any, Dict, List, Optional
 
 # Import main workflow components
 from .workflow_steps import (
-    validate_environment_step,
-    process_repositories_step,
     quality_assurance_step,
     apply_refactoring_step,
     create_github_pr_step,
     workflow_summary_step
 )
+
+from .validation_helpers import validate_environment_step
+from .repository_processors import process_repositories_step
 
 from .data_models import (
     FileProcessingResult,

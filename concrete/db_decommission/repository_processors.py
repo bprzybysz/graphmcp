@@ -7,9 +7,10 @@ following async-first patterns and structured logging.
 
 import time
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
 
 # Import MCP clients
-from clients import GitHubMCPClient, SlackMCPClient, RepomixMCPClient
+from clients import SlackMCPClient, RepomixMCPClient
 
 # Import PRP-compliant components
 from concrete.database_reference_extractor import DatabaseReferenceExtractor
@@ -21,7 +22,6 @@ from graphmcp.logging import get_logger
 from graphmcp.logging.config import LoggingConfig
 
 # Import data models
-from .data_models import FileProcessingResult, WorkflowStepResult
 
 # Import extracted client helpers
 from .client_helpers import (
@@ -108,6 +108,13 @@ async def process_repositories_step(
             )
             repo_results.append(result)
         
+        # Store discovery results in shared context for QA step
+        if repo_results:
+            # Get the first (and typically only) repository's discovery result
+            first_repo_result = repo_results[0]
+            discovery_result = first_repo_result.get("discovery_result", {})
+            context.set_shared_value("discovery", discovery_result)
+            
         # Calculate totals and compile results
         workflow_result = _compile_workflow_results(
             repo_results, target_repos, database_name, logger, process_start_time
@@ -173,42 +180,76 @@ async def process_single_repository(
     )
     
     try:
-        # Get repository pack from repomix
-        logger.log_info(f"🔄 Running DatabaseReferenceExtractor for {database_name} in {repo_owner}/{repo_name}")
+        # Check if we should use existing mock data
+        existing_repo_pack = load_existing_repo_pack(database_name, logger)
         
-        repomix_result = await repomix_client.pack_remote_repository(
-            repo_url=f"https://github.com/{repo_owner}/{repo_name}"
-        )
-        
-        # Debug: Log the full repomix result
-        logger.log_info(f"🔍 DEBUG: Repomix result keys: {list(repomix_result.keys()) if isinstance(repomix_result, dict) else 'Not a dict'}")
-        logger.log_info(f"🔍 DEBUG: Full repomix result: {repomix_result}")
-        
-        # Check if repomix packing was successful
-        if not repomix_result.get("success"):
-            error_msg = f"Failed to pack repository {repo_url}: {repomix_result.get('error', 'Unknown error')}"
-            logger.log_error(error_msg)
-            raise Exception(error_msg)
-        
-        # Get the output file path from repomix result
-        repo_pack_path = repomix_result.get("output_file")
-        if not repo_pack_path:
-            # Try alternative keys that might contain the file path
-            repo_pack_path = (repomix_result.get("output_path") or 
-                            repomix_result.get("file_path") or
-                            repomix_result.get("packed_file"))
+        if existing_repo_pack:
+            # Use existing cached repo pack
+            logger.log_info(f"📁 Using existing cached repo pack for {database_name}")
+            
+            # Find the cached file path
+            from pathlib import Path
+            cache_dir = Path(f"tmp/{database_name}")
+            tests_data_dir = Path("tests/data")
+            
+            # Check for existing cached file
+            possible_files = [
+                cache_dir / f"{database_name}_repo_pack.xml",
+                tests_data_dir / f"{database_name}_mock_repo_pack.xml"
+            ]
+            
+            repo_pack_path = None
+            for cache_file in possible_files:
+                if cache_file.exists():
+                    repo_pack_path = str(cache_file)
+                    break
             
             if not repo_pack_path:
-                # Fallback: Create a mock packed file for demo purposes
-                logger.log_warning(f"Repomix did not return output_file path. Creating fallback mock file for demo.")
+                # Create a cached file from the loaded content
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                repo_pack_path = cache_dir / f"{database_name}_repo_pack.xml"
+                with open(repo_pack_path, 'w', encoding='utf-8') as f:
+                    f.write(existing_repo_pack)
+                repo_pack_path = str(repo_pack_path)
+            
+            logger.log_info(f"📁 Using cached repo pack: {repo_pack_path}")
+            
+        else:
+            # Run Repomix to get fresh repository data
+            logger.log_info(f"🔄 Running Repomix for {database_name} in {repo_owner}/{repo_name}")
+            logger.log_info(f"🔄 Repository URL: https://github.com/{repo_owner}/{repo_name}")
+            
+            repomix_result = await repomix_client.pack_remote_repository(
+                repo_url=f"https://github.com/{repo_owner}/{repo_name}"
+            )
+            
+            # Debug: Log the full repomix result
+            logger.log_info(f"🔍 DEBUG: Repomix result keys: {list(repomix_result.keys()) if isinstance(repomix_result, dict) else 'Not a dict'}")
+            logger.log_info(f"🔍 DEBUG: Full repomix result: {repomix_result}")
+            
+            # Check if repomix packing was successful
+            if not repomix_result.get("success"):
+                error_msg = f"Failed to pack repository {repo_url}: {repomix_result.get('error', 'Unknown error')}"
+                logger.log_error(error_msg)
+                raise Exception(error_msg)
+            
+            # Get the output file path from repomix result
+            repo_pack_path = repomix_result.get("output_file")
+            if not repo_pack_path:
+                # Try alternative keys that might contain the file path
+                repo_pack_path = (repomix_result.get("output_path") or 
+                                repomix_result.get("file_path") or
+                                repomix_result.get("packed_file"))
                 
-                # Create a mock packed file
-                import os
-                import tempfile
-                from pathlib import Path
-                
-                # Create mock content for demo in the format expected by the reference extractor
-                mock_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+                if not repo_pack_path:
+                    # Fallback: Create a mock packed file for demo purposes
+                    logger.log_warning("Repomix did not return output_file path. Creating fallback mock file for demo.")
+                    
+                    # Create a mock packed file
+                    from pathlib import Path
+                    
+                    # Create mock content for demo in the format expected by the reference extractor
+                    mock_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <repository>
   <metadata>
     <name>{repo_name}</name>
@@ -242,17 +283,26 @@ conn = psycopg2.connect(
 </file>
   </files>
 </repository>"""
-                
-                # Create the fallback file
-                cache_dir = Path("tests/data")
-                cache_dir.mkdir(parents=True, exist_ok=True)
-                repo_pack_path = cache_dir / f"{repo_name}_repo_pack.xml"
-                
-                with open(repo_pack_path, 'w') as f:
-                    f.write(mock_content)
-                
-                logger.log_info(f"📁 Created fallback mock file: {repo_pack_path}")
-                repo_pack_path = str(repo_pack_path)
+                    
+                    # Create the fallback file
+                    cache_dir = Path(f"tmp/{database_name}")
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    repo_pack_path = cache_dir / f"{database_name}_repo_pack.xml"
+                    
+                    with open(repo_pack_path, 'w') as f:
+                        f.write(mock_content)
+                    
+                    logger.log_info(f"📁 Created fallback mock file: {repo_pack_path}")
+                    repo_pack_path = str(repo_pack_path)
+                    
+                    # Save the mock content
+                    save_repo_pack_to_tmp(mock_content, database_name, logger)
+            else:
+                # If we got a real repo pack path, save its content
+                if Path(repo_pack_path).exists():
+                    with open(repo_pack_path, 'r', encoding='utf-8') as f:
+                        repo_pack_content = f.read()
+                    save_repo_pack_to_tmp(repo_pack_content, database_name, logger)
         
         logger.log_info(f"📁 Repository packed to: {repo_pack_path}")
         
@@ -578,3 +628,94 @@ async def safe_slack_notification(
         logger: Structured logger instance
     """
     await send_slack_notification_with_retry(slack_client, channel, message, logger)
+
+
+def save_repo_pack_to_tmp(
+    repo_pack_content: str,
+    database_name: str,
+    logger: Any
+) -> bool:
+    """
+    Save repository pack data to tmp/<database-name>/ directory for reuse.
+    
+    Args:
+        repo_pack_content: Repository pack XML content
+        database_name: Database name for directory naming
+        logger: Structured logger instance
+        
+    Returns:
+        True if saved successfully
+    """
+    try:
+        # Create tmp/<database-name> directory
+        cache_dir = Path(f"tmp/{database_name}")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate cache file name based on database name
+        cache_file = cache_dir / f"{database_name}_repo_pack.xml"
+        
+        # Write content to cache file (don't overwrite if exists)
+        if not cache_file.exists():
+            with open(cache_file, 'w', encoding='utf-8') as f:
+                f.write(repo_pack_content)
+            logger.log_info(f"Repository pack saved to: {cache_file}")
+        else:
+            logger.log_info(f"Repository pack already exists: {cache_file}")
+        
+        return True
+        
+    except Exception as e:
+        logger.log_error(f"Failed to save repository pack: {e}")
+        return False
+
+
+def load_existing_repo_pack(
+    database_name: str,
+    logger: Any
+) -> Optional[str]:
+    """
+    Load existing repository pack data from tmp/<database-name>/ directory.
+    
+    Args:
+        database_name: Database name for directory naming
+        logger: Structured logger instance
+        
+    Returns:
+        Cached repository pack content or None if not found
+    """
+    try:
+        # Try different cache file patterns in tmp/<database-name>/
+        cache_dir = Path(f"tmp/{database_name}")
+        possible_files = [
+            cache_dir / f"{database_name}_repo_pack.xml",
+            cache_dir / f"{database_name}_real_repo_pack.xml",
+            cache_dir / f"{database_name}_mock_repo_pack.xml"
+        ]
+        
+        # Also check tests/data/ for backward compatibility
+        tests_data_dir = Path("tests/data")
+        possible_files.extend([
+            tests_data_dir / f"{database_name}_real_repo_pack.xml",
+            tests_data_dir / f"{database_name}_mock_repo_pack.xml",
+            tests_data_dir / f"{database_name}_repo_pack.xml"
+        ])
+        
+        for cache_file in possible_files:
+            if cache_file.exists():
+                logger.log_info(f"Found existing repository pack: {cache_file}")
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # Check if content is valid (not empty)
+                if content.strip():
+                    logger.log_info(f"Loaded existing repo pack ({len(content)} characters)")
+                    return content
+                else:
+                    logger.log_warning(f"Cache file is empty: {cache_file}")
+        
+        logger.log_info("No existing repository pack found")
+        return None
+        
+    except Exception as e:
+        logger.log_error(f"Failed to load existing repository pack: {e}")
+        return None

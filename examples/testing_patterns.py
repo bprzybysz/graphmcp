@@ -12,6 +12,7 @@ Key patterns to follow:
 
 import pytest
 import asyncio
+import json
 from unittest.mock import Mock, patch, AsyncMock
 from pathlib import Path
 
@@ -161,6 +162,7 @@ class TestMCPClient:
 class TestConfiguration:
     """Example configuration testing patterns."""
     
+    @pytest.mark.unit
     def test_config_validation(self):
         """Test configuration validation logic."""
         from examples.data_models import MCPServerConfig
@@ -177,6 +179,7 @@ class TestConfiguration:
         assert config_dict["args"] == ["-m", "server"]
         assert config_dict["env"]["TOKEN"] == "test123"
 
+    @pytest.mark.unit
     @pytest.mark.parametrize("server_name,expected_valid", [
         ("github", True),
         ("slack", True), 

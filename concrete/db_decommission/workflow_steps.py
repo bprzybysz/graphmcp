@@ -5,9 +5,8 @@ This module contains the main workflow step functions for the database decommiss
 workflow, following async-first patterns and structured logging.
 """
 
-import asyncio
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # Import PRP-compliant components
 from concrete.file_decommission_processor import FileDecommissionProcessor
@@ -17,7 +16,6 @@ from graphmcp.logging import get_logger
 from graphmcp.logging.config import LoggingConfig
 
 # Import extracted helper modules
-from .validation_helpers import validate_environment_step
 from .validation_checks import (
     perform_database_reference_check,
     perform_rule_compliance_check,
@@ -25,11 +23,8 @@ from .validation_checks import (
     generate_recommendations
 )
 from .repository_processors import (
-    process_repositories_step,
-    initialize_github_client,
-    send_slack_notification_with_retry
+    initialize_github_client
 )
-from .pattern_discovery import process_discovered_files_with_rules
 from .github_helpers import (
     create_fork_and_branch,
     commit_file_changes,
@@ -38,8 +33,7 @@ from .github_helpers import (
 from .data_models import (
     QualityAssuranceResult,
     ValidationResult,
-    DecommissioningSummary,
-    WorkflowStepResult
+    DecommissioningSummary
 )
 
 
@@ -82,6 +76,23 @@ async def quality_assurance_step(
         
         # Get discovery results from previous step
         discovery_result = context.get_shared_value("discovery", {})
+        
+        # CRITICAL: Ensure discovery results are properly structured
+        if not discovery_result or "files" not in discovery_result:
+            logger.log_warning("No discovery results found, creating empty structure for QA validation")
+            discovery_result = {
+                "files": [],
+                "files_by_type": {},
+                "extraction_directory": "",
+                "total_files": 0,
+                "database_name": database_name
+            }
+        
+        # Validate discovery result structure
+        files = discovery_result.get("files", [])
+        total_files = discovery_result.get("total_files", len(files))
+        
+        logger.log_info(f"QA validation processing {total_files} files from discovery results")
         
         # Check 1: Verify database references have been properly identified
         reference_check = await perform_database_reference_check(discovery_result, database_name)
@@ -207,11 +218,21 @@ async def apply_refactoring_step(
                 "message": "No files found requiring refactoring"
             }
         
+        # CRITICAL: Validate source directory exists
+        source_dir = discovery_result.get("extraction_directory", f"tests/tmp/pattern_match/{database_name}")
+        
+        from pathlib import Path
+        if not Path(source_dir).exists():
+            logger.log_warning(f"Source directory not found: {source_dir}")
+            return {
+                "success": False,
+                "files_processed": 0,
+                "files_modified": 0,
+                "message": f"Source directory not found: {source_dir}"
+            }
+        
         # Use PRP-compliant FileDecommissionProcessor
         processor = FileDecommissionProcessor()
-        
-        # Get source directory from discovery results
-        source_dir = discovery_result.get("extraction_directory", f"tests/tmp/pattern_match/{database_name}")
         
         logger.log_info(f"Processing files in {source_dir} with FileDecommissionProcessor")
         
@@ -251,8 +272,16 @@ async def apply_refactoring_step(
                 modified_content = modified_file.read_text()
                 changes_made = 1 if strategy in ["infrastructure", "configuration", "code"] else 0
                 
+                # Map back to original repository path (remove extraction directory prefix)
+                original_path = str(relative_path) if source_dir in file_path else file_path
+                # Also check if we can find the original path from discovery results
+                for discovered_file in discovery_result.get("matched_files", []):
+                    if discovered_file.get("extracted_path") == file_path:
+                        original_path = discovered_file.get("original_path", original_path)
+                        break
+                
                 refactoring_results.append({
-                    "path": file_path,
+                    "path": original_path,
                     "source_type": strategy,
                     "changes_made": changes_made,
                     "modified_content": modified_content,

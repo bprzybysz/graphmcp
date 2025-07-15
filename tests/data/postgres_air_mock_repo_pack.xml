@@ -1,25 +1,208 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <repository url="https://github.com/bprzybysz/postgres-sample-dbs">
-    <file path="src/config/database.py">
-        <content>
+<file path="src/config/database.py">
 # Database configuration
 DATABASE_URL = "postgresql://user:pass@localhost/postgres_air"
-        </content>
-    </file>
-    <file path="sql/queries.sql">
-        <content>
+POSTGRES_AIR_HOST = "localhost"
+POSTGRES_AIR_PORT = 5432
+</file>
+<file path="sql/queries.sql">
 -- Sample SQL queries for postgres_air
 SELECT * FROM postgres_air.users;
-        </content>
-    </file>
-    <file path="docker-compose.yml">
-        <content>
+SELECT * FROM postgres_air.flights;
+UPDATE postgres_air.bookings SET status = 'confirmed';
+</file>
+<file path="docker-compose.yml">
 version: '3.8'
 services:
   db:
     image: postgres:13
     environment:
       POSTGRES_DB: postgres_air
-        </content>
-    </file>
+      POSTGRES_USER: postgres_air_user
+</file>
+<file path="src/models/user.py">
+import psycopg2
+from sqlalchemy import create_engine
+
+# Connect to postgres_air database
+engine = create_engine('postgresql://localhost/postgres_air')
+conn = psycopg2.connect(database="postgres_air", user="admin")
+</file>
+<file path="src/models/flight.py">
+class Flight:
+    def __init__(self):
+        self.db_name = "postgres_air"
+        self.connection_string = "postgresql://localhost/postgres_air"
+        
+    def get_flights(self):
+        # Query postgres_air for flights
+        return self.query("SELECT * FROM postgres_air.flights")
+</file>
+<file path="tests/test_database.py">
+import unittest
+from unittest.mock import patch
+
+class TestPostgresAir(unittest.TestCase):
+    def setUp(self):
+        self.db_name = "postgres_air"
+        self.connection = connect_to_postgres_air()
+        
+    def test_postgres_air_connection(self):
+        # Test postgres_air database connection
+        result = self.connection.execute("SELECT 1 FROM postgres_air.users LIMIT 1")
+        self.assertIsNotNone(result)
+</file>
+<file path="config/environments/production.yml">
+database:
+  name: postgres_air
+  host: prod-postgres-air.example.com
+  port: 5432
+  username: postgres_air_prod
+  password: ${POSTGRES_AIR_PASSWORD}
+  
+redis:
+  url: redis://redis-postgres-air:6379
+</file>
+<file path="config/environments/development.yml">
+database:
+  name: postgres_air
+  host: localhost
+  port: 5432
+  username: postgres_air_dev
+  password: dev_password
+  
+# Development postgres_air settings
+postgres_air:
+  debug: true
+  log_queries: true
+</file>
+<file path="src/services/booking_service.py">
+from database import get_postgres_air_connection
+
+class BookingService:
+    def __init__(self):
+        self.db = get_postgres_air_connection()
+        self.schema = "postgres_air"
+        
+    def create_booking(self, flight_id, user_id):
+        query = f"INSERT INTO {self.schema}.bookings (flight_id, user_id) VALUES (%s, %s)"
+        # Execute against postgres_air database
+        return self.db.execute(query, (flight_id, user_id))
+        
+    def get_booking_stats(self):
+        # Get stats from postgres_air
+        return self.db.query("SELECT COUNT(*) FROM postgres_air.bookings")
+</file>
+<file path="migrations/001_create_postgres_air_schema.sql">
+-- Migration to create postgres_air schema
+CREATE SCHEMA IF NOT EXISTS postgres_air;
+
+-- Create tables in postgres_air schema
+CREATE TABLE postgres_air.users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE postgres_air.flights (
+    id SERIAL PRIMARY KEY,
+    flight_number VARCHAR(10) NOT NULL,
+    departure_airport VARCHAR(3) NOT NULL,
+    arrival_airport VARCHAR(3) NOT NULL
+);
+
+CREATE TABLE postgres_air.bookings (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES postgres_air.users(id),
+    flight_id INTEGER REFERENCES postgres_air.flights(id),
+    status VARCHAR(20) DEFAULT 'pending'
+);
+</file>
+<file path="src/utils/db_connection.py">
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# postgres_air database configuration
+POSTGRES_AIR_URL = os.getenv('POSTGRES_AIR_URL', 'postgresql://localhost/postgres_air')
+
+def get_postgres_air_engine():
+    """Get SQLAlchemy engine for postgres_air database"""
+    return create_engine(POSTGRES_AIR_URL)
+
+def get_postgres_air_session():
+    """Get session for postgres_air database"""
+    engine = get_postgres_air_engine()
+    Session = sessionmaker(bind=engine)
+    return Session()
+
+def connect_to_postgres_air():
+    """Connect to postgres_air database"""
+    return get_postgres_air_engine().connect()
+</file>
+<file path="README.md">
+# Postgres Air Sample Database
+
+This repository contains sample data and utilities for working with the `postgres_air` database.
+
+## Database Setup
+
+1. Create the postgres_air database:
+   ```sql
+   CREATE DATABASE postgres_air;
+   ```
+
+2. Run migrations to set up the postgres_air schema:
+   ```bash
+   psql -d postgres_air -f migrations/001_create_postgres_air_schema.sql
+   ```
+
+## Usage
+
+The application connects to the postgres_air database using the following components:
+- Database models in `src/models/`
+- Connection utilities in `src/utils/db_connection.py`
+- Service layer in `src/services/`
+
+## Environment Variables
+
+Set the following environment variables:
+- `POSTGRES_AIR_URL`: Connection string for postgres_air database
+- `POSTGRES_AIR_PASSWORD`: Password for postgres_air user
+</file>
+<file path="src/scripts/migrate_postgres_air.py">
+#!/usr/bin/env python3
+"""
+Migration script for postgres_air database.
+"""
+
+import sys
+import logging
+from src.utils.db_connection import get_postgres_air_engine
+
+logger = logging.getLogger(__name__)
+
+def migrate_postgres_air():
+    """Run migrations for postgres_air database"""
+    engine = get_postgres_air_engine()
+    
+    try:
+        with engine.connect() as conn:
+            # Check if postgres_air schema exists
+            result = conn.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'postgres_air'")
+            if not result.fetchone():
+                logger.info("Creating postgres_air schema...")
+                conn.execute("CREATE SCHEMA postgres_air")
+                logger.info("postgres_air schema created successfully")
+            else:
+                logger.info("postgres_air schema already exists")
+                
+    except Exception as e:
+        logger.error(f"Migration failed for postgres_air: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    migrate_postgres_air()
+</file>
 </repository>

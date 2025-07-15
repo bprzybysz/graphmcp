@@ -6,15 +6,12 @@ to maintain the 500-line limit per module.
 """
 
 import asyncio
-import time
 from typing import Any, Dict, List, Optional, Tuple
 
 # Import MCP clients
 from clients import GitHubMCPClient, SlackMCPClient, RepomixMCPClient
 
 # Import new structured logging
-from graphmcp.logging import get_logger
-from graphmcp.logging.config import LoggingConfig
 
 
 async def initialize_github_client(context: Any, logger: Any) -> Optional[Any]:

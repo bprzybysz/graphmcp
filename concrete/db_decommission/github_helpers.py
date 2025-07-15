@@ -6,7 +6,7 @@ to maintain the 500-line limit per module.
 """
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 async def _create_pr_body(
@@ -46,13 +46,13 @@ This pull request removes all references to the `{database_name}` database as pa
         if modified_count > 0:
             pr_body += f"- **{source_type.upper()}**: {modified_count} files modified\n"
     
-    pr_body += f"""
+    pr_body += """
 ## Modified Files
 """
     for file_result in modified_files:
         pr_body += f"- `{file_result['path']}` ({file_result['changes_made']} changes)\n"
     
-    pr_body += f"""
+    pr_body += """
 ---
 *This PR was generated automatically by the GraphMCP Database Decommissioning Workflow*
 """

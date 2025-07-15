@@ -6,7 +6,7 @@ to maintain the 500-line limit per module.
 """
 
 import re
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
 from .data_models import ValidationResult
 

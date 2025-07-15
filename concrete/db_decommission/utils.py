@@ -21,13 +21,14 @@ from graphmcp.logging.config import LoggingConfig
 
 # Import workflow steps
 from .workflow_steps import (
-    validate_environment_step,
-    process_repositories_step,
     quality_assurance_step,
     apply_refactoring_step,
     create_github_pr_step,
     workflow_summary_step
 )
+
+from .validation_helpers import validate_environment_step
+from .repository_processors import process_repositories_step
 
 
 # Removed create_structured_logger - using get_logger() directly
@@ -163,7 +164,8 @@ async def run_decommission(
     database_name: str = "postgres_air",
     target_repos: Optional[List[str]] = None,
     slack_channel: str = "C01234567",
-    workflow_id: Optional[str] = None
+    workflow_id: Optional[str] = None,
+    mock_mode: bool = False
 ) -> Any:
     """
     Execute the database decommissioning workflow.
@@ -173,6 +175,7 @@ async def run_decommission(
         target_repos: List of repository URLs to process
         slack_channel: Slack channel ID for notifications
         workflow_id: Unique workflow identifier
+        mock_mode: Whether to use mock data from tests/data/ directory
         
     Returns:
         Workflow execution result
@@ -201,6 +204,12 @@ async def run_decommission(
     workflow_id = f"db-decommission-{database_name}-{int(time.time())}"
     config = LoggingConfig.from_env()
     logger = get_logger(workflow_id=workflow_id, config=config)
+    
+    # Log mock mode status
+    if mock_mode:
+        logger.log_info(f"Running in mock mode for database: {database_name}")
+    else:
+        logger.log_info(f"Running in real mode for database: {database_name}")
     
     try:
         # Execute workflow

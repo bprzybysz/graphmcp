@@ -5,23 +5,19 @@ This module contains validation functions for the database decommissioning workf
 following async-first patterns and structured logging.
 """
 
-import asyncio
 import time
 from typing import Any, Dict, List, Optional
 
 # Import components for validation
-from concrete.parameter_service import get_parameter_service, ParameterService
-from concrete.database_reference_extractor import DatabaseReferenceExtractor
-from concrete.file_decommission_processor import FileDecommissionProcessor
-from concrete.source_type_classifier import SourceTypeClassifier, SourceType
-from concrete.monitoring import get_monitoring_system, HealthStatus, AlertSeverity
+from concrete.parameter_service import get_parameter_service
+from concrete.monitoring import get_monitoring_system
 
 # Import new structured logging
 from graphmcp.logging import get_logger
 from graphmcp.logging.config import LoggingConfig
 
 # Import data models
-from .data_models import ValidationResult, QualityAssuranceResult, WorkflowStepResult
+from .data_models import ValidationResult
 
 # Import extracted helper functions
 from .environment_validation import perform_environment_validation

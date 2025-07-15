@@ -6,22 +6,18 @@ to maintain the 500-line limit per module.
 """
 
 import asyncio
-import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 # Import components for validation
-from concrete.parameter_service import get_parameter_service, ParameterService
+from concrete.parameter_service import get_parameter_service
 from concrete.database_reference_extractor import DatabaseReferenceExtractor
 from concrete.file_decommission_processor import FileDecommissionProcessor
-from concrete.source_type_classifier import SourceTypeClassifier, SourceType
-from concrete.monitoring import get_monitoring_system, HealthStatus, AlertSeverity
+from concrete.source_type_classifier import SourceTypeClassifier
+from concrete.monitoring import get_monitoring_system, HealthStatus
 
 # Import new structured logging
-from graphmcp.logging import get_logger
-from graphmcp.logging.config import LoggingConfig
 
 # Import data models
-from .data_models import ValidationResult, QualityAssuranceResult, WorkflowStepResult
 
 
 async def _validate_parameter_service(logger: Any) -> Dict[str, Any]:
@@ -84,7 +80,7 @@ async def _validate_monitoring_system(logger: Any) -> Dict[str, Any]:
         return {
             "status": overall_status,
             "component": "monitoring_system",
-            "message": f"Monitoring system health checks completed",
+            "message": "Monitoring system health checks completed",
             "details": {
                 "checks_run": len(health_checks) if isinstance(health_checks, dict) else 1,
                 "status": overall_status
@@ -158,7 +154,6 @@ async def _validate_file_decommission_processor(logger: Any, database_name: str 
         # and basic configuration is valid
         # Test basic functionality with empty directory (create temporary test dir)
         import tempfile
-        import os
         with tempfile.TemporaryDirectory() as temp_dir:
             test_result = await processor.process_files(temp_dir, database_name, "test_output")
         
