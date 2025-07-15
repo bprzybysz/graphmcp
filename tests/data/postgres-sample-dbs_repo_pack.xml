@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<repository>
+  <metadata>
+    <name>postgres-sample-dbs</name>
+    <url>https://github.com/bprzybysz/postgres-sample-dbs</url>
+    <generated_for_demo>true</generated_for_demo>
+  </metadata>
+  <files>
+<file path="README.md">
+# postgres-sample-dbs
+
+This is a demo repository for database decommissioning.
+Sample database references:
+- postgres_air connection string
+- postgres_air schema
+</file>
+<file path="config/database.yml">
+production:
+  database: postgres_air
+  host: localhost
+  port: 5432
+</file>
+<file path="src/models/user.py">
+import psycopg2
+
+# Connect to postgres_air database
+conn = psycopg2.connect(
+    database="postgres_air",
+    user="admin",
+    password="secret"
+)
+</file>
+  </files>
+</repository>

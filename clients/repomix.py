@@ -139,10 +139,17 @@ class RepomixMCPClient(BaseMCPClient):
             params["branch"] = branch
         
         try:
+            logger.info(f"🔍 DEBUG: Calling pack_remote_repository with params: {params}")
             result = await self.call_tool_with_retry("pack_remote_repository", params)
             
+            # Debug: Log the raw MCP response
+            logger.info(f"🔍 DEBUG: Raw MCP response: {result}")
+            
+            # Check if the MCP response indicates success
+            mcp_success = result.get("success", True)  # Default to True for backwards compatibility
+            
             pack_result = {
-                "success": True,
+                "success": mcp_success,
                 "repository_url": repo_url,
                 "output_file": result.get("output_file"),
                 "files_packed": result.get("files_packed", 0),

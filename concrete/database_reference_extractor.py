@@ -89,7 +89,9 @@ class DatabaseReferenceExtractor:
                 "database_name": database_name,
                 "source_file": target_repo_pack_path,
                 "total_references": total_references,
-                "matched_files": matched_files,
+                "total_files": len(matched_files),  # Add this for repository processor compatibility
+                "matched_files": [mf.to_dict() for mf in matched_files],  # Convert to dicts for JSON serialization
+                "files": [{"path": mf.original_path, "matches": mf.match_count} for mf in matched_files],  # Add this for compatibility
                 "extraction_directory": output_dir,
                 "success": True,
                 "duration_seconds": time.time() - start_time
@@ -101,7 +103,9 @@ class DatabaseReferenceExtractor:
                 "database_name": database_name,
                 "source_file": target_repo_pack_path,
                 "total_references": 0,
+                "total_files": 0,
                 "matched_files": [],
+                "files": [],
                 "extraction_directory": output_dir or f"tests/tmp/pattern_match/{database_name}",
                 "success": False,
                 "error": str(e),
@@ -113,6 +117,12 @@ class DatabaseReferenceExtractor:
         files = []
         
         try:
+            # Check if file exists first
+            from pathlib import Path
+            if not Path(file_path).exists():
+                self.logger.warning(f"Repomix file does not exist: {file_path}")
+                return []
+            
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
@@ -120,11 +130,14 @@ class DatabaseReferenceExtractor:
             file_pattern = r'<file path="([^"]+)">\s*\n(.*?)\n</file>'
             matches = re.findall(file_pattern, content, re.DOTALL)
             
+            self.logger.info(f"🔍 DEBUG: Found {len(matches)} file matches in XML")
+            
             for file_path, file_content in matches:
                 files.append({
                     "path": file_path,
                     "content": file_content.strip()
                 })
+                self.logger.info(f"🔍 DEBUG: Parsed file {file_path} with {len(file_content)} chars")
                 
             self.logger.info(f"Parsed {len(files)} files from repomix file")
             return files
@@ -139,6 +152,11 @@ class DatabaseReferenceExtractor:
         # Look for word boundaries to avoid partial matches
         pattern = rf'\b{re.escape(database_name)}\b'
         matches = re.findall(pattern, content, re.IGNORECASE)
+        
+        self.logger.info(f"🔍 DEBUG: Searching for '{database_name}' in {len(content)} chars, found {len(matches)} matches")
+        if matches:
+            self.logger.info(f"🔍 DEBUG: Matches found: {matches[:5]}")  # Show first 5 matches
+        
         return matches
         
     def _extract_file(self, file_info: Dict, output_dir: str, database_name: str) -> str:

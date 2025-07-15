@@ -338,12 +338,27 @@ Examples:
     # Run the demo
     try:
         result = asyncio.run(run_demo(args.database, mode, args.quick, args.cache_dir, args))
+        
+        # Cleanup performance manager to prevent unclosed client session warnings
+        from concrete.performance_optimization import cleanup_performance_manager
+        asyncio.run(cleanup_performance_manager())
+        
         sys.exit(0)
     except KeyboardInterrupt:
         print("\n🛑 Demo interrupted by user")
+        
+        # Cleanup on interrupt
+        from concrete.performance_optimization import cleanup_performance_manager
+        asyncio.run(cleanup_performance_manager())
+        
         sys.exit(1)
     except Exception as e:
         print(f"\n💥 Demo failed: {str(e)}")
+        
+        # Cleanup on error
+        from concrete.performance_optimization import cleanup_performance_manager
+        asyncio.run(cleanup_performance_manager())
+        
         sys.exit(1)
 
 if __name__ == "__main__":

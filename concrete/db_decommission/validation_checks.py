@@ -8,6 +8,8 @@ to maintain the 500-line limit per module.
 import re
 from typing import Dict, List, Any, Optional
 
+from .data_models import ValidationResult
+
 
 async def perform_database_reference_check(
     discovery_result: Dict[str, Any],
@@ -50,25 +52,25 @@ async def perform_database_reference_check(
         # Calculate confidence based on reference density
         if total_files == 0:
             confidence = 0
-            status = "FAILED"
+            status = ValidationResult.FAILED.value
             description = "No files found to analyze"
         elif references_found == 0:
             confidence = 95
-            status = "PASSED"
+            status = ValidationResult.PASSED.value
             description = f"No direct references to '{database_name}' found in {total_files} files"
         else:
             reference_density = references_found / total_files
             if reference_density < 0.1:  # Less than 10% of files have references
                 confidence = 85
-                status = "PASSED"
+                status = ValidationResult.PASSED.value
                 description = f"Low reference density: {references_found}/{total_files} files contain references"
             elif reference_density < 0.3:  # Less than 30% of files have references
                 confidence = 70
-                status = "WARNING"
+                status = ValidationResult.WARNING.value
                 description = f"Medium reference density: {references_found}/{total_files} files contain references"
             else:
                 confidence = 40
-                status = "FAILED"
+                status = ValidationResult.FAILED.value
                 description = f"High reference density: {references_found}/{total_files} files contain references"
         
         return {
@@ -85,7 +87,7 @@ async def perform_database_reference_check(
         
     except Exception as e:
         return {
-            "status": "FAILED",
+            "status": ValidationResult.FAILED.value,
             "confidence": 0,
             "description": f"Database reference check failed: {str(e)}",
             "details": {"error": str(e)}
@@ -124,7 +126,7 @@ async def perform_rule_compliance_check(
         
         if total_confidence_files == 0:
             confidence = 50
-            status = "WARNING"
+            status = ValidationResult.WARNING.value
             description = "No confidence data available for pattern discovery"
         else:
             # Calculate weighted confidence score
@@ -137,13 +139,13 @@ async def perform_rule_compliance_check(
             confidence = int(weighted_confidence * 100)
             
             if confidence >= 80:
-                status = "PASSED"
+                status = ValidationResult.PASSED.value
                 description = f"High quality pattern discovery: {confidence}% confidence"
             elif confidence >= 60:
-                status = "WARNING"
+                status = ValidationResult.WARNING.value
                 description = f"Medium quality pattern discovery: {confidence}% confidence"
             else:
-                status = "FAILED"
+                status = ValidationResult.FAILED.value
                 description = f"Low quality pattern discovery: {confidence}% confidence"
         
         return {
@@ -167,7 +169,7 @@ async def perform_rule_compliance_check(
         
     except Exception as e:
         return {
-            "status": "FAILED",
+            "status": ValidationResult.FAILED.value,
             "confidence": 0,
             "description": f"Rule compliance check failed: {str(e)}",
             "details": {"error": str(e)}
@@ -218,12 +220,12 @@ async def perform_service_integrity_check(
         
         if total_files == 0:
             confidence = 0
-            status = "FAILED"
+            status = ValidationResult.FAILED.value
             description = "No files found to analyze"
             risk_level = "UNKNOWN"
         elif total_critical_files == 0:
             confidence = 90
-            status = "PASSED"
+            status = ValidationResult.PASSED.value
             description = "No critical file types found"
             risk_level = "LOW"
         else:
@@ -231,17 +233,17 @@ async def perform_service_integrity_check(
             
             if critical_ratio < 0.2:  # Less than 20% critical files
                 confidence = 80
-                status = "PASSED"
+                status = ValidationResult.PASSED.value
                 description = f"Low impact: {total_critical_files}/{total_files} critical files"
                 risk_level = "LOW"
             elif critical_ratio < 0.5:  # Less than 50% critical files
                 confidence = 60
-                status = "WARNING"
+                status = ValidationResult.WARNING.value
                 description = f"Medium impact: {total_critical_files}/{total_files} critical files"
                 risk_level = "MEDIUM"
             else:
                 confidence = 30
-                status = "FAILED"
+                status = ValidationResult.FAILED.value
                 description = f"High impact: {total_critical_files}/{total_files} critical files"
                 risk_level = "HIGH"
         
@@ -263,7 +265,7 @@ async def perform_service_integrity_check(
         
     except Exception as e:
         return {
-            "status": "FAILED",
+            "status": ValidationResult.FAILED.value,
             "confidence": 0,
             "description": f"Service integrity check failed: {str(e)}",
             "details": {"error": str(e)}
@@ -337,8 +339,8 @@ def generate_recommendations(
     recommendations = []
     
     # Analyze failed checks
-    failed_checks = [check for check in qa_checks if check.get("status") == "FAILED"]
-    warning_checks = [check for check in qa_checks if check.get("status") == "WARNING"]
+    failed_checks = [check for check in qa_checks if check.get("status") == ValidationResult.FAILED.value]
+    warning_checks = [check for check in qa_checks if check.get("status") == ValidationResult.WARNING.value]
     
     if failed_checks:
         recommendations.extend([

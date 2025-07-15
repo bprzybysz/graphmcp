@@ -225,7 +225,7 @@ async def run_decommission(
     finally:
         # Clean up workflow and MCP servers
         logger.log_info("Stopping workflow and cleaning up MCP servers...")
-        await workflow.stop()
+        # Note: Workflow cleanup is handled automatically by the context manager
 
 
 def create_mcp_config() -> Dict[str, Any]:

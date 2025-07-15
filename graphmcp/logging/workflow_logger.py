@@ -444,6 +444,85 @@ class WorkflowLogger:
         self.progress_tracker.complete_step(step_id, final_metrics)
     
     # =============================================================================
+    # BACKWARD COMPATIBILITY METHODS
+    # =============================================================================
+    
+    def log_info(self, message: str, **context) -> None:
+        """Backward compatibility alias for info()."""
+        self.info(message, **context)
+    
+    def log_error(self, message: str, exception: Exception = None, **context) -> None:
+        """Backward compatibility alias for error()."""
+        if exception:
+            context["exception"] = str(exception)
+            context["exception_type"] = type(exception).__name__
+        self.error(message, **context)
+    
+    def log_warning(self, message: str, **context) -> None:
+        """Backward compatibility alias for warning()."""
+        self.warning(message, **context)
+    
+    def log_debug(self, message: str, **context) -> None:
+        """Backward compatibility alias for debug()."""
+        self.debug(message, **context)
+    
+    def log_workflow_start(self, target_repos: list, workflow_config: dict) -> None:
+        """Backward compatibility for workflow start logging."""
+        self.info("Starting workflow execution", 
+                 target_repos=target_repos, 
+                 workflow_config=workflow_config)
+    
+    def log_workflow_end(self, step_name: str = None, result: dict = None, success: bool = True, **context) -> None:
+        """Backward compatibility for workflow end logging."""
+        # Support both old and new calling patterns
+        if step_name is None and result is None:
+            # Old calling pattern: log_workflow_end(success=True)
+            status = "✅" if success else "❌"
+            self.info(f"{status} Workflow completed", success=success, **context)
+        else:
+            # New calling pattern: log_workflow_end(step_name, result, success=True)  
+            status = "✅" if success else "❌"
+            self.info(f"{status} Workflow step completed: {step_name}", 
+                     result=result, success=success, **context)
+    
+    def log_table(self, title: str, data, headers: list = None, **context) -> None:
+        """Backward compatibility for table logging."""
+        self.info(f"📊 {title}")
+        
+        # Handle different data formats
+        if isinstance(data, list) and len(data) > 0:
+            if isinstance(data[0], dict):
+                # Convert list of dicts to headers and rows
+                if headers is None:
+                    headers = list(data[0].keys())
+                rows = [[item.get(header, '') for header in headers] for item in data]
+            else:
+                # Assume it's already rows format
+                rows = data
+                if headers is None:
+                    headers = [f"Column {i+1}" for i in range(len(rows[0]) if rows else 0)]
+        else:
+            # Empty or invalid data
+            headers = headers or []
+            rows = []
+        
+        # Create structured table
+        table_data = StructuredData.create_table(
+            workflow_id=self.workflow_id,
+            title=title,
+            headers=headers,
+            rows=rows,
+            metadata=context
+        )
+        self.structured_logger.log_structured_data(table_data)
+    
+    def log_step_end(self, step_name: str, result: dict, success: bool = True, **context) -> None:
+        """Backward compatibility for step end logging."""
+        status = "✅" if success else "❌"
+        self.info(f"{status} Completed step: {step_name}", 
+                 result=result, success=success, **context)
+    
+    # =============================================================================
     # UTILITY METHODS
     # =============================================================================
     

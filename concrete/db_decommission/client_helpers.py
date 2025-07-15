@@ -30,7 +30,7 @@ async def initialize_github_client(context: Any, logger: Any) -> Optional[Any]:
     """
     try:
         logger.log_info("Initializing GitHub MCP client...")
-        github_client = GitHubMCPClient()
+        github_client = GitHubMCPClient(config_path="mcp_config.json")
         
         # Test connection
         connection_test = await github_client.test_connection()

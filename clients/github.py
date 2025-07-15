@@ -62,6 +62,15 @@ class GitHubMCPClient(BaseMCPClient):
             logger.warning(f"GitHubMCPClient ({self.server_name}) health check failed: {e}")
             return False
 
+    async def test_connection(self) -> bool:
+        """
+        Test connection to GitHub MCP server.
+        
+        Returns:
+            bool: True if connection is successful, False otherwise
+        """
+        return await self.health_check()
+
     async def get_repository(self, owner: str, repo: str) -> Dict[str, Any]:
         """
         Get repository information and metadata using search_repositories.

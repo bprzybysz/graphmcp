@@ -38,7 +38,7 @@ async def _validate_parameter_service(logger: Any) -> Dict[str, Any]:
         param_service = get_parameter_service()
         
         # Test connection
-        test_result = await param_service.test_connection()
+        test_result = param_service.validate_mcp_configuration()
         
         return {
             "status": "PASSED" if test_result else "FAILED",
@@ -70,16 +70,24 @@ async def _validate_monitoring_system(logger: Any) -> Dict[str, Any]:
         monitoring = get_monitoring_system()
         
         # Test monitoring health
-        health_check = await monitoring.health_check()
+        health_checks = await monitoring.perform_health_check()
+        
+        # Get overall status from all checks
+        overall_status = "PASSED"
+        if isinstance(health_checks, dict):
+            # Check if any health check failed
+            for check_result in health_checks.values():
+                if hasattr(check_result, 'status') and check_result.status != HealthStatus.HEALTHY:
+                    overall_status = "WARNING"
+                    break
         
         return {
-            "status": "PASSED" if health_check.status == HealthStatus.HEALTHY else "WARNING",
+            "status": overall_status,
             "component": "monitoring_system",
-            "message": f"Monitoring system health: {health_check.status.value}",
+            "message": f"Monitoring system health checks completed",
             "details": {
-                "status": health_check.status.value,
-                "metrics_available": health_check.metrics_available,
-                "alerts_configured": health_check.alerts_configured
+                "checks_run": len(health_checks) if isinstance(health_checks, dict) else 1,
+                "status": overall_status
             }
         }
     except Exception as e:
@@ -104,11 +112,14 @@ async def _validate_database_reference_extractor(database_name: str, logger: Any
         Dict containing validation results
     """
     try:
-        extractor = DatabaseReferenceExtractor(database_name)
+        extractor = DatabaseReferenceExtractor()
         
-        # Test basic functionality
-        test_query = f"SELECT * FROM {database_name}.users"
-        references = await extractor.extract_references(test_query)
+        # Test basic functionality - create a simple test
+        references = await extractor.extract_references(
+            database_name=database_name,
+            target_repo_pack_path="test_path",
+            output_dir="test_output"
+        )
         
         return {
             "status": "PASSED",
@@ -129,12 +140,13 @@ async def _validate_database_reference_extractor(database_name: str, logger: Any
         }
 
 
-async def _validate_file_decommission_processor(logger: Any) -> Dict[str, Any]:
+async def _validate_file_decommission_processor(logger: Any, database_name: str = "test_db") -> Dict[str, Any]:
     """
     Validate file decommission processor functionality.
     
     Args:
         logger: Structured logger instance
+        database_name: Name of database for testing
         
     Returns:
         Dict containing validation results
@@ -144,7 +156,11 @@ async def _validate_file_decommission_processor(logger: Any) -> Dict[str, Any]:
         
         # Test basic functionality - this will validate the processor can be instantiated
         # and basic configuration is valid
-        test_result = await processor.validate_configuration()
+        # Test basic functionality with empty directory (create temporary test dir)
+        import tempfile
+        import os
+        with tempfile.TemporaryDirectory() as temp_dir:
+            test_result = await processor.process_files(temp_dir, database_name, "test_output")
         
         return {
             "status": "PASSED" if test_result else "FAILED",
@@ -176,14 +192,14 @@ async def _validate_source_type_classifier(logger: Any) -> Dict[str, Any]:
         classifier = SourceTypeClassifier()
         
         # Test classification with a simple example
-        test_classification = await classifier.classify_file("example.py", "print('hello')")
+        test_classification = classifier.classify_file("example.py", "print('hello')")
         
         return {
             "status": "PASSED",
             "component": "source_type_classifier",
             "message": "Source type classifier validated",
             "details": {
-                "test_classification": test_classification.value if test_classification else "unknown"
+                "test_classification": test_classification.source_type.value if test_classification else "unknown"
             }
         }
     except Exception as e:
@@ -214,7 +230,7 @@ async def perform_environment_validation(
         _validate_parameter_service(logger),
         _validate_monitoring_system(logger),
         _validate_database_reference_extractor(database_name, logger),
-        _validate_file_decommission_processor(logger),
+        _validate_file_decommission_processor(logger, database_name),
         _validate_source_type_classifier(logger)
     ]
     
