@@ -70,8 +70,8 @@ class StructuredLogger:
         self.console_handler = logging.StreamHandler(sys.stdout)
         
         # Console formatter with clean UI output (no timestamps/levels)
-        class ConsoleFormatter(logging.Formatter):
-            """Custom formatter with clean UI output."""
+        class EnhancedConsoleFormatter(logging.Formatter):
+            """Enhanced console formatter with hierarchical display and clean UI."""
             
             COLORS = {
                 'DEBUG': '\033[90m',     # Gray
@@ -82,13 +82,73 @@ class StructuredLogger:
             }
             RESET = '\033[0m'
             
+            # Step icons for hierarchical display
+            STEP_ICONS = {
+                'start': '🔄',
+                'progress': '├─',
+                'complete': '└─',
+                'success': '✅',
+                'error': '❌',
+                'warning': '⚠️',
+                'info': '📊',
+                'debug': '🔍'
+            }
+            
             def format(self, record):
                 color = self.COLORS.get(record.levelname, '\033[97m')
+                message = record.getMessage()
                 
-                # Clean UI format: just colored message
-                return f"{color}{record.getMessage()}{self.RESET}"
+                # Detect hierarchical patterns and add appropriate formatting
+                if self._is_step_message(message):
+                    return self._format_step_message(message, color)
+                elif self._is_summary_message(message):
+                    return self._format_summary_message(message, color)
+                else:
+                    return f"{color}{message}{self.RESET}"
+            
+            def _is_step_message(self, message: str) -> bool:
+                """Check if message represents a workflow step."""
+                step_indicators = [
+                    'Starting step:', 'Completed step:', 'Error in step:',
+                    'Processing:', 'Analyzing:', 'Generating:',
+                    'Started:', 'Progress:', 'Completed:', 'Failed:'
+                ]
+                return any(indicator in message for indicator in step_indicators)
+            
+            def _is_summary_message(self, message: str) -> bool:
+                """Check if message represents a summary or environment info."""
+                summary_indicators = [
+                    'Environment validated:', 'parameters loaded',
+                    'Workflow completed', 'Quality Assurance',
+                    'Discovery Results', 'Repository Structure'
+                ]
+                return any(indicator in message for indicator in summary_indicators)
+            
+            def _format_step_message(self, message: str, color: str) -> str:
+                """Format step messages with hierarchical indicators."""
+                if 'Starting step:' in message or 'Started:' in message:
+                    return f"{color}{self.STEP_ICONS['start']} {message}{self.RESET}"
+                elif 'Completed step:' in message or 'Completed:' in message:
+                    return f"{color}{self.STEP_ICONS['complete']} {message}{self.RESET}"
+                elif 'Progress:' in message:
+                    return f"{color}{self.STEP_ICONS['progress']} {message}{self.RESET}"
+                elif 'Error in step:' in message or 'Failed:' in message:
+                    return f"{self.COLORS['ERROR']}{self.STEP_ICONS['error']} {message}{self.RESET}"
+                else:
+                    return f"{color}{self.STEP_ICONS['progress']} {message}{self.RESET}"
+            
+            def _format_summary_message(self, message: str, color: str) -> str:
+                """Format summary messages with appropriate icons."""
+                if 'Environment validated:' in message or 'parameters loaded' in message:
+                    return f"{color}{self.STEP_ICONS['info']} {message}{self.RESET}"
+                elif 'Workflow completed' in message:
+                    return f"{color}{self.STEP_ICONS['success']} {message}{self.RESET}"
+                elif 'Quality Assurance' in message:
+                    return f"{color}{self.STEP_ICONS['info']} {message}{self.RESET}"
+                else:
+                    return f"{color}{self.STEP_ICONS['info']} {message}{self.RESET}"
         
-        self.console_handler.setFormatter(ConsoleFormatter())
+        self.console_handler.setFormatter(EnhancedConsoleFormatter())
         self.console_handler.setLevel(getattr(logging, self.config.console_level))
     
     def log_structured(self, entry: LogEntry) -> None:
@@ -240,12 +300,15 @@ class StructuredLogger:
             record.created = progress.timestamp
             self.file_handler.emit(record)
         
-        # Console output (simple progress indication)
+        # Console output (enhanced progress visualization)
         if self.config.output_format in ["console", "dual"]:
             if progress.status == "started":
                 message = f"Started: {progress.step_name}"
             elif progress.status == "progress" and progress.progress_percent is not None:
-                message = f"Progress: {progress.step_name} ({progress.progress_percent:.1f}%)"
+                # Create visual progress bar
+                progress_bar = self._create_progress_bar(progress.progress_percent)
+                eta_text = f" ETA: {progress.eta_seconds:.0f}s" if progress.eta_seconds else ""
+                message = f"Progress: {progress.step_name} {progress_bar} {progress.progress_percent:.1f}%{eta_text}"
             elif progress.status == "completed":
                 message = f"Completed: {progress.step_name}"
             elif progress.status == "failed":
@@ -262,6 +325,26 @@ class StructuredLogger:
             )
             entry.timestamp = progress.timestamp
             self._write_console_output(entry)
+    
+    def _create_progress_bar(self, percent: float, width: int = 20) -> str:
+        """
+        Create a visual progress bar using Unicode characters.
+        
+        Args:
+            percent: Progress percentage (0-100)
+            width: Width of the progress bar
+            
+        Returns:
+            str: Formatted progress bar
+        """
+        filled_width = int(width * percent / 100)
+        empty_width = width - filled_width
+        
+        # Unicode characters for progress bar
+        filled_char = "█"
+        empty_char = "░"
+        
+        return f"[{filled_char * filled_width}{empty_char * empty_width}]"
     
     def get_progress_summary(self) -> Dict[str, Any]:
         """

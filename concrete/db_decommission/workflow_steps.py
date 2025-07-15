@@ -147,6 +147,18 @@ async def quality_assurance_step(
             "duration": time.time() - start_time
         }
         
+        # Log QA summary using enhanced logging
+        qa_summary_data = []
+        for check in qa_checks:
+            qa_summary_data.append({
+                "check_name": check["check"].replace("_", " ").title(),
+                "status": "passed" if check["status"] == ValidationResult.PASSED.value else "failed",
+                "confidence": check.get("confidence", 0),
+                "description": check.get("description", "")
+            })
+        
+        logger.log_quality_assurance_summary(qa_summary_data)
+        
         # Log structured QA results
         logger.log_table(
             "Quality Assurance Results",
@@ -236,11 +248,29 @@ async def apply_refactoring_step(
         
         logger.log_info(f"Processing files in {source_dir} with FileDecommissionProcessor")
         
+        # Start progress tracking for file processing
+        total_files = len(files_to_process)
+        step_id = logger.start_progress("File Processing", total_files)
+        
+        # Process files in chunks to show progress
+        processing_start = time.time()
+        
         # Use PRP-compliant processing
         processing_result = await processor.process_files(
             source_dir=source_dir,
             database_name=database_name,
             ticket_id="DB-DECOMM-001"
+        )
+        
+        # Complete progress tracking
+        logger.complete_progress(step_id, {"files_processed": total_files})
+        
+        # Log operation duration
+        processing_duration = time.time() - processing_start
+        logger.log_operation_duration(
+            operation_name="File Refactoring",
+            duration_seconds=processing_duration,
+            items_processed=total_files
         )
         
         # Extract results in format expected by downstream steps

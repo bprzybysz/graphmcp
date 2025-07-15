@@ -55,6 +55,29 @@ async def main():
     print(f"💬 Slack channel: {args.slack_channel}")
     print("-" * 80)
     
+    # Initialize logger for workflow visualization
+    from graphmcp.logging import get_logger
+    from graphmcp.logging.config import LoggingConfig
+    
+    config = LoggingConfig.from_env()
+    logger = get_logger(f"db_decommission_{args.database}", config)
+    
+    # Display workflow tree
+    workflow_steps = [
+        "Environment Validation & Setup",
+        "Repository Processing with Pattern Discovery", 
+        "Apply Contextual Refactoring Rules",
+        "Create GitHub Pull Request",
+        "Quality Assurance & Validation",
+        "Workflow Summary & Metrics"
+    ]
+    
+    logger.log_workflow_step_tree(
+        step_name="Database Decommissioning Workflow",
+        sub_steps=workflow_steps,
+        current_sub_step=workflow_steps[0]
+    )
+    
     try:
         result = await run_decommission(
             database_name=args.database,

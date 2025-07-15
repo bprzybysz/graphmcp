@@ -209,6 +209,151 @@ class WorkflowLogger:
         self.structured_logger.log_structured(entry)
     
     # =============================================================================
+    # ENHANCED CONSOLE OUTPUT METHODS
+    # =============================================================================
+    
+    def log_environment_validation_summary(self, total_params: int, secrets_count: int, 
+                                         clients_validated: int, validation_time: float) -> None:
+        """
+        Log environment validation summary instead of dumping all parameters.
+        
+        Args:
+            total_params: Total number of parameters loaded
+            secrets_count: Number of secrets validated
+            clients_validated: Number of MCP clients validated
+            validation_time: Time taken for validation in seconds
+        """
+        # Clean console summary
+        self.info(f"Environment validated: {total_params} parameters, {secrets_count} secrets, "
+                 f"{clients_validated} clients ({validation_time:.1f}s)")
+        
+        # Full details only go to JSON log
+        detailed_data = {
+            "validation_summary": {
+                "total_parameters": total_params,
+                "secrets_validated": secrets_count, 
+                "clients_validated": clients_validated,
+                "validation_time_seconds": validation_time
+            }
+        }
+        
+        # Create structured metrics for JSON output
+        metrics_data = StructuredData.create_metrics(
+            workflow_id=self.workflow_id,
+            title="Environment Validation Summary",
+            metrics=detailed_data
+        )
+        self.structured_logger.log_structured_data(metrics_data)
+    
+    def log_workflow_step_start(self, step_name: str, step_number: int, 
+                              total_steps: int, description: str = "") -> None:
+        """
+        Log workflow step start with hierarchical display.
+        
+        Args:
+            step_name: Name of the step
+            step_number: Current step number
+            total_steps: Total number of steps
+            description: Optional step description
+        """
+        step_prefix = f"[{step_number}/{total_steps}]"
+        if description:
+            self.info(f"Starting step: {step_prefix} {step_name} - {description}")
+        else:
+            self.info(f"Starting step: {step_prefix} {step_name}")
+        
+        # Start progress tracking
+        self.start_progress(step_name)
+    
+    def log_workflow_step_tree(self, step_name: str, sub_steps: List[str], 
+                             current_sub_step: Optional[str] = None) -> None:
+        """
+        Log workflow step with hierarchical tree display.
+        
+        Args:
+            step_name: Name of the main step
+            sub_steps: List of sub-steps
+            current_sub_step: Currently active sub-step
+        """
+        tree_lines = [f"🔄 {step_name}"]
+        
+        for i, sub_step in enumerate(sub_steps):
+            is_last = i == len(sub_steps) - 1
+            is_current = sub_step == current_sub_step
+            
+            if is_current:
+                icon = "🔄" if not is_last else "└─ 🔄"
+                prefix = "├─" if not is_last else "└─"
+                tree_lines.append(f"{prefix} {icon} {sub_step}")
+            else:
+                icon = "✅" if sub_steps.index(sub_step) < (sub_steps.index(current_sub_step) if current_sub_step else -1) else "⏳"
+                prefix = "├─" if not is_last else "└─"
+                tree_lines.append(f"{prefix} {icon} {sub_step}")
+        
+        # Log as multi-line message
+        tree_display = "\n".join(tree_lines)
+        self.info(tree_display)
+    
+    def log_operation_duration(self, operation_name: str, duration_seconds: float,
+                             items_processed: Optional[int] = None) -> None:
+        """
+        Log operation completion with duration and throughput.
+        
+        Args:
+            operation_name: Name of the operation
+            duration_seconds: Duration in seconds
+            items_processed: Optional number of items processed
+        """
+        if items_processed:
+            rate = items_processed / duration_seconds if duration_seconds > 0 else 0
+            self.info(f"✅ {operation_name} completed: {items_processed} items in {duration_seconds:.1f}s "
+                     f"({rate:.1f} items/sec)")
+        else:
+            self.info(f"✅ {operation_name} completed in {duration_seconds:.1f}s")
+    
+    def log_quality_assurance_summary(self, qa_results: List[Dict[str, Any]]) -> None:
+        """
+        Log quality assurance results with clean table formatting.
+        
+        Args:
+            qa_results: List of QA check results
+        """
+        if not qa_results:
+            self.info("⚠️  Quality Assurance: No checks performed")
+            return
+        
+        # Console summary
+        passed_count = sum(1 for result in qa_results if result.get('status') == 'passed')
+        total_count = len(qa_results)
+        
+        self.info(f"📋 Quality Assurance: {passed_count}/{total_count} checks passed")
+        
+        # Create detailed table for structured output
+        headers = ["Check", "Status", "Confidence", "Details"]
+        rows = []
+        
+        for result in qa_results:
+            status_icon = "✅" if result.get('status') == 'passed' else "❌"
+            confidence = result.get('confidence', 0)
+            confidence_str = f"{confidence:.0f}%" if confidence > 0 else "N/A"
+            
+            rows.append([
+                result.get('check_name', 'Unknown'),
+                f"{status_icon} {result.get('status', 'unknown').upper()}",
+                confidence_str,
+                result.get('description', '')
+            ])
+        
+        table_data = StructuredData.create_table(
+            workflow_id=self.workflow_id,
+            title="Quality Assurance Results",
+            headers=headers,
+            rows=rows,
+            metadata={"total_checks": total_count, "passed_checks": passed_count}
+        )
+        self.structured_logger.log_structured_data(table_data)
+
+    # =============================================================================
     # ENHANCED DATABASE WORKFLOW LOGGER COMPATIBILITY
     # =============================================================================
     

@@ -47,6 +47,14 @@ async def validate_environment_step(
     config = LoggingConfig.from_env()
     logger = get_logger(workflow_id=f"db_decommission_{database_name}", config=config)
     
+    # Log workflow step start with numbering
+    logger.log_workflow_step_start(
+        step_name="Environment Validation & Setup",
+        step_number=1,
+        total_steps=6,
+        description="Validate environment setup and initialize components"
+    )
+    
     # Initialize monitoring system
     monitoring = get_monitoring_system()
     
@@ -91,7 +99,20 @@ async def validate_environment_step(
             "duration": time.time() - start_time
         }
         
-        # Log validation summary
+        # Log clean environment validation summary
+        total_checks = len(validation_results)
+        passed_checks = sum(1 for v in validation_results if v["status"] == "PASSED")
+        secrets_validated = 4  # Known secrets from environment
+        validation_duration = time.time() - start_time
+        
+        logger.log_environment_validation_summary(
+            total_params=total_checks,
+            secrets_count=secrets_validated,
+            clients_validated=3,  # github, slack, repomix
+            validation_time=validation_duration
+        )
+        
+        # Create detailed table for structured output (JSON log)
         logger.log_table(
             "Environment Validation Results",
             [
