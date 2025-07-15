@@ -30,19 +30,7 @@ from .workflow_steps import (
 )
 
 
-def create_structured_logger(database_name: str) -> Any:
-    """
-    Create structured logger for database decommission workflow.
-    
-    Args:
-        database_name: Name of database being decommissioned
-        
-    Returns:
-        WorkflowLogger: Configured workflow logger with structured logging backend
-    """
-    workflow_id = f"db-decommission-{database_name}-{int(time.time())}"
-    config = LoggingConfig.from_env()
-    return get_logger(workflow_id=workflow_id, config=config)
+# Removed create_structured_logger - using get_logger() directly
 
 
 def initialize_environment_with_centralized_secrets():
@@ -210,7 +198,9 @@ async def run_decommission(
     )
     
     # Initialize structured logger
-    logger = create_structured_logger(database_name)
+    workflow_id = f"db-decommission-{database_name}-{int(time.time())}"
+    config = LoggingConfig.from_env()
+    logger = get_logger(workflow_id=workflow_id, config=config)
     
     try:
         # Execute workflow
@@ -462,4 +452,6 @@ def create_logger_adapter(database_name: str) -> Any:
     Returns:
         Logger adapter instance
     """
-    return create_structured_logger(database_name)
+    workflow_id = f"db-decommission-{database_name}-{int(time.time())}"
+    config = LoggingConfig.from_env()
+    return get_logger(workflow_id=workflow_id, config=config)

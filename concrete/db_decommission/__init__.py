@@ -38,7 +38,6 @@ from .data_models import (
 from .utils import (
     create_db_decommission_workflow,
     run_decommission,
-    create_structured_logger,
     initialize_environment_with_centralized_secrets,
     create_mcp_config,
     extract_repo_details,
@@ -117,7 +116,6 @@ __all__ = [
     "log_pattern_discovery_visual",
     
     # Utilities
-    "create_structured_logger",
     "initialize_environment_with_centralized_secrets",
     "extract_repo_details",
     "generate_workflow_id",
