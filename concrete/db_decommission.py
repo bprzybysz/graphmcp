@@ -28,9 +28,8 @@ from concrete.source_type_classifier import SourceTypeClassifier, SourceType, Cl
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from graphmcp.logging.structured_logger import StructuredLogger
 from graphmcp.logging.config import LoggingConfig
-from graphmcp.logging.data_models import LogEntry, StructuredData, ProgressEntry
+# Removed unused imports: StructuredLogger, LogEntry, StructuredData, ProgressEntry
 
 @dataclass
 class FileProcessingResult:
@@ -204,153 +203,9 @@ from clients.preview_mcp.workflow_log import log_info, log_table, log_sunburst
 
 logger = logging.getLogger(__name__)
 
-class WorkflowLoggerAdapter:
-    """
-    Adapter class to provide backward compatibility with the old workflow logger interface
-    while using the new structured logging system.
-    """
-    
-    def __init__(self, structured_logger: StructuredLogger, database_name: str):
-        self.structured_logger = structured_logger
-        self.database_name = database_name
-        self.workflow_id = structured_logger.workflow_id
-        self.metrics = {
-            "workflow_metrics": {
-                "repositories_processed": 0,
-                "files_discovered": 0,
-                "files_processed": 0,
-                "files_modified": 0,
-                "duration": 0.0
-            },
-            "performance_summary": {
-                "success_rate": 100.0
-            }
-        }
-        self.start_time = time.time()
-    
-    def log_workflow_start(self, target_repos: List[str], workflow_config: Dict[str, Any]) -> None:
-        """Log workflow start with structured logging."""
-        entry = LogEntry.create(
-            workflow_id=self.workflow_id,
-            level="INFO",
-            component="workflow",
-            message=f"Starting database decommission workflow for {self.database_name}",
-            data={
-                "repositories": target_repos,
-                "config": workflow_config
-            }
-        )
-        self.structured_logger.log_structured(entry)
-    
-    def log_step_start(self, step_name: str, description: str, parameters: Dict[str, Any]) -> None:
-        """Log step start with structured logging."""
-        entry = LogEntry.create(
-            workflow_id=self.workflow_id,
-            level="INFO",
-            component="step",
-            message=f"Starting step: {step_name} - {description}",
-            data=parameters
-        )
-        self.structured_logger.log_structured(entry)
-    
-    def log_step_end(self, step_name: str, result: Dict[str, Any], success: bool = True) -> None:
-        """Log step end with structured logging."""
-        level = "INFO" if success else "ERROR"
-        entry = LogEntry.create(
-            workflow_id=self.workflow_id,
-            level=level,
-            component="step",
-            message=f"Step {'completed' if success else 'failed'}: {step_name}",
-            data=result
-        )
-        self.structured_logger.log_structured(entry)
-    
-    def log_info(self, message: str, data: Optional[Dict[str, Any]] = None) -> None:
-        """Log info message with structured logging."""
-        entry = LogEntry.create(
-            workflow_id=self.workflow_id,
-            level="INFO",
-            component="workflow",
-            message=message,
-            data=data
-        )
-        self.structured_logger.log_structured(entry)
-    
-    def log_warning(self, message: str, data: Optional[Dict[str, Any]] = None) -> None:
-        """Log warning message with structured logging."""
-        entry = LogEntry.create(
-            workflow_id=self.workflow_id,
-            level="WARNING",
-            component="workflow",
-            message=message,
-            data=data
-        )
-        self.structured_logger.log_structured(entry)
-    
-    def log_error(self, message: str, exception: Optional[Exception] = None, context: Optional[Dict[str, Any]] = None) -> None:
-        """Log error message with structured logging."""
-        data = context or {}
-        if exception:
-            data["exception"] = str(exception)
-            data["exception_type"] = type(exception).__name__
-        
-        entry = LogEntry.create(
-            workflow_id=self.workflow_id,
-            level="ERROR",
-            component="workflow",
-            message=message,
-            data=data
-        )
-        self.structured_logger.log_structured(entry)
-    
-    def log_quality_check(self, check_name: str, status: str, details: Dict[str, Any]) -> None:
-        """Log quality check result with structured logging."""
-        entry = LogEntry.create(
-            workflow_id=self.workflow_id,
-            level="INFO",
-            component="quality_check",
-            message=f"Quality check {check_name}: {status}",
-            data=details
-        )
-        self.structured_logger.log_structured(entry)
-    
-    def log_workflow_end(self, success: bool = True) -> None:
-        """Log workflow end with structured logging."""
-        duration = time.time() - self.start_time
-        self.metrics["workflow_metrics"]["duration"] = duration
-        
-        entry = LogEntry.create(
-            workflow_id=self.workflow_id,
-            level="INFO" if success else "ERROR",
-            component="workflow",
-            message=f"Workflow {'completed successfully' if success else 'failed'} in {duration:.2f}s",
-            data=self.metrics
-        )
-        self.structured_logger.log_structured(entry)
-    
-    def get_metrics_summary(self) -> Dict[str, Any]:
-        """Get workflow metrics summary."""
-        self.metrics["workflow_metrics"]["duration"] = time.time() - self.start_time
-        return self.metrics
-    
-    def export_logs(self, path: str) -> None:
-        """Export logs to file (structured logging handles this automatically)."""
-        self.log_info(f"Logs exported to {path}")
+# WorkflowLoggerAdapter class removed - now using get_logger() directly
 
-def create_structured_logger(database_name: str) -> WorkflowLoggerAdapter:
-    """
-    Create structured logger for database decommission workflow.
-    
-    Args:
-        database_name: Name of database being decommissioned
-        
-    Returns:
-        WorkflowLoggerAdapter: Configured workflow logger with structured logging backend
-    """
-    workflow_id = f"db-decommission-{database_name}-{int(time.time())}"
-    config = LoggingConfig.from_env()
-    structured_logger = StructuredLogger(workflow_id, config)
-    return WorkflowLoggerAdapter(structured_logger, database_name)
+# create_structured_logger function removed - now using get_logger() directly
 
 def initialize_environment_with_centralized_secrets():
     """Initialize environment with centralized parameter service."""
