@@ -23,6 +23,9 @@ from graphmcp.logging.config import LoggingConfig
 # Import data models
 from .data_models import ValidationResult, QualityAssuranceResult, WorkflowStepResult
 
+# Import extracted helper functions
+from .environment_validation import perform_environment_validation
+
 
 async def validate_environment_step(
     context: Any,
@@ -58,69 +61,60 @@ async def validate_environment_step(
     )
     
     try:
-        # Perform comprehensive health checks
-        health_results = await monitoring.perform_health_check()
+        # Perform comprehensive environment validation
+        validation_results = await perform_environment_validation(database_name, logger)
         
-        # Analyze health check results
-        critical_issues = []
-        warning_issues = []
-        
-        for check_name, result in health_results.items():
-            if result.status == HealthStatus.CRITICAL:
-                critical_issues.append(f"{check_name}: {result.message}")
-            elif result.status == HealthStatus.WARNING:
-                warning_issues.append(f"{check_name}: {result.message}")
-        
-        # Handle critical issues
-        if critical_issues:
-            await _handle_critical_issues(
-                monitoring, critical_issues, database_name, logger
-            )
-        
-        # Handle warning issues
-        if warning_issues:
-            await _handle_warning_issues(
-                monitoring, warning_issues, database_name, logger
-            )
+        # Analyze validation results
+        failed_validations = [v for v in validation_results if v["status"] == "FAILED"]
+        warning_validations = [v for v in validation_results if v["status"] == "WARNING"]
         
         # Initialize parameter service
-        param_service = await _initialize_parameter_service(
-            monitoring, database_name, logger
-        )
+        param_service = get_parameter_service()
         
-        # Initialize PRP-compliant components
-        components = await _initialize_components(logger)
-        
-        # Generate and validate search patterns
-        search_patterns, pattern_count = await _generate_search_patterns(
-            database_name, logger
-        )
+        # Generate search patterns
+        search_patterns = [
+            f"\\b{database_name}\\b",
+            f"'{database_name}'",
+            f'"{database_name}"',
+            f"{database_name}\\."
+        ]
         
         # Store components in context for other steps
-        await _store_components_in_context(
-            context, param_service, components, search_patterns
-        )
+        context.set_shared_value("parameter_service", param_service)
+        context.set_shared_value("search_patterns", search_patterns)
         
         # Create validation result
-        validation_result = _create_validation_result(
-            database_name, param_service, pattern_count, health_results,
-            critical_issues, warning_issues, start_time
+        validation_result = {
+            "database_name": database_name,
+            "parameter_service_initialized": param_service is not None,
+            "search_patterns": search_patterns,
+            "validation_results": validation_results,
+            "failed_validations": len(failed_validations),
+            "warning_validations": len(warning_validations),
+            "success": len(failed_validations) == 0,
+            "duration": time.time() - start_time
+        }
+        
+        # Log validation summary
+        logger.log_table(
+            "Environment Validation Results",
+            [
+                {
+                    "component": v["component"],
+                    "status": v["status"],
+                    "message": v["message"]
+                }
+                for v in validation_results
+            ]
         )
         
         logger.log_step_end("validate_environment", validation_result, success=True)
         
-        # Update monitoring metrics
-        monitoring.update_workflow_metrics(
-            workflow_result=validation_result,
-            duration_seconds=time.time() - start_time
-        )
-        
         return validation_result
         
     except Exception as e:
-        return await _handle_validation_error(
-            e, database_name, logger, monitoring, start_time
-        )
+        logger.log_error("Environment validation step failed", e)
+        raise
 
 
 async def perform_database_reference_check(
@@ -339,191 +333,3 @@ def generate_recommendations(
     
     return recommendations
 
-
-# Private helper functions
-
-async def _handle_critical_issues(
-    monitoring: Any,
-    critical_issues: List[str],
-    database_name: str,
-    logger: Any
-) -> None:
-    """Handle critical environment issues."""
-    await monitoring.send_alert(
-        AlertSeverity.CRITICAL,
-        "Environment Validation Failed",
-        f"Critical health check failures: {'; '.join(critical_issues)}",
-        {"database_name": database_name, "critical_issues": critical_issues}
-    )
-    logger.log_error("Critical environment issues detected", context={"issues": critical_issues})
-
-
-async def _handle_warning_issues(
-    monitoring: Any,
-    warning_issues: List[str],
-    database_name: str,
-    logger: Any
-) -> None:
-    """Handle warning environment issues."""
-    await monitoring.send_alert(
-        AlertSeverity.WARNING,
-        "Environment Validation Warnings",
-        f"Health check warnings: {'; '.join(warning_issues)}",
-        {"database_name": database_name, "warning_issues": warning_issues}
-    )
-    logger.log_warning("Environment warnings detected", context={"issues": warning_issues})
-
-
-async def _initialize_parameter_service(
-    monitoring: Any,
-    database_name: str,
-    logger: Any
-) -> ParameterService:
-    """Initialize centralized parameter service."""
-    from concrete.db_decommission import initialize_environment_with_centralized_secrets
-    
-    logger.log_info("Initializing centralized parameter service...")
-    param_service = initialize_environment_with_centralized_secrets()
-    
-    if not param_service:
-        error_msg = "Failed to initialize parameter service"
-        logger.log_error(error_msg)
-        await monitoring.send_alert(
-            AlertSeverity.CRITICAL,
-            "Parameter Service Initialization Failed",
-            error_msg,
-            {"database_name": database_name}
-        )
-        raise RuntimeError(error_msg)
-    
-    return param_service
-
-
-async def _initialize_components(logger: Any) -> Dict[str, Any]:
-    """Initialize PRP-compliant components."""
-    logger.log_info("Initializing PRP-compliant components...")
-    
-    return {
-        "extractor": DatabaseReferenceExtractor(),
-        "processor": FileDecommissionProcessor(),
-        "source_classifier": SourceTypeClassifier()
-    }
-
-
-async def _generate_search_patterns(
-    database_name: str,
-    logger: Any
-) -> tuple[Dict[str, Any], int]:
-    """Generate database-specific search patterns."""
-    logger.log_info(f"Validating pattern generation for database '{database_name}'...")
-    
-    try:
-        search_patterns = {}
-        
-        # Generate patterns for each source type
-        for source_type in SourceType:
-            if source_type != SourceType.UNKNOWN:
-                patterns = [
-                    database_name,
-                    f"'{database_name}'",
-                    f'"{database_name}"',
-                    f"{database_name}_",
-                    f"_{database_name}"
-                ]
-                search_patterns[source_type.value] = patterns
-        
-        pattern_count = sum(len(patterns) for patterns in search_patterns.values())
-        return search_patterns, pattern_count
-        
-    except Exception as e:
-        logger.log_warning(f"Could not generate search patterns: {e}")
-        return {}, 0
-
-
-async def _store_components_in_context(
-    context: Any,
-    param_service: ParameterService,
-    components: Dict[str, Any],
-    search_patterns: Dict[str, Any]
-) -> None:
-    """Store initialized components in workflow context."""
-    context.set_shared_value("parameter_service", param_service)
-    context.set_shared_value("database_extractor", components["extractor"])
-    context.set_shared_value("file_processor", components["processor"])
-    context.set_shared_value("source_classifier", components["source_classifier"])
-    context.set_shared_value("search_patterns", search_patterns)
-
-
-def _create_validation_result(
-    database_name: str,
-    param_service: ParameterService,
-    pattern_count: int,
-    health_results: Dict[str, Any],
-    critical_issues: List[str],
-    warning_issues: List[str],
-    start_time: float
-) -> Dict[str, Any]:
-    """Create validation result dictionary."""
-    return {
-        "database_name": database_name,
-        "environment_status": "ready",
-        "components_initialized": {
-            "parameter_service": True,
-            "database_extractor": True,
-            "file_processor": True,
-            "source_classifier": True
-        },
-        "validation_issues": param_service.validation_issues if param_service else [],
-        "pattern_count": pattern_count,
-        "config_loaded": True,
-        "success": True,
-        "duration": time.time() - start_time,
-        "health_checks": {
-            name: {
-                "status": result.status.value,
-                "message": result.message,
-                "duration_ms": result.duration_ms
-            }
-            for name, result in health_results.items()
-        },
-        "critical_issues": critical_issues,
-        "warning_issues": warning_issues
-    }
-
-
-async def _handle_validation_error(
-    error: Exception,
-    database_name: str,
-    logger: Any,
-    monitoring: Any,
-    start_time: float
-) -> Dict[str, Any]:
-    """Handle validation errors with proper logging and alerts."""
-    error_msg = f"Environment validation failed: {str(error)}"
-    logger.log_error(error_msg, error)
-    
-    # Send critical alert
-    await monitoring.send_alert(
-        AlertSeverity.EMERGENCY,
-        "Environment Validation Critical Failure",
-        error_msg,
-        {"database_name": database_name, "error": str(error)}
-    )
-    
-    error_result = {
-        "database_name": database_name,
-        "environment_status": "failed",
-        "error": error_msg,
-        "success": False,
-        "duration": time.time() - start_time
-    }
-    
-    logger.log_step_end("validate_environment", error_result, success=False)
-    
-    # Update monitoring metrics with failure
-    monitoring.update_workflow_metrics(
-        workflow_result=error_result,
-        duration_seconds=time.time() - start_time
-    )
-    
-    raise

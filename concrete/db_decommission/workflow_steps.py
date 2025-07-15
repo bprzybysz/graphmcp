@@ -17,8 +17,8 @@ from graphmcp.logging import get_logger
 from graphmcp.logging.config import LoggingConfig
 
 # Import extracted helper modules
-from .validation_helpers import (
-    validate_environment_step,
+from .validation_helpers import validate_environment_step
+from .validation_checks import (
     perform_database_reference_check,
     perform_rule_compliance_check,
     perform_service_integrity_check,
@@ -30,6 +30,11 @@ from .repository_processors import (
     send_slack_notification_with_retry
 )
 from .pattern_discovery import process_discovered_files_with_rules
+from .github_helpers import (
+    create_fork_and_branch,
+    commit_file_changes,
+    create_pull_request
+)
 from .data_models import (
     QualityAssuranceResult,
     ValidationResult,
@@ -354,75 +359,30 @@ async def create_github_pr_step(
         if not github_client:
             raise RuntimeError("Failed to initialize GitHub client")
         
-        logger.log_info(f"Creating fork of {repo_owner}/{repo_name}")
+        # Create fork and branch
+        fork_info = await create_fork_and_branch(
+            github_client, repo_owner, repo_name, database_name, logger
+        )
+        fork_owner = fork_info["fork_owner"]
+        branch_name = fork_info["branch_name"]
         
-        # 1. Fork the repository
-        fork_result = await github_client.fork_repository(repo_owner, repo_name)
-        if not fork_result.get("success", False):
-            raise RuntimeError(f"Failed to fork repository: {fork_result.get('error', 'Unknown error')}")
-        
-        fork_owner = fork_result["owner"]["login"]
-        logger.log_info(f"Forked to {fork_owner}/{repo_name}")
-        
-        # 2. Create feature branch
-        branch_name = f"decommission-{database_name}-{int(time.time())}"
-        logger.log_info(f"Creating branch: {branch_name}")
-        
-        # Wait for fork to be ready
-        await asyncio.sleep(3)
-        
-        branch_result = await github_client.create_branch(fork_owner, repo_name, branch_name)
-        if not branch_result.get("success", False):
-            raise RuntimeError(f"Failed to create branch: {branch_result.get('error', 'Unknown error')}")
-        
-        logger.log_info(f"Created branch: {branch_name}")
-        
-        # 3. Apply file changes to the branch
-        files_committed = 0
-        commit_messages = []
-        
-        for file_result in modified_files:
-            file_path = file_result["path"]
-            modified_content = file_result["modified_content"]
-            changes_count = file_result["changes_made"]
-            source_type = file_result.get("source_type", "unknown")
-            
-            commit_message = f"refactor({source_type}): remove {database_name} references from {file_path} ({changes_count} changes)"
-            
-            # Commit the file changes
-            update_result = await github_client.create_or_update_file(
-                fork_owner, repo_name, file_path, modified_content,
-                commit_message, branch=branch_name
-            )
-            
-            if update_result.get("success", False):
-                files_committed += 1
-                commit_messages.append(commit_message)
-                logger.log_info(f"Committed: {file_path}")
-            else:
-                logger.log_warning(f"Failed to commit: {file_path} - {update_result.get('error', 'Unknown error')}")
+        # Commit file changes
+        commit_info = await commit_file_changes(
+            github_client, fork_owner, repo_name, branch_name, 
+            modified_files, database_name, logger
+        )
+        files_committed = commit_info["files_committed"]
         
         if files_committed == 0:
             raise RuntimeError("No files were successfully committed")
         
-        # 4. Create pull request
-        pr_title = f"Database Decommission: Remove {database_name} references"
-        pr_body = await _create_pr_body(database_name, modified_files, refactoring_result, files_committed)
-        
-        logger.log_info(f"Creating pull request: {pr_title}")
-        
-        pr_result = await github_client.create_pull_request(
-            repo_owner, repo_name, pr_title,
-            f"{fork_owner}:{branch_name}", "main", pr_body
+        # Create pull request
+        pr_info = await create_pull_request(
+            github_client, repo_owner, repo_name, fork_owner, branch_name,
+            database_name, modified_files, refactoring_result, files_committed, logger
         )
-        
-        if not pr_result.get("success", False):
-            raise RuntimeError(f"Failed to create pull request: {pr_result.get('error', 'Unknown error')}")
-        
-        pr_number = pr_result.get("number", "Unknown")
-        pr_url = pr_result.get("url") or pr_result.get("html_url") or f"https://github.com/{repo_owner}/{repo_name}/pulls"
-        
-        logger.log_info(f"Created PR #{pr_number}: {pr_url}")
+        pr_number = pr_info["pr_number"]
+        pr_url = pr_info["pr_url"]
         
         # Final result
         github_result = {
@@ -432,7 +392,7 @@ async def create_github_pr_step(
             "files_committed": files_committed,
             "pr_number": pr_number,
             "pr_url": pr_url,
-            "pr_title": pr_title,
+            "pr_title": pr_info["pr_title"],
             "duration": time.time() - start_time
         }
         
@@ -562,54 +522,4 @@ async def workflow_summary_step(
         raise
 
 
-# Helper functions
-
-async def _create_pr_body(
-    database_name: str,
-    modified_files: List[Dict[str, Any]],
-    refactoring_result: Dict[str, Any],
-    files_committed: int
-) -> str:
-    """
-    Create comprehensive pull request body.
-    
-    Args:
-        database_name: Name of the database being decommissioned
-        modified_files: List of modified file results
-        refactoring_result: Refactoring results from previous step
-        files_committed: Number of files successfully committed
-        
-    Returns:
-        Formatted PR body string
-    """
-    pr_body = f"""# Database Decommissioning: {database_name}
-
-This pull request removes all references to the `{database_name}` database as part of the database decommissioning process.
-
-## Summary
-- **Database**: `{database_name}`
-- **Files modified**: {files_committed}
-- **Total changes**: {sum(f.get('changes_made', 0) for f in modified_files)}
-
-## Changes by File Type
-"""
-    
-    # Add summary by file type
-    files_by_type = refactoring_result.get("files_by_type", {})
-    for source_type, file_paths in files_by_type.items():
-        modified_count = len([f for f in modified_files if f.get("source_type") == source_type])
-        if modified_count > 0:
-            pr_body += f"- **{source_type.upper()}**: {modified_count} files modified\n"
-    
-    pr_body += f"""
-## Modified Files
-"""
-    for file_result in modified_files:
-        pr_body += f"- `{file_result['path']}` ({file_result['changes_made']} changes)\n"
-    
-    pr_body += f"""
----
-*This PR was generated automatically by the GraphMCP Database Decommissioning Workflow*
-"""
-    
-    return pr_body
+# Helper functions extracted to github_helpers.py module

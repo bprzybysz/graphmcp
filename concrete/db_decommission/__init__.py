@@ -48,12 +48,14 @@ from .utils import (
     format_workflow_summary
 )
 
-from .validation_helpers import (
+from .validation_checks import (
     perform_database_reference_check,
     perform_rule_compliance_check,
     perform_service_integrity_check,
     generate_recommendations
 )
+
+from .environment_validation import perform_environment_validation
 
 from .repository_processors import (
     initialize_github_client,

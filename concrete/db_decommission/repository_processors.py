@@ -23,6 +23,16 @@ from graphmcp.logging.config import LoggingConfig
 # Import data models
 from .data_models import FileProcessingResult, WorkflowStepResult
 
+# Import extracted client helpers
+from .client_helpers import (
+    initialize_github_client,
+    initialize_slack_client,
+    initialize_repomix_client,
+    send_slack_notification_with_retry,
+    safe_slack_notification,
+    extract_repo_details
+)
+
 
 async def process_repositories_step(
     context: Any,
@@ -226,31 +236,7 @@ async def process_single_repository(
         }
 
 
-async def initialize_github_client(context: Any, logger: Any) -> Optional[Any]:
-    """
-    Initialize GitHub client with error handling.
-    
-    Args:
-        context: WorkflowContext for client caching
-        logger: Structured logger instance
-        
-    Returns:
-        GitHub client instance or None if initialization fails
-    """
-    try:
-        github_client = context._clients.get('ovr_github')
-        if github_client:
-            logger.log_info("GitHub client already initialized")
-            return github_client
-        
-        github_client = GitHubMCPClient(context.config.config_path)
-        context._clients['ovr_github'] = github_client
-        logger.log_info("GitHub client initialized successfully")
-        return github_client
-        
-    except Exception as e:
-        logger.log_error("Failed to initialize GitHub client", e)
-        return None
+# initialize_github_client function moved to client_helpers.py
 
 
 async def initialize_slack_client(context: Any, logger: Any) -> Optional[Any]:

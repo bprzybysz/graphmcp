@@ -148,7 +148,7 @@ patterns = context.get_shared_value("discovered_patterns", [])
 import contextvars
 
 # For maintaining context across async calls
-workflow_context_var = contextvars.ContextVar('workflow_context')
+workflow_context_var = contextvars.ContextVar('workflowrcontext')
 logger_context_var = contextvars.ContextVar('logger_context')
 ```
 
