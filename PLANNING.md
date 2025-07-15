@@ -42,7 +42,7 @@ This planning document outlines the approach to refactor the existing database d
 
 # TASK 1: Refactor Workflow Definition
 
-## 1. Objective
+## 1. Objective/'
 
 To refactor the database decommissioning workflow by separating helper functionalities from the main workflow definition. This will improve the modularity, maintainability, and testability of the codebase, which is a core principle of effective context engineering[1].
 
