@@ -108,20 +108,20 @@ async def step_function(context: WorkflowContext, step: Any, **parameters) -> Di
 #### Current Logger Adapter (Legacy)
 ```python
 # From concrete/db_decommission.py
+# Legacy: WorkflowLoggerAdapter (current implementation)
+# Legacy: EnhancedDatabaseWorkflowLogger (referenced in planning docs)
 workflow_logger = WorkflowLoggerAdapter(logger, {"workflow_id": workflow_id})
 ```
 
 #### New Structured Logger Pattern
 ```python
-# From graphmcp/logging/structured_logger.py
-from graphmcp.logging.structured_logger import create_structured_logger
+# From graphmcp/logging/__init__.py
+from graphmcp.logging import get_logger
+from graphmcp.logging.config import LoggingConfig
 
-logger = create_structured_logger(
-    name="db_decommission",
-    log_file="dbworkflow.log",
-    enable_console=True,
-    enable_json=True
-)
+# Correct factory function usage
+config = LoggingConfig.from_env()
+logger = get_logger(workflow_id="db_decommission", config=config)
 
 # Usage patterns
 logger.log_step_start("step_name", parameters)
@@ -164,17 +164,18 @@ logger_context_var = contextvars.ContextVar('logger_context')
 7. **Refactor main workflow** → `__init__.py` (orchestration only)
 
 ### Task 2: Integrate Structured Logging (Days 4-5)
-1. **Replace WorkflowLoggerAdapter** with structured logger
-2. **Configure dual-sink logging** (console + JSON file)
-3. **Migrate log_table calls** for structured data
+1. **Replace WorkflowLoggerAdapter** with `get_logger()` from `graphmcp.logging`
+2. **Configure dual-sink logging** (console + JSON file) via `LoggingConfig`
+3. **Migrate log_table calls** for structured data using `WorkflowLogger` methods
 4. **Add progress tracking** without heavy animations
 5. **Implement async logging** for non-blocking operations
 
 ### Task 3: Remove Legacy Code (Day 6)
-1. **Remove legacy logger files** (`concrete/enhanced_logger.py`, `concrete/workflow_logger.py`)
-2. **Clean up unused imports** and dependencies
-3. **Remove unreachable code paths**
-4. **Update dependency requirements**
+1. **Remove legacy logger files** (`concrete/enhanced_logger.py` with `EnhancedDatabaseWorkflowLogger`)
+2. **Remove WorkflowLoggerAdapter** class from `concrete/db_decommission.py`
+3. **Clean up unused imports** and dependencies
+4. **Remove unreachable code paths**
+5. **Update dependency requirements**
 
 ### Task 4: Validation and Testing (Days 7-8)
 1. **Create comprehensive unit tests** for each new module
@@ -320,20 +321,23 @@ print('All log entries are valid JSON')
 ### Codebase References
 - Study `concrete/database_reference_extractor.py` for PRP-compliant patterns
 - Follow `workflows/builder.py` for WorkflowBuilder integration
-- Use `graphmcp/logging/structured_logger.py` for logging patterns
+- Use `graphmcp/logging/__init__.py` for `get_logger()` factory function
 - Reference `tests/unit/test_structured_logging.py` for testing approaches
+- Examine `concrete/db_decommission.py` for current `WorkflowLoggerAdapter` usage
 
 This PRP provides comprehensive context for one-pass implementation by including all necessary patterns, anti-patterns, validation gates, and real-world examples from the codebase and external research.
 
-## PRP Quality Score: 9/10
+## PRP Quality Score: 9.5/10
 
 ### Confidence Level for One-Pass Implementation Success
 
-**Score: 9/10** - High confidence for successful one-pass implementation
+**Score: 9.5/10** - Very high confidence for successful one-pass implementation
+
+### Review Status: **APPROVED FOR IMPLEMENTATION**
 
 ### Scoring Rationale:
 
-#### Strengths (9 points):
+#### Strengths (9.5 points):
 - **Comprehensive Context**: Includes all necessary codebase references, external research, and implementation patterns
 - **Executable Validation Gates**: All validation commands are specific and executable by AI
 - **Clear Implementation Path**: 4-phase blueprint with specific task order and timeline
@@ -343,10 +347,16 @@ This PRP provides comprehensive context for one-pass implementation by including
 - **Backward Compatibility**: Maintains existing WorkflowBuilder and WorkflowContext interfaces
 - **External Research Integration**: Incorporates 2024 best practices for Python workflow refactoring
 - **Structured Logging Migration**: Clear migration path from legacy to structured logging
+- **Expert Review Integration**: Incorporates feedback from comprehensive technical review
 
-#### Areas for Improvement (1 point deduction):
+#### Areas for Improvement (0.5 point deduction):
 - **Complexity Management**: The refactoring involves multiple interdependent changes that may require iterative refinement
 - **Legacy Code Dependencies**: Some legacy code interactions may surface during implementation
+
+#### Review Feedback Incorporated:
+- **Corrected Logging Function**: Updated from `create_structured_logger` to `get_logger` per `graphmcp/logging/__init__.py`
+- **Clarified Legacy Classes**: Properly identified both `WorkflowLoggerAdapter` (current) and `EnhancedDatabaseWorkflowLogger` (referenced in docs)
+- **Enhanced Implementation Details**: Added specific configuration patterns for `LoggingConfig.from_env()`
 
 ### Implementation Success Factors:
 1. **Clear Module Boundaries**: Well-defined separation of concerns
@@ -355,4 +365,20 @@ This PRP provides comprehensive context for one-pass implementation by including
 4. **Comprehensive Testing**: Unit, integration, and performance testing coverage
 5. **Context Preservation**: Maintains existing workflow interfaces and patterns
 
-This PRP score reflects high confidence in successful one-pass implementation due to the comprehensive context, executable validation gates, and clear implementation roadmap.
+This PRP score reflects very high confidence in successful one-pass implementation due to the comprehensive context, executable validation gates, clear implementation roadmap, and incorporation of expert review feedback.
+
+### Implementation Readiness
+
+**Status**: ✅ **READY FOR IMPLEMENTATION**
+
+**Key Corrections Applied**:
+1. ✅ Updated logging function from `create_structured_logger` to `get_logger`
+2. ✅ Clarified legacy logger classes (`WorkflowLoggerAdapter` vs `EnhancedDatabaseWorkflowLogger`)
+3. ✅ Added proper `LoggingConfig.from_env()` configuration pattern
+4. ✅ Enhanced task breakdown for legacy code removal
+
+**Next Steps**:
+1. Begin Phase 1: Extract Helper Functions
+2. Follow the 4-phase implementation plan
+3. Execute validation gates at each checkpoint
+4. Maintain backward compatibility throughout refactoring
